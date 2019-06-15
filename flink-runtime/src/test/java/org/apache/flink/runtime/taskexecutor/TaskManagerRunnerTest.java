@@ -91,7 +91,7 @@ public class TaskManagerRunnerTest extends TestLogger {
 	}
 
 	private static TaskManagerRunner createTaskManagerRunner(final Configuration configuration) throws Exception {
-		TaskManagerRunner taskManagerRunner = new TaskManagerRunner(configuration, ResourceID.generate());
+		TaskManagerRunner taskManagerRunner = new TaskManagerRunner(configuration, ResourceID.generate(), null);
 		taskManagerRunner.start();
 		return taskManagerRunner;
 	}

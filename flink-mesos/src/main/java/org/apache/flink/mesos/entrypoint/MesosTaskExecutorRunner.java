@@ -21,6 +21,7 @@ package org.apache.flink.mesos.entrypoint;
 import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.plugin.PluginManager;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.mesos.runtime.clusterframework.MesosConfigKeys;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
@@ -85,8 +86,10 @@ public class MesosTaskExecutorRunner {
 
 		final Map<String, String> envs = System.getenv();
 
+		final PluginManager pluginManager = PluginUtils.createPluginManagerFromRootFolder(configuration);
+
 		// configure the filesystems
-		FileSystem.initialize(configuration, PluginUtils.createPluginManagerFromRootFolder(configuration));
+		FileSystem.initialize(configuration, pluginManager);
 
 		// tell akka to die in case of an error
 		configuration.setBoolean(AkkaOptions.JVM_EXIT_ON_FATAL_ERROR, true);
@@ -102,7 +105,7 @@ public class MesosTaskExecutorRunner {
 
 		try {
 			SecurityUtils.getInstalledContext().runSecured(() -> {
-				TaskManagerRunner.runTaskManager(configuration, resourceId);
+				TaskManagerRunner.runTaskManager(configuration, resourceId, pluginManager);
 
 				return 0;
 			});
