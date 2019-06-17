@@ -105,6 +105,13 @@ public final class ReporterSetup {
 		return createReporterSetup(reporterName, metricConfig, reporter);
 	}
 
+	private static ReporterSetup createReporterSetup(String reporterName, MetricConfig metricConfig, MetricReporter reporter) {
+		LOG.info("Configuring {} with {}.", reporterName, metricConfig);
+		reporter.open(metricConfig);
+
+		return new ReporterSetup(reporterName, metricConfig, reporter);
+	}
+
 	//TODO: add forwarding method fromConfiguration(final Configuration configuration) which passes null as pluginManager?
 	//TODO: add missing javadoc, mention that pluginManager is optional
 	public static List<ReporterSetup> fromConfiguration(final Configuration configuration, final PluginManager pluginManager) {
@@ -168,13 +175,6 @@ public final class ReporterSetup {
 			}
 		}
 		return reporterArguments;
-	}
-
-	private static ReporterSetup createReporterSetup(String reporterName, MetricConfig metricConfig, MetricReporter reporter) {
-		LOG.info("Configuring {} with {}.", reporterName, metricConfig);
-		reporter.open(metricConfig);
-
-		return new ReporterSetup(reporterName, metricConfig, reporter);
 	}
 
 	private static Map<String, MetricReporterFactory> loadReporterFactories() {
