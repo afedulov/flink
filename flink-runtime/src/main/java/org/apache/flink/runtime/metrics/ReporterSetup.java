@@ -131,30 +131,9 @@ public final class ReporterSetup {
 	//TODO: add missing javadoc, mention that pluginManager is optional
 	public static List<ReporterSetup> fromConfiguration(final Configuration configuration, final PluginManager pluginManager) {
 		String includedReportersString = configuration.getString(MetricOptions.REPORTERS_LIST, "");
-		Set<String> includedReporters = reporterListPattern.splitAsStream(includedReportersString)
-			.filter(r -> !r.isEmpty()) // splitting an empty string results in an empty string on jdk9+
-			.collect(Collectors.toSet());
 
-		// use a TreeSet to make the reporter order deterministic, which is useful for testing
-		Set<String> namedReporters = new TreeSet<>(String::compareTo);
-		// scan entire configuration for "metric.reporter" keys and parse individual reporter configurations
-		for (String key : configuration.keySet()) {
-			if (key.startsWith(ConfigConstants.METRICS_REPORTER_PREFIX)) {
-				Matcher matcher = reporterClassPattern.matcher(key);
-				if (matcher.matches()) {
-					String reporterName = matcher.group(1);
-					if (includedReporters.isEmpty() || includedReporters.contains(reporterName)) {
-						if (namedReporters.contains(reporterName)) {
-							LOG.warn("Duplicate class configuration detected for reporter {}.", reporterName);
-						} else {
-							namedReporters.add(reporterName);
-						}
-					} else {
-						LOG.info("Excluding reporter {}, not configured in reporter list ({}).", reporterName, includedReportersString);
-					}
-				}
-			}
-		}
+		Set<String> namedReporters = parseReporterConfiguration(configuration,
+			includedReportersString);
 
 		if (namedReporters.isEmpty()) {
 			return Collections.emptyList();
@@ -190,6 +169,38 @@ public final class ReporterSetup {
 			}
 		}
 		return reporterArguments;
+	}
+
+	private static Set<String> parseReporterConfiguration(Configuration configuration,
+		String includedReportersString) {
+
+		Set<String> includedReporters = reporterListPattern.splitAsStream(includedReportersString)
+			.filter(r -> !r.isEmpty()) // splitting an empty string results in an empty string on jdk9+
+			.collect(Collectors.toSet());
+
+
+		// use a TreeSet to make the reporter order deterministic, which is useful for testing
+		Set<String> namedOrderedReporters = new TreeSet<>(String::compareTo);
+
+		// scan entire configuration for keys starting with METRICS_REPORTER_PREFIX and determine the set of enabled reporters
+		for (String key : configuration.keySet()) {
+			if (key.startsWith(ConfigConstants.METRICS_REPORTER_PREFIX)) {
+				Matcher matcher = reporterClassPattern.matcher(key);
+				if (matcher.matches()) {
+					String reporterName = matcher.group(1);
+					if (includedReporters.isEmpty() || includedReporters.contains(reporterName)) {
+						if (namedOrderedReporters.contains(reporterName)) {
+							LOG.warn("Duplicate class configuration detected for reporter {}.", reporterName);
+						} else {
+							namedOrderedReporters.add(reporterName);
+						}
+					} else {
+						LOG.info("Excluding reporter {}, not configured in reporter list ({}).", reporterName, includedReportersString);
+					}
+				}
+			}
+		}
+		return namedOrderedReporters;
 	}
 
 	private static Map<String, MetricReporterFactory> loadReporterFactories() {
