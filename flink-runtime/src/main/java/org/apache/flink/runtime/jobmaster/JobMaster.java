@@ -70,9 +70,11 @@ import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.registration.RetryingRegistration;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraphResponse;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorStatsTracker;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.FencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -165,7 +167,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	// --------- BackPressure --------
 
-	private final BackPressureStatsTracker backPressureStatsTracker;
+	private final OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker;
+
+	// --------- FlameGraph --------
+
+	private final OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker;
 
 	// --------- ResourceManager --------
 
@@ -263,6 +269,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			});
 
 		this.backPressureStatsTracker = checkNotNull(jobManagerSharedServices.getBackPressureStatsTracker());
+		this.flameGraphStatsTracker = checkNotNull(jobManagerSharedServices.getFlameGraphStatsTracker());
 
 		this.shuffleMaster = checkNotNull(shuffleMaster);
 
@@ -283,6 +290,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			log,
 			jobGraph,
 			backPressureStatsTracker,
+			flameGraphStatsTracker,
 			scheduledExecutorService,
 			jobMasterConfiguration.getConfiguration(),
 			scheduler,
@@ -689,6 +697,19 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 				operatorBackPressureStats.orElse(null)));
 		} catch (FlinkException e) {
 			log.info("Error while requesting operator back pressure stats", e);
+			return FutureUtils.completedExceptionally(e);
+		}
+	}
+
+	@Override
+	public CompletableFuture<OperatorFlameGraphResponse> requestOperatorFlameGraph(JobVertexID jobVertexId) {
+		try {
+			final Optional<OperatorFlameGraph> operatorFlameGraph =
+				schedulerNG.requestOperatorFlameGraph(jobVertexId);
+			return CompletableFuture.completedFuture(
+				OperatorFlameGraphResponse.of(operatorFlameGraph.orElse(null)));
+		} catch (FlinkException e) {
+			log.info("Error while requesting operator flame graph", e);
 			return FutureUtils.completedExceptionally(e);
 		}
 	}

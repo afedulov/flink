@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.jobmaster;
 
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
@@ -29,9 +30,14 @@ import org.apache.flink.runtime.execution.librarycache.BlobLibraryCacheManager;
 import org.apache.flink.runtime.execution.librarycache.FlinkUserCodeClassLoaders;
 import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategyFactory;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTrackerImpl;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureRequestCoordinator;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTrackerImpl;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraphFactory;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorStatsTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.StackTraceOperatorTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.StackTraceSampleCoordinator;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.util.Hardware;
 import org.apache.flink.util.ExceptionUtils;
@@ -57,26 +63,34 @@ public class JobManagerSharedServices {
 
 	private final RestartStrategyFactory restartStrategyFactory;
 
+	private final StackTraceSampleCoordinator stackTraceSampleCoordinator;
+
 	private final BackPressureRequestCoordinator backPressureSampleCoordinator;
 
-	private final BackPressureStatsTracker backPressureStatsTracker;
+	private final OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker;
+
+	private final OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker;
 
 	@Nonnull
 	private final BlobWriter blobWriter;
 
 	public JobManagerSharedServices(
-			ScheduledExecutorService scheduledExecutorService,
-			LibraryCacheManager libraryCacheManager,
-			RestartStrategyFactory restartStrategyFactory,
-			BackPressureRequestCoordinator backPressureSampleCoordinator,
-			BackPressureStatsTracker backPressureStatsTracker,
-			@Nonnull BlobWriter blobWriter) {
+		ScheduledExecutorService scheduledExecutorService,
+		LibraryCacheManager libraryCacheManager,
+		RestartStrategyFactory restartStrategyFactory,
+		BackPressureRequestCoordinator backPressureSampleCoordinator,
+		StackTraceSampleCoordinator stackTraceSampleCoordinator,
+		OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker,
+		OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker,
+		@Nonnull BlobWriter blobWriter) {
 
 		this.scheduledExecutorService = checkNotNull(scheduledExecutorService);
 		this.libraryCacheManager = checkNotNull(libraryCacheManager);
 		this.restartStrategyFactory = checkNotNull(restartStrategyFactory);
-		this.backPressureSampleCoordinator = checkNotNull(backPressureSampleCoordinator);
-		this.backPressureStatsTracker = checkNotNull(backPressureStatsTracker);
+		this.stackTraceSampleCoordinator = checkNotNull(stackTraceSampleCoordinator);
+		this.backPressureSampleCoordinator = backPressureSampleCoordinator;
+		this.backPressureStatsTracker = backPressureStatsTracker;
+		this.flameGraphStatsTracker = flameGraphStatsTracker;
 		this.blobWriter = blobWriter;
 	}
 
@@ -92,8 +106,12 @@ public class JobManagerSharedServices {
 		return restartStrategyFactory;
 	}
 
-	public BackPressureStatsTracker getBackPressureStatsTracker() {
+	public OperatorStatsTracker<OperatorBackPressureStats> getBackPressureStatsTracker() {
 		return backPressureStatsTracker;
+	}
+
+	public OperatorStatsTracker<OperatorFlameGraph> getFlameGraphStatsTracker() {
+		return flameGraphStatsTracker;
 	}
 
 	@Nonnull
@@ -121,7 +139,9 @@ public class JobManagerSharedServices {
 
 		libraryCacheManager.shutdown();
 		backPressureSampleCoordinator.shutDown();
+		stackTraceSampleCoordinator.shutDown();
 		backPressureStatsTracker.shutDown();
+		flameGraphStatsTracker.shutDown();
 
 		if (firstException != null) {
 			ExceptionUtils.rethrowException(firstException, "Error while shutting down JobManager services");
@@ -133,8 +153,8 @@ public class JobManagerSharedServices {
 	// ------------------------------------------------------------------------
 
 	public static JobManagerSharedServices fromConfiguration(
-			Configuration config,
-			BlobServer blobServer) throws Exception {
+		Configuration config,
+		BlobServer blobServer) throws Exception {
 
 		checkNotNull(config);
 		checkNotNull(blobServer);
@@ -158,8 +178,8 @@ public class JobManagerSharedServices {
 		}
 
 		final ScheduledExecutorService futureExecutor = Executors.newScheduledThreadPool(
-				Hardware.getNumberCPUCores(),
-				new ExecutorThreadFactory("jobmanager-future"));
+			Hardware.getNumberCPUCores(),
+			new ExecutorThreadFactory("jobmanager-future"));
 
 		final int numSamples = config.getInteger(WebOptions.BACKPRESSURE_NUM_SAMPLES);
 		final long delayBetweenSamples = config.getInteger(WebOptions.BACKPRESSURE_DELAY);
@@ -167,24 +187,46 @@ public class JobManagerSharedServices {
 			futureExecutor,
 			akkaTimeout.toMillis() + numSamples * delayBetweenSamples);
 
-		final int cleanUpInterval = config.getInteger(WebOptions.BACKPRESSURE_CLEANUP_INTERVAL);
+		final int backPressureCleanUpInterval = config.getInteger(WebOptions.BACKPRESSURE_CLEANUP_INTERVAL);
 		final BackPressureStatsTrackerImpl backPressureStatsTracker = new BackPressureStatsTrackerImpl(
 			coordinator,
-			cleanUpInterval,
+			backPressureCleanUpInterval,
 			config.getInteger(WebOptions.BACKPRESSURE_REFRESH_INTERVAL));
 
 		futureExecutor.scheduleWithFixedDelay(
 			backPressureStatsTracker::cleanUpOperatorStatsCache,
-			cleanUpInterval,
-			cleanUpInterval,
+			backPressureCleanUpInterval,
+			backPressureCleanUpInterval,
+			TimeUnit.MILLISECONDS);
+
+		// setup flame graph tracker
+		// @todo config -> currently reusing backpressure settings
+		final int flameGraphCleanUpInterval = config.getInteger(WebOptions.BACKPRESSURE_CLEANUP_INTERVAL);
+		final StackTraceSampleCoordinator stackTraceSampleCoordinator =
+			new StackTraceSampleCoordinator(futureExecutor, akkaTimeout.toMillis());
+		final StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker =
+			StackTraceOperatorTracker.newBuilder(OperatorFlameGraphFactory::createStatsFromSample)
+				.setCoordinator(stackTraceSampleCoordinator)
+				.setCleanUpInterval(flameGraphCleanUpInterval)
+				.setNumSamples(config.getInteger(WebOptions.BACKPRESSURE_NUM_SAMPLES))
+				.setStatsRefreshInterval(config.getInteger(WebOptions.BACKPRESSURE_REFRESH_INTERVAL))
+				.setDelayBetweenSamples(Time.milliseconds(config.getInteger(WebOptions.BACKPRESSURE_DELAY)))
+				.build();
+
+		futureExecutor.scheduleWithFixedDelay(
+			flameGraphStatsTracker::cleanUpOperatorStatsCache,
+			flameGraphCleanUpInterval,
+			flameGraphCleanUpInterval,
 			TimeUnit.MILLISECONDS);
 
 		return new JobManagerSharedServices(
 			futureExecutor,
 			libraryCacheManager,
 			RestartStrategyFactory.createRestartStrategyFactory(config),
-			coordinator,
+			coordinator, //TODO: rename
+			stackTraceSampleCoordinator,
 			backPressureStatsTracker,
+			flameGraphStatsTracker,
 			blobServer);
 	}
 }

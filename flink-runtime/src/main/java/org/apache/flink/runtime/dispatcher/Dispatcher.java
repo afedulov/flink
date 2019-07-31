@@ -58,6 +58,7 @@ import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceOverview;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraphResponse;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.PermanentlyFencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -527,6 +528,15 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		final CompletableFuture<JobMasterGateway> jobMasterGatewayFuture = getJobMasterGatewayFuture(jobId);
 
 		return jobMasterGatewayFuture.thenCompose((JobMasterGateway jobMasterGateway) -> jobMasterGateway.requestOperatorBackPressureStats(jobVertexId));
+	}
+
+	@Override
+	public CompletableFuture<OperatorFlameGraphResponse> requestOperatorFlameGraph(
+		final JobID jobId,
+		final JobVertexID jobVertexId) {
+		return getJobMasterGatewayFuture(jobId).thenCompose(
+			(JobMasterGateway jobMasterGateway) ->
+				jobMasterGateway.requestOperatorFlameGraph(jobVertexId));
 	}
 
 	@Override

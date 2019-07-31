@@ -67,11 +67,12 @@ public class BackPressureStatsTrackerImplTest extends TestLogger {
 		final int requestId2 = 1;
 		final BackPressureStats backPressureStats2 = createBackPressureStats(requestId2, timeGap, backPressureRatio2);
 
-		final BackPressureStatsTracker tracker = createBackPressureTracker(
+		//TODO: decide about the interfaces - was returning BackPressureStatsTracker
+		final BackPressureStatsTrackerImpl tracker = createBackPressureTracker(
 			cleanUpInterval, backPressureStatsRefreshInterval, backPressureStats, backPressureStats2);
 		doInitialRequestAndVerifyResult(tracker);
 		// verify that no new back pressure request is triggered
-		checkOperatorBackPressureStats(tracker.getOperatorBackPressureStats(executionJobVertex));
+		checkOperatorBackPressureStats(tracker.getOperatorStats(executionJobVertex));
 	}
 
 	@Test
@@ -82,7 +83,8 @@ public class BackPressureStatsTrackerImplTest extends TestLogger {
 		final int requestId2 = 1;
 		final BackPressureStats backPressureStats2 = createBackPressureStats(requestId2, timeGap, backPressureRatio2);
 
-		final BackPressureStatsTracker tracker = createBackPressureTracker(
+		//TODO: decide about the interfaces - was returning BackPressureStatsTracker
+		final BackPressureStatsTrackerImpl tracker = createBackPressureTracker(
 			cleanUpInterval, backPressureStatsRefreshInterval2, backPressureStats, backPressureStats2);
 		doInitialRequestAndVerifyResult(tracker);
 
@@ -90,32 +92,34 @@ public class BackPressureStatsTrackerImplTest extends TestLogger {
 		Thread.sleep(waitingTime);
 
 		// trigger next back pressure stats request and verify the result
-		assertTrue(tracker.getOperatorBackPressureStats(executionJobVertex).isPresent());
-		checkOperatorBackPressureStats(backPressureRatio2, backPressureStats2, tracker.getOperatorBackPressureStats(executionJobVertex));
+		assertTrue(tracker.getOperatorStats(executionJobVertex).isPresent());
+		checkOperatorBackPressureStats(backPressureRatio2, backPressureStats2, tracker.getOperatorStats(executionJobVertex));
 	}
 
 	@Test
 	public void testShutDown() throws Exception {
-		final BackPressureStatsTracker tracker = createBackPressureTracker();
+		//TODO: decide about the interfaces - was returning BackPressureStatsTracker
+		final BackPressureStatsTrackerImpl tracker = createBackPressureTracker();
 		doInitialRequestAndVerifyResult(tracker);
 
 		// shutdown directly
 		tracker.shutDown();
 
 		// verify that the previous cached result is invalid and trigger another request
-		assertFalse(tracker.getOperatorBackPressureStats(executionJobVertex).isPresent());
+		assertFalse(tracker.getOperatorStats(executionJobVertex).isPresent());
 		// verify no response after shutdown
-		assertFalse(tracker.getOperatorBackPressureStats(executionJobVertex).isPresent());
+		assertFalse(tracker.getOperatorStats(executionJobVertex).isPresent());
 	}
 
 	@Test
 	public void testCachedStatsNotCleanedWithinCleanupInterval() throws Exception {
-		final BackPressureStatsTracker tracker = createBackPressureTracker();
+		//TODO: decide about the interfaces - was returning BackPressureStatsTracker
+		final BackPressureStatsTrackerImpl tracker = createBackPressureTracker();
 		doInitialRequestAndVerifyResult(tracker);
 
 		tracker.cleanUpOperatorStatsCache();
 		// the back pressure stats should be still there
-		checkOperatorBackPressureStats(tracker.getOperatorBackPressureStats(executionJobVertex));
+		checkOperatorBackPressureStats(tracker.getOperatorStats(executionJobVertex));
 	}
 
 	@Test
@@ -123,7 +127,8 @@ public class BackPressureStatsTrackerImplTest extends TestLogger {
 		final int cleanUpInterval2 = 10;
 		final long waitingTime = cleanUpInterval2 + 10;
 
-		final BackPressureStatsTracker tracker = createBackPressureTracker(
+		//TODO: decide about the interfaces - was returning BackPressureStatsTracker
+		final BackPressureStatsTrackerImpl tracker = createBackPressureTracker(
 			cleanUpInterval2, backPressureStatsRefreshInterval, backPressureStats);
 		doInitialRequestAndVerifyResult(tracker);
 
@@ -132,14 +137,15 @@ public class BackPressureStatsTrackerImplTest extends TestLogger {
 
 		// cleanup the cached back pressure stats
 		tracker.cleanUpOperatorStatsCache();
-		assertFalse(tracker.getOperatorBackPressureStats(executionJobVertex).isPresent());
+		assertFalse(tracker.getOperatorStats(executionJobVertex).isPresent());
 	}
 
-	private void doInitialRequestAndVerifyResult(BackPressureStatsTracker tracker) {
+	//TODO: decide about the interfaces - was taking BackPressureStatsTracker
+	private void doInitialRequestAndVerifyResult(BackPressureStatsTrackerImpl tracker) {
 		// trigger back pressure stats request
-		assertFalse(tracker.getOperatorBackPressureStats(executionJobVertex).isPresent());
+		assertFalse(tracker.getOperatorStats(executionJobVertex).isPresent());
 		//  verify the result
-		checkOperatorBackPressureStats(tracker.getOperatorBackPressureStats(executionJobVertex));
+		checkOperatorBackPressureStats(tracker.getOperatorStats(executionJobVertex));
 	}
 
 	private void checkOperatorBackPressureStats(Optional<OperatorBackPressureStats> optionalStats) {
@@ -162,11 +168,13 @@ public class BackPressureStatsTrackerImplTest extends TestLogger {
 		}
 	}
 
-	private BackPressureStatsTracker createBackPressureTracker() {
+	//TODO: decide about the interfaces
+	private BackPressureStatsTrackerImpl createBackPressureTracker() {
 		return createBackPressureTracker(cleanUpInterval, backPressureStatsRefreshInterval, backPressureStats);
 	}
 
-	private BackPressureStatsTracker createBackPressureTracker(
+	//TODO: decide about the interfaces - was returning BackPressureStatsTracker
+	private BackPressureStatsTrackerImpl createBackPressureTracker(
 			int cleanUpInterval,
 			int backPressureStatsRefreshInterval,
 			BackPressureStats... stats) {
