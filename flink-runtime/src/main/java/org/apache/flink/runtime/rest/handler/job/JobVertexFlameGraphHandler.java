@@ -67,6 +67,6 @@ public class JobVertexFlameGraphHandler extends AbstractRestHandler<RestfulGatew
 			.thenApply(
 				flameGraphStats -> flameGraphStats.getOperatorFlameGraph()
 					.map(JobVertexFlameGraphHandler::createJobVertexFlameGraphInfo)
-					.orElse(null));
+					.orElse(JobVertexFlameGraphInfo.empty()));
 	}
 }
