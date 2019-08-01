@@ -16,9 +16,16 @@
  * limitations under the License.
  */
 
-@import "../../node_modules/d3-flame-graph/dist/d3-flamegraph.css";
-@import "../../node_modules/ng-zorro-antd/ng-zorro-antd.less";
-@import "./base";
-@import "./global";
-@import "./theme";
-@import "./rewrite";
+import { Datum, Selection } from 'd3-selection';
+
+declare module 'd3-flame-graph' {
+
+  export interface FlameGraph extends Function {
+
+    (selection: Selection<ZoomRefElement, Datum, any, any>, ...args: any[]): void;
+
+    width(width: number): this;
+  }
+
+  export function flamegraph(): FlameGraph;
+}

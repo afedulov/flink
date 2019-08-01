@@ -16,9 +16,26 @@
  * limitations under the License.
  */
 
-@import "../../node_modules/d3-flame-graph/dist/d3-flamegraph.css";
-@import "../../node_modules/ng-zorro-antd/ng-zorro-antd.less";
-@import "./base";
-@import "./global";
-@import "./theme";
-@import "./rewrite";
+import { Component, ChangeDetectionStrategy, ElementRef, Input, ViewChild } from '@angular/core';
+import { JobFlameGraphNodeInterface } from 'interfaces';
+import { select } from 'd3-selection';
+import { flamegraph} from 'd3-flame-graph';
+
+@Component({
+  selector: 'flink-flame-graph',
+  templateUrl: './flame-graph.component.html',
+  styleUrls: [],
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class FlameGraphComponent {
+
+  @ViewChild('flameGraphContainer') flameGraphContainer: ElementRef<Element>;
+  @Input() data: JobFlameGraphNodeInterface;
+
+  draw() {
+    if (this.data) {
+      const element = this.flameGraphContainer.nativeElement;
+      select(element).datum(this.data).call(flamegraph().width(element.clientWidth));
+    }
+  }
+}
