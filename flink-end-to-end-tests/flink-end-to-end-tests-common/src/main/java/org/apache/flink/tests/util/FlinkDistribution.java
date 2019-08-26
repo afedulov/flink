@@ -76,6 +76,7 @@ public final class FlinkDistribution implements ExternalResource {
 	private final Path conf;
 	private final Path log;
 	private final Path bin;
+	private final Path plugins;
 
 	private Configuration defaultConfig;
 
@@ -94,6 +95,7 @@ public final class FlinkDistribution implements ExternalResource {
 		lib = flinkDir.resolve("lib");
 		conf = flinkDir.resolve("conf");
 		log = flinkDir.resolve("log");
+		plugins = flinkDir.resolve("plugins");
 	}
 
 	@Override
@@ -191,17 +193,25 @@ public final class FlinkDistribution implements ExternalResource {
 	}
 
 	public void copyOptJarsToLib(String jarNamePrefix) throws FileNotFoundException, IOException {
-		final Optional<Path> reporterJarOptional;
-		try (Stream<Path> logFiles = Files.walk(opt)) {
-			reporterJarOptional = logFiles
+		copyOptJars(jarNamePrefix, lib);
+	}
+
+	public void copyOptJarsToPlugins(String jarNamePrefix) throws FileNotFoundException, IOException {
+		copyOptJars(jarNamePrefix, plugins);
+	}
+
+	private void copyOptJars(String jarNamePrefix, Path to) throws FileNotFoundException, IOException {
+		final Optional<Path> jarOptional;
+		try(Stream<Path> optFiles = Files.walk(opt)){
+			jarOptional = optFiles
 				.filter(path -> path.getFileName().toString().startsWith(jarNamePrefix))
 				.findFirst();
 		}
-		if (reporterJarOptional.isPresent()) {
-			final Path optReporterJar = reporterJarOptional.get();
-			final Path libReporterJar = lib.resolve(optReporterJar.getFileName());
-			Files.copy(optReporterJar, libReporterJar);
-			filesToDelete.add(new AutoClosablePath(libReporterJar));
+		if(jarOptional.isPresent()){
+			final Path jar = jarOptional.get();
+			final Path targetFilePath = to.resolve(jar.getFileName());
+			Files.copy(jar, targetFilePath);
+			filesToDelete.add(new AutoClosablePath(jar));
 		} else {
 			throw new FileNotFoundException("No jar could be found matching the pattern " + jarNamePrefix + ".");
 		}
