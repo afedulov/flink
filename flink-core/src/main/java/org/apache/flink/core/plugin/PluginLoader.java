@@ -68,7 +68,7 @@ public class PluginLoader {
 	 * @param <P> Type of the requested plugin service.
 	 * @return An iterator of all implementations of the given service interface that could be loaded from the plugin.
 	 */
-	public <P extends Plugin> Iterator<P> load(Class<P> service) {
+	public <P> Iterator<P> load(Class<P> service) {
 		try (TemporaryClassLoaderContext classLoaderContext = new TemporaryClassLoaderContext(pluginClassLoader)) {
 			return new ContextClassLoaderSettingIterator<>(
 				ServiceLoader.load(service, pluginClassLoader).iterator(),
@@ -82,7 +82,7 @@ public class PluginLoader {
 	 *
 	 * @param <P> type of the iterated plugin element.
 	 */
-	static class ContextClassLoaderSettingIterator<P extends Plugin> implements Iterator<P> {
+	static class ContextClassLoaderSettingIterator<P> implements Iterator<P> {
 
 		private final Iterator<P> delegate;
 		private final ClassLoader pluginClassLoader;
