@@ -23,7 +23,16 @@ import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.MultipleParameterTool;
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.core.plugin.PluginManager;
+import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.examples.java.wordcount.util.WordCountData;
+import org.apache.flink.metrics.prometheus.PrometheusReporter;
+import org.apache.flink.runtime.metrics.ReporterSetup;
+import org.apache.flink.runtime.taskexecutor.TaskExecutorResourceUtils;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.Preconditions;
 
@@ -51,6 +60,17 @@ public class WordCount {
 	// *************************************************************************
 
 	public static void main(String[] args) throws Exception {
+
+		Configuration configuration = new Configuration();
+		configuration.setString(JobManagerOptions.ADDRESS, "localhost");
+		configuration.setString(TaskManagerOptions.HOST, "localhost");
+		configuration = TaskExecutorResourceUtils.adjustForLocalExecution(configuration);
+
+		configuration.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "prom." + ConfigConstants.METRICS_REPORTER_CLASS_SUFFIX, PrometheusReporter.class.getCanonicalName());
+		configuration.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "prom.port", "9000-9100");
+
+		PluginManager pluginManager = PluginUtils.createPluginManagerFromRootFolder(configuration);
+		ReporterSetup.fromConfiguration(configuration, pluginManager);
 
 		final MultipleParameterTool params = MultipleParameterTool.fromArgs(args);
 

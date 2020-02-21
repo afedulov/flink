@@ -21,6 +21,7 @@ package org.apache.flink.metrics.prometheus.tests;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.prometheus.PrometheusReporter;
+import org.apache.flink.metrics.prometheus.PrometheusReporterFactory;
 import org.apache.flink.tests.util.AutoClosableProcess;
 import org.apache.flink.tests.util.CommandLineWrapper;
 import org.apache.flink.tests.util.FlinkDistribution;
@@ -107,14 +108,17 @@ public class PrometheusReporterEndToEndITCase extends TestLogger {
 	@Test
 	public void testReporterFromPlugins() throws Exception {
 		dist.copyOptJarsToPlugins(PROMETHEUS_JAR_PREFIX);
+		dist.copyOptJarsToLib(PROMETHEUS_JAR_PREFIX);
 		testReporter();
 	}
 
 	@Test
 	public void testReporter() throws Exception {
-
 		final Configuration config = new Configuration();
-		config.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "prom." + ConfigConstants.METRICS_REPORTER_CLASS_SUFFIX, PrometheusReporter.class.getCanonicalName());
+
+//		config.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "prom." + ConfigConstants.METRICS_REPORTER_CLASS_SUFFIX, PrometheusReporter.class.getCanonicalName());
+		config.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "prom." + ConfigConstants.METRICS_REPORTER_FACTORY_CLASS_SUFFIX, PrometheusReporterFactory.class.getName());
+
 		config.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "prom.port", "9000-9100");
 
 		dist.appendConfiguration(config);
@@ -174,7 +178,11 @@ public class PrometheusReporterEndToEndITCase extends TestLogger {
 
 			checkMetricAvailability(client, "flink_jobmanager_numRegisteredTaskManagers");
 			checkMetricAvailability(client, "flink_taskmanager_Status_Network_TotalMemorySegments");
+
 		}
+
+		throw new RuntimeException("whoho!");
+
 	}
 
 	private static void checkMetricAvailability(final OkHttpClient client, final String metric) throws InterruptedException {

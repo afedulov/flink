@@ -38,11 +38,7 @@ import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -266,7 +262,9 @@ public final class FlinkDistribution implements ExternalResource {
 	}
 
 	public void copyOptJarsToPlugins(String jarNamePrefix) throws FileNotFoundException, IOException {
-		copyOptJars(jarNamePrefix, plugins);
+		Path pluginPath =  Paths.get(plugins.toString(), jarNamePrefix);
+		Files.createDirectories(pluginPath);
+		copyOptJars(jarNamePrefix, pluginPath);
 	}
 
 	private void copyOptJars(String jarNamePrefix, Path to) throws FileNotFoundException, IOException {

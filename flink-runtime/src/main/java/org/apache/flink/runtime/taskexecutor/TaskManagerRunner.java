@@ -315,10 +315,11 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 		try {
 			final Configuration configuration = loadConfiguration(args);
 
+			LOG.info(">>>> CONFIGURATION");
+			LOG.info(configuration.toString());
+
 			final PluginManager pluginManager = PluginUtils.createPluginManagerFromRootFolder(configuration);
 			FileSystem.initialize(configuration, pluginManager);
-
-			FileSystem.initialize(configuration, PluginUtils.createPluginManagerFromRootFolder(configuration));
 
 			SecurityUtils.install(new SecurityConfiguration(configuration));
 

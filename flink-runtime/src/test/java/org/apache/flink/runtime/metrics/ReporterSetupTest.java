@@ -21,6 +21,7 @@ package org.apache.flink.runtime.metrics;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
+import org.apache.flink.core.plugin.PluginManager;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.reporter.InstantiateViaFactory;
 import org.apache.flink.metrics.reporter.MetricReporter;
@@ -230,7 +231,7 @@ public class ReporterSetupTest extends TestLogger {
 		config.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "test." + ConfigConstants.METRICS_REPORTER_FACTORY_CLASS_SUFFIX, TestReporterFactory.class.getName());
 		config.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "test." + ConfigConstants.METRICS_REPORTER_EXCLUDED_VARIABLES, excludedVariable1 + ";" + excludedVariable2);
 
-		final List<ReporterSetup> reporterSetups = ReporterSetup.fromConfiguration(config);
+		final List<ReporterSetup> reporterSetups = ReporterSetup.fromConfiguration(config, null);
 
 		assertEquals(1, reporterSetups.size());
 

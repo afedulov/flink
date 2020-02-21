@@ -35,7 +35,7 @@ import java.util.Iterator;
  * {@link MetricReporter} that exports {@link Metric Metrics} via Prometheus.
  */
 @PublicEvolving
-public class PrometheusReporter extends AbstractPrometheusReporter {
+public class PrometheusReporter extends AbstractPrometheusReporter implements MetricReporter{
 
 	static final String ARG_PORT = "port";
 	private static final String DEFAULT_PORT = "9249";

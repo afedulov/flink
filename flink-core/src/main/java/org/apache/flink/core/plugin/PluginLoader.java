@@ -21,16 +21,22 @@ package org.apache.flink.core.plugin;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.util.ArrayUtils;
 import org.apache.flink.util.ChildFirstClassLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.JarURLConnection;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.ServiceLoader;
+import java.util.jar.JarFile;
 
 /**
  * A {@link PluginLoader} is used by the {@link PluginManager} to load a single plugin. It is essentially a combination
@@ -40,6 +46,8 @@ import java.util.ServiceLoader;
  */
 @ThreadSafe
 public class PluginLoader {
+
+	private static final Logger LOG = LoggerFactory.getLogger(PluginLoader.class);
 
 	/** Classloader which is used to load the plugin classes. We expect this classloader is thread-safe.*/
 	private final ClassLoader pluginClassLoader;
@@ -132,13 +140,21 @@ public class PluginLoader {
 		@Override
 		protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
 			synchronized (getClassLoadingLock(name)) {
+
 				final Class<?> loadedClass = findLoadedClass(name);
 				if (loadedClass != null) {
+					if ("org.apache.flink.metrics.prometheus.PrometheusReporterFactory".equals(name)){
+						LOG.info("Already loaded: {}", loadedClass);
+					}
 					return resolveIfNeeded(resolve, loadedClass);
 				}
 
-				if (isAllowedFlinkClass(name)) {
+				if (isAllowedFlinkClass(name) && !isExcluded(name)) {
 					try {
+						if ("org.apache.flink.metrics.prometheus.PrometheusReporterFactory".equals(name)){
+							LOG.info("name: {}", name);
+							LOG.info("isAllowedFlinkClass: {}", name);
+						}
 						return resolveIfNeeded(resolve, flinkClassLoader.loadClass(name));
 					} catch (ClassNotFoundException e) {
 						// fallback to resolving it in this classloader
@@ -155,6 +171,20 @@ public class PluginLoader {
 				resolveClass(loadedClass);
 			}
 
+			LOG.info("{}", loadedClass);
+			if ("org.apache.flink.metrics.prometheus.PrometheusReporterFactory".equals(loadedClass.getName())){
+				try {
+					URL url = getResource("org/apache/flink/metrics/prometheus/PrometheusReporterFactory.class");
+					JarURLConnection connection = (JarURLConnection) url.openConnection();
+					JarFile file = connection.getJarFile();
+					String jarPath = file.getName();
+					LOG.info("jarPath: {}", jarPath);
+
+					LOG.info(new File(loadedClass.getProtectionDomain().getCodeSource().getLocation().toURI()).getCanonicalPath());
+				} catch (IOException | URISyntaxException e) {
+					e.printStackTrace();
+				}
+			}
 			return loadedClass;
 		}
 
@@ -179,6 +209,11 @@ public class PluginLoader {
 
 		private boolean isAllowedFlinkClass(final String name) {
 			return Arrays.stream(allowedFlinkPackages).anyMatch(name::startsWith);
+		}
+
+		private boolean isExcluded(final String name) {
+			String[] exclusions = new String[]{"org.apache.flink.metrics.prometheus"};
+			return Arrays.stream(exclusions).anyMatch(name::startsWith);
 		}
 
 		private boolean isAllowedFlinkResource(final String name) {

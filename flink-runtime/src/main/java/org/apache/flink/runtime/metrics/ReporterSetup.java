@@ -30,9 +30,11 @@ import org.apache.flink.metrics.reporter.MetricReporter;
 import org.apache.flink.metrics.reporter.MetricReporterFactory;
 import org.apache.flink.runtime.metrics.scope.ScopeFormat;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.Iterators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -131,6 +133,8 @@ public final class ReporterSetup {
 	//TODO: add missing javadoc, mention that pluginManager is optional
 	public static List<ReporterSetup> fromConfiguration(final Configuration configuration, final PluginManager pluginManager) {
 		String includedReportersString = configuration.getString(MetricOptions.REPORTERS_LIST, "");
+		LOG.info(">>> includedReportersString: " + includedReportersString);
+		LOG.info(">>> Configuration: " + configuration);
 
 		Set<String> namedReporters = parseReporterConfiguration(configuration,
 			includedReportersString);
@@ -149,7 +153,12 @@ public final class ReporterSetup {
 			reporterConfigurations.add(Tuple2.of(namedReporter, delegatingConfiguration));
 		}
 
-		final Map<String, MetricReporterFactory> reporterFactories = loadReporterFactories();
+		reporterConfigurations.forEach(i -> LOG.info(i.toString()));
+
+		final Map<String, MetricReporterFactory> reporterFactories = loadReporterFactories(pluginManager);
+
+		LOG.debug("Loaded Reporter Factories: {}", reporterFactories);
+
 		List<ReporterSetup> reporterArguments = new ArrayList<>(reporterConfigurations.size());
 		for (Tuple2<String, Configuration> reporterConfiguration: reporterConfigurations) {
 			String reporterName = reporterConfiguration.f0;
@@ -163,11 +172,12 @@ public final class ReporterSetup {
 
 					reporterArguments.add(createReporterSetup(reporterName, metricConfig, reporter));
 				});
-			}
-			catch (Throwable t) {
+			} catch (Throwable t) {
 				LOG.error("Could not instantiate metrics reporter {}. Metrics might not be exposed/reported.", reporterName, t);
 			}
 		}
+		LOG.info("reporterArguments.size(): {}", reporterArguments.size());
+		reporterArguments.forEach(i -> LOG.info("{} - {}", i.getName(), i.getConfiguration()));
 		return reporterArguments;
 	}
 
@@ -203,23 +213,43 @@ public final class ReporterSetup {
 		return namedOrderedReporters;
 	}
 
-	private static Map<String, MetricReporterFactory> loadReporterFactories() {
-		final ServiceLoader<MetricReporterFactory> serviceLoader = ServiceLoader.load(MetricReporterFactory.class);
 
+	private static Map<String, MetricReporterFactory> loadReporterFactories(PluginManager pluginManager) {
 		final Map<String, MetricReporterFactory> reporterFactories = new HashMap<>(2);
-		final Iterator<MetricReporterFactory> factoryIterator = serviceLoader.iterator();
+		final Iterator<MetricReporterFactory> factoryIterator = getAllReporterFactories(pluginManager);
+		LOG.info("All loaded factories:");
+		getAllReporterFactories(pluginManager).forEachRemaining(i -> LOG.info(i.toString()));
 		// do not use streams or for-each loops here because they do not allow catching individual ServiceConfigurationErrors
 		// such an error might be caused if the META-INF/services contains an entry to a non-existing factory class
 		while (factoryIterator.hasNext()) {
 			try {
 				MetricReporterFactory factory = factoryIterator.next();
-				reporterFactories.put(factory.getClass().getName(), factory);
+				String factoryClassName = factory.getClass().getName();
+				MetricReporterFactory existingFactory = reporterFactories.get(factoryClassName);
+				if (existingFactory == null){
+					reporterFactories.put(factoryClassName, factory);
+					LOG.warn(new File(factory.getClass().getProtectionDomain().getCodeSource().getLocation()
+						.toURI()).getCanonicalPath());
+				} else {
+					String jarPath1 = new File(existingFactory.getClass().getProtectionDomain().getCodeSource().getLocation()
+						.toURI()).getCanonicalPath();
+					String jarPath2 = new File(factory.getClass().getProtectionDomain().getCodeSource().getLocation()
+						.toURI()).getCanonicalPath();
+					LOG.warn("Multiple implementations of the same reporter were found: \n {} and \n{}", jarPath1, jarPath2);
+				}
 			} catch (Exception | ServiceConfigurationError e) {
 				LOG.warn("Error while loading reporter factory.", e);
 			}
 		}
-
 		return Collections.unmodifiableMap(reporterFactories);
+	}
+
+	private static Iterator<MetricReporterFactory> getAllReporterFactories(PluginManager pluginManager){
+		final Iterator<MetricReporterFactory> factoryIteratorSPI = ServiceLoader.load(MetricReporterFactory.class).iterator();
+		final Iterator<MetricReporterFactory> factoryIteratorPlugins = pluginManager.load(MetricReporterFactory.class);
+
+//		return 	Iterators.concat(factoryIteratorSPI, factoryIteratorPlugins);
+		return 	Iterators.concat(factoryIteratorPlugins, factoryIteratorSPI);
 	}
 
 	private static Optional<MetricReporter> loadReporter(

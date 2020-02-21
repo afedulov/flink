@@ -20,6 +20,16 @@ package org.apache.flink.streaming.examples.wordcount;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.MultipleParameterTool;
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.core.plugin.PluginManager;
+import org.apache.flink.core.plugin.PluginUtils;
+import org.apache.flink.metrics.prometheus.PrometheusReporter;
+import org.apache.flink.metrics.prometheus.PrometheusReporterFactory;
+import org.apache.flink.runtime.metrics.ReporterSetup;
+import org.apache.flink.runtime.taskexecutor.TaskExecutorResourceUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.examples.wordcount.util.WordCountData;
@@ -50,6 +60,20 @@ public class WordCount {
 	// *************************************************************************
 
 	public static void main(String[] args) throws Exception {
+
+		Configuration configuration = new Configuration();
+		configuration.setString(JobManagerOptions.ADDRESS, "localhost");
+		configuration.setString(TaskManagerOptions.HOST, "localhost");
+		configuration = TaskExecutorResourceUtils.adjustForLocalExecution(configuration);
+
+//		configuration.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "prom." + ConfigConstants.METRICS_REPORTER_CLASS_SUFFIX, PrometheusReporter.class.getCanonicalName());
+
+		configuration.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "prom." + ConfigConstants.METRICS_REPORTER_FACTORY_CLASS_SUFFIX, PrometheusReporterFactory.class.getName());
+
+		configuration.setString(ConfigConstants.METRICS_REPORTER_PREFIX + "prom.port", "9000-9100");
+
+		PluginManager pluginManager = PluginUtils.createPluginManagerFromRootFolder(configuration);
+		ReporterSetup.fromConfiguration(configuration, pluginManager);
 
 		// Checking input parameters
 		final MultipleParameterTool params = MultipleParameterTool.fromArgs(args);
