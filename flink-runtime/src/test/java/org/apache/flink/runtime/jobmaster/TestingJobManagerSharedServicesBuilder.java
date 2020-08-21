@@ -23,8 +23,11 @@ import org.apache.flink.runtime.blob.VoidBlobWriter;
 import org.apache.flink.runtime.execution.librarycache.ContextClassLoaderLibraryCacheManager;
 import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureRequestCoordinator;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.VoidBackPressureStatsTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorStatsTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.StackTraceSampleCoordinator;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.VoidOperatorStatsTracker;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
 
 import java.util.concurrent.ScheduledExecutorService;
@@ -40,7 +43,11 @@ public class TestingJobManagerSharedServicesBuilder {
 
 	private BackPressureRequestCoordinator backPressureSampleCoordinator;
 
-	private BackPressureStatsTracker backPressureStatsTracker;
+	private StackTraceSampleCoordinator stackTraceSampleCoordinator;
+
+	private OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker;
+
+	private OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker;
 
 	private BlobWriter blobWriter;
 
@@ -48,7 +55,9 @@ public class TestingJobManagerSharedServicesBuilder {
 		scheduledExecutorService = TestingUtils.defaultExecutor();
 		libraryCacheManager = ContextClassLoaderLibraryCacheManager.INSTANCE;
 		backPressureSampleCoordinator = new BackPressureRequestCoordinator(Runnable::run, 10000);
-		backPressureStatsTracker = VoidBackPressureStatsTracker.INSTANCE;
+		stackTraceSampleCoordinator = new StackTraceSampleCoordinator(Runnable::run, 10000);
+		backPressureStatsTracker = VoidOperatorStatsTracker.getInstance();
+		flameGraphStatsTracker = VoidOperatorStatsTracker.getInstance();
 		blobWriter = VoidBlobWriter.getInstance();
 	}
 
@@ -68,7 +77,7 @@ public class TestingJobManagerSharedServicesBuilder {
 		return this;
 	}
 
-	public TestingJobManagerSharedServicesBuilder setBackPressureStatsTracker(BackPressureStatsTracker backPressureStatsTracker) {
+	public TestingJobManagerSharedServicesBuilder setBackPressureStatsTracker(OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker) {
 		this.backPressureStatsTracker = backPressureStatsTracker;
 		return this;
 
@@ -83,7 +92,9 @@ public class TestingJobManagerSharedServicesBuilder {
 			scheduledExecutorService,
 			libraryCacheManager,
 			backPressureSampleCoordinator,
+			stackTraceSampleCoordinator,
 			backPressureStatsTracker,
+			flameGraphStatsTracker,
 			blobWriter);
 	}
 }
