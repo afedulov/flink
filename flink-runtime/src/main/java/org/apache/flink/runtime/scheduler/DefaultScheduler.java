@@ -40,7 +40,9 @@ import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableExceptio
 import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.jobmaster.slotpool.ThrowingSlotProvider;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorStatsTracker;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.scheduler.strategy.LazyFromSourcesSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategy;
@@ -96,7 +98,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	DefaultScheduler(
 		final Logger log,
 		final JobGraph jobGraph,
-		final BackPressureStatsTracker backPressureStatsTracker,
+		final OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker,
+		final OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker,
 		final Executor ioExecutor,
 		final Configuration jobMasterConfiguration,
 		final ScheduledExecutorService futureExecutor,
@@ -119,6 +122,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			log,
 			jobGraph,
 			backPressureStatsTracker,
+			flameGraphStatsTracker,
 			ioExecutor,
 			jobMasterConfiguration,
 			new ThrowingSlotProvider(), // this is not used any more in the new scheduler

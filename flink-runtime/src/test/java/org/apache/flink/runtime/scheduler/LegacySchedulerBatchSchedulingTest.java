@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.NoOpJobMasterPartitionTrack
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.VoidBackPressureStatsTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.VoidOperatorStatsTracker;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
 
@@ -45,7 +45,8 @@ public class LegacySchedulerBatchSchedulingTest extends BatchSchedulingTestBase 
 		final LegacyScheduler legacyScheduler = new LegacyScheduler(
 			log,
 			jobGraph,
-			VoidBackPressureStatsTracker.INSTANCE,
+			VoidOperatorStatsTracker.getInstance(),
+			VoidOperatorStatsTracker.getInstance(),
 			TestingUtils.defaultExecutor(),
 			new Configuration(),
 			slotProvider,

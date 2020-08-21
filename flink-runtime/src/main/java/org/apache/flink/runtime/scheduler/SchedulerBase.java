@@ -82,8 +82,10 @@ import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
 import org.apache.flink.runtime.query.KvStateLocation;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
 import org.apache.flink.runtime.query.UnknownKvStateLocation;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorStatsTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.Stats;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingExecutionVertex;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingTopology;
@@ -138,7 +140,9 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	private final InputsLocationsRetriever inputsLocationsRetriever;
 
-	private final BackPressureStatsTracker backPressureStatsTracker;
+	private final OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker;
+
+	private final OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker;
 
 	private final Executor ioExecutor;
 
@@ -173,7 +177,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 	public SchedulerBase(
 		final Logger log,
 		final JobGraph jobGraph,
-		final BackPressureStatsTracker backPressureStatsTracker,
+		final OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker,
+		final OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker,
 		final Executor ioExecutor,
 		final Configuration jobMasterConfiguration,
 		final SlotProvider slotProvider,
@@ -193,6 +198,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.log = checkNotNull(log);
 		this.jobGraph = checkNotNull(jobGraph);
 		this.backPressureStatsTracker = checkNotNull(backPressureStatsTracker);
+		this.flameGraphStatsTracker = checkNotNull(flameGraphStatsTracker);
 		this.ioExecutor = checkNotNull(ioExecutor);
 		this.jobMasterConfiguration = checkNotNull(jobMasterConfiguration);
 		this.slotProvider = checkNotNull(slotProvider);
@@ -722,6 +728,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		executionGraph.updateAccumulators(accumulatorSnapshot);
 	}
 
+	//TODO: Refactor to use generic method getOperatorStatsFromTracker!
 	@Override
 	public Optional<OperatorBackPressureStats> requestOperatorBackPressureStats(final JobVertexID jobVertexId) throws FlinkException {
 		final ExecutionJobVertex jobVertex = executionGraph.getJobVertex(jobVertexId);
@@ -730,7 +737,20 @@ public abstract class SchedulerBase implements SchedulerNG {
 				jobVertexId);
 		}
 
-		return backPressureStatsTracker.getOperatorBackPressureStats(jobVertex);
+		return backPressureStatsTracker.getOperatorStats(jobVertex);
+	}
+
+	@Override
+	public Optional<OperatorFlameGraph> requestOperatorFlameGraph(JobVertexID jobVertexId) throws FlinkException {
+		return getOperatorStatsFromTracker(jobVertexId, flameGraphStatsTracker);
+	}
+
+	private <T extends Stats> Optional<T> getOperatorStatsFromTracker(JobVertexID jobVertexId, OperatorStatsTracker<T> tracker) throws FlinkException {
+		final ExecutionJobVertex jobVertex = executionGraph.getJobVertex(jobVertexId);
+		if (jobVertex == null) {
+			throw new FlinkException("JobVertexID not found " + jobVertexId);
+		}
+		return tracker.getOperatorStats(jobVertex);
 	}
 
 	@Override

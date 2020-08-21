@@ -29,7 +29,9 @@ import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorStatsTracker;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 
 import org.slf4j.Logger;
@@ -47,7 +49,8 @@ public class LegacyScheduler extends SchedulerBase {
 	public LegacyScheduler(
 			final Logger log,
 			final JobGraph jobGraph,
-			final BackPressureStatsTracker backPressureStatsTracker,
+			final OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker,
+			final OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker,
 			final Executor ioExecutor,
 			final Configuration jobMasterConfiguration,
 			final SlotProvider slotProvider,
@@ -66,6 +69,7 @@ public class LegacyScheduler extends SchedulerBase {
 			log,
 			jobGraph,
 			backPressureStatsTracker,
+			flameGraphStatsTracker,
 			ioExecutor,
 			jobMasterConfiguration,
 			slotProvider,

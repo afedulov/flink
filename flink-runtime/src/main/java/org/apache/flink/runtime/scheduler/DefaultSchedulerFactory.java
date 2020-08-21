@@ -33,7 +33,9 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorStatsTracker;
 import org.apache.flink.runtime.scheduler.strategy.EagerSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.LazyFromSourcesSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
@@ -53,7 +55,8 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 	public SchedulerNG createInstance(
 			final Logger log,
 			final JobGraph jobGraph,
-			final BackPressureStatsTracker backPressureStatsTracker,
+			final OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker,
+			final OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker,
 			final Executor ioExecutor,
 			final Configuration jobMasterConfiguration,
 			final SlotProvider slotProvider,
@@ -88,6 +91,7 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 			log,
 			jobGraph,
 			backPressureStatsTracker,
+			flameGraphStatsTracker,
 			ioExecutor,
 			jobMasterConfiguration,
 			futureExecutor,
