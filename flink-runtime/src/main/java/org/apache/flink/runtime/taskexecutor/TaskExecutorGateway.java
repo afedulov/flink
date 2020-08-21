@@ -36,6 +36,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.messages.StackTraceSampleResponse;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
@@ -79,6 +80,14 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 	CompletableFuture<TaskBackPressureResponse> requestTaskBackPressure(
 		ExecutionAttemptID executionAttemptId,
 		int requestId,
+		@RpcTimeout Time timeout);
+
+	CompletableFuture<StackTraceSampleResponse> requestStackTraceSample(
+		ExecutionAttemptID executionAttemptId,
+		int sampleId,
+		int numSamples,
+		Time delayBetweenSamples,
+		int maxStackTraceDepth,
 		@RpcTimeout Time timeout);
 
 	/**
