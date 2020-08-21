@@ -26,6 +26,8 @@ import java.util.Collections;
 public class JobVertexMessageParameters extends JobMessageParameters {
 
     public final JobVertexIdPathParameter jobVertexIdPathParameter = new JobVertexIdPathParameter();
+    public final FlameGraphTypeQueryParameter flameGraphTypeQueryParameter =
+            new FlameGraphTypeQueryParameter();
 
     @Override
     public Collection<MessagePathParameter<?>> getPathParameters() {
@@ -34,6 +36,6 @@ public class JobVertexMessageParameters extends JobMessageParameters {
 
     @Override
     public Collection<MessageQueryParameter<?>> getQueryParameters() {
-        return Collections.emptySet();
+        return Collections.singleton(flameGraphTypeQueryParameter);
     }
 }

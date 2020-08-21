@@ -38,6 +38,7 @@ import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
+import org.apache.flink.runtime.messages.TaskThreadInfoSampleResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.messages.LogInfo;
@@ -299,6 +300,17 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
     @Override
     public String getAddress() {
         return address;
+    }
+
+    @Override
+    public CompletableFuture<TaskThreadInfoSampleResponse> requestThreadInfoSamples(
+            ExecutionAttemptID executionAttemptId,
+            int requestId,
+            int numSamples,
+            Time delayBetweenSamples,
+            int maxStackTraceDepth,
+            Time timeout) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

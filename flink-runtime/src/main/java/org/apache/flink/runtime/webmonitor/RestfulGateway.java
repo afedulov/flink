@@ -36,6 +36,7 @@ import org.apache.flink.runtime.metrics.dump.MetricQueryService;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraphResponse;
 import org.apache.flink.runtime.rpc.RpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.SerializedValue;
@@ -179,6 +180,18 @@ public interface RestfulGateway extends RpcGateway {
      * @return A Future to the {@link OperatorBackPressureStatsResponse}.
      */
     default CompletableFuture<OperatorBackPressureStatsResponse> requestOperatorBackPressureStats(
+            JobID jobId, JobVertexID jobVertexId) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Requests the statistics on operator stack trace.
+     *
+     * @param jobId Job for which the stats are requested.
+     * @param jobVertexId JobVertex for which the stats are requested.
+     * @return A Future to the {@link OperatorBackPressureStatsResponse}.
+     */
+    default CompletableFuture<OperatorFlameGraphResponse> requestOperatorFlameGraph(
             JobID jobId, JobVertexID jobVertexId) {
         throw new UnsupportedOperationException();
     }

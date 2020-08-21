@@ -519,6 +519,16 @@ public class Task
         return false;
     }
 
+    public StackTraceElement[] getStackTraceOfExecutingThread() {
+        final AbstractInvokable invokable = this.invokable;
+
+        if (invokable == null) {
+            return new StackTraceElement[0];
+        }
+
+        return invokable.getExecutingThread().orElse(executingThread).getStackTrace();
+    }
+
     // ------------------------------------------------------------------------
     //  Task Execution
     // ------------------------------------------------------------------------

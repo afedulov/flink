@@ -26,10 +26,12 @@ import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.taskmanager.Task;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.SerializedValue;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.Future;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -125,6 +127,16 @@ public abstract class AbstractInvokable {
      */
     public boolean shouldInterruptOnCancel() {
         return shouldInterruptOnCancel;
+    }
+
+    /**
+     * If the invokable implementation executes user code in a thread other than, {@link
+     * Task#getExecutingThread()}, this method returns that executing thread.
+     *
+     * @see Task#getStackTraceOfExecutingThread()
+     */
+    public Optional<Thread> getExecutingThread() {
+        return Optional.empty();
     }
 
     // ------------------------------------------------------------------------

@@ -23,6 +23,7 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Optional;
 
 /** Utilities for {@link java.lang.management.ManagementFactory}. */
 public final class JvmUtils {
@@ -36,6 +37,20 @@ public final class JvmUtils {
         ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
         return Arrays.asList(threadMxBean.dumpAllThreads(true, true));
+    }
+
+    /**
+     * Creates a {@link ThreadInfo} for a specific thread. Contains thread traces if
+     * maxStackTraceDepth > 0.
+     *
+     * @param threadId the ID of the thread to create the thread dump for.
+     * @param maxStackTraceDepth the maximum number of entries in the stack trace to be collected.
+     * @return the thread information of a specific thread.
+     */
+    public static Optional<ThreadInfo> createThreadInfo(long threadId, int maxStackTraceDepth) {
+        ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
+
+        return Optional.ofNullable(threadMxBean.getThreadInfo(threadId, maxStackTraceDepth));
     }
 
     /** Private default constructor to avoid instantiation. */
