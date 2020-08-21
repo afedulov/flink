@@ -493,6 +493,18 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		return !CompletableFuture.allOf(outputFutures).isDone();
 	}
 
+	public StackTraceElement[] getStackTraceOfExecutingThread() {
+		final AbstractInvokable invokable = this.invokable;
+
+		if (invokable == null) {
+			return new StackTraceElement[0];
+		}
+
+		return invokable.getExecutingThread()
+			.orElse(executingThread)
+			.getStackTrace();
+	}
+
 	// ------------------------------------------------------------------------
 	//  Task Execution
 	// ------------------------------------------------------------------------
