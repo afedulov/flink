@@ -50,7 +50,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * Back pressure statistics tracker. See {@link org.apache.flink.runtime.taskexecutor.BackPressureSampleService}
  * for more details about how back pressure ratio of a task is calculated.
  */
-public class BackPressureStatsTrackerImpl implements BackPressureStatsTracker {
+public class BackPressureStatsTrackerImpl implements OperatorStatsTracker<OperatorBackPressureStats> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(BackPressureStatsTrackerImpl.class);
 
@@ -114,7 +114,8 @@ public class BackPressureStatsTrackerImpl implements BackPressureStatsTracker {
 	 * @param vertex Operator to get the stats for.
 	 * @return Back pressure statistics for an operator
 	 */
-	public Optional<OperatorBackPressureStats> getOperatorBackPressureStats(ExecutionJobVertex vertex) {
+	@Override
+	public Optional<OperatorBackPressureStats> getOperatorStats(ExecutionJobVertex vertex) {
 		synchronized (lock) {
 			final OperatorBackPressureStats stats = operatorStatsCache.getIfPresent(vertex);
 			if (stats == null || backPressureStatsRefreshInterval <= System.currentTimeMillis() - stats.getEndTimestamp()) {
