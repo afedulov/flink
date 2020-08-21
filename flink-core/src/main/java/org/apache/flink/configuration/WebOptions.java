@@ -174,6 +174,43 @@ public class WebOptions {
 			.withDescription("Delay between samples to determine back pressure in milliseconds.");
 
 	/**
+	 * Time, in milliseconds, after which cached stats are cleaned up if not accessed.
+	 */
+	public static final ConfigOption<Integer> FLAMEGRAPH_CLEANUP_INTERVAL =
+		key("web.flamegraph.cleanup-interval")
+			.intType()
+			.defaultValue(10 * 60 * 1000)
+			.withDescription("Time, in milliseconds, after which cached stats are cleaned up if not accessed.");
+
+	/**
+	 * Time, in milliseconds, after which available stats are deprecated and need to be refreshed (by resampling).
+	 */
+	public static final ConfigOption<Integer> FLAMEGRAPH_REFRESH_INTERVAL =
+		key("web.flamegraph.refresh-interval")
+			.intType()
+			.defaultValue(60 * 1000)
+			.withDescription("Time, in milliseconds, after which available stats are deprecated and need to be refreshed" +
+				" (by resampling).");
+
+	/**
+	 * Number of samples to take to build a FlameGraph.
+	 */
+	public static final ConfigOption<Integer> FLAMEGRAPH_NUM_SAMPLES =
+		key("web.flamegraph.num-samples")
+			.intType()
+			.defaultValue(100)
+			.withDescription("Number of samples to take to build a FlameGraph.");
+
+	/**
+	 * Delay between samples to build a FlameGraph in milliseconds.
+	 */
+	public static final ConfigOption<Integer> FLAMEGRAPH_DELAY =
+		key("web.flamegraph.delay-between-samples")
+			.intType()
+			.defaultValue(50)
+			.withDescription("Delay between samples to build a FlameGraph in milliseconds.");
+
+	/**
 	 * Timeout for asynchronous operations by the web monitor in milliseconds.
 	 */
 	public static final ConfigOption<Long> TIMEOUT =
