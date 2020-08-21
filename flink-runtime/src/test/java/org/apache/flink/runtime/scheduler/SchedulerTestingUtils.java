@@ -61,8 +61,9 @@ import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.VoidBackPressureStatsTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorStatsTracker;
 import org.apache.flink.runtime.scheduler.strategy.EagerSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
@@ -371,7 +372,8 @@ public class SchedulerTestingUtils {
 		private SchedulingStrategyFactory schedulingStrategyFactory;
 
 		private Logger log = LOG;
-		private BackPressureStatsTracker backPressureStatsTracker = VoidBackPressureStatsTracker.INSTANCE;
+		private OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker;
+		private OperatorStatsTracker<OperatorFlameGraph> flameGraphStatsTracker;
 		private Executor ioExecutor = TestingUtils.defaultExecutor();
 		private Configuration jobMasterConfiguration = new Configuration();
 		private ScheduledExecutorService futureExecutor = TestingUtils.defaultExecutor();
@@ -401,7 +403,7 @@ public class SchedulerTestingUtils {
 			return this;
 		}
 
-		public DefaultSchedulerBuilder setBackPressureStatsTracker(final BackPressureStatsTracker backPressureStatsTracker) {
+		public DefaultSchedulerBuilder setBackPressureStatsTracker(final OperatorStatsTracker<OperatorBackPressureStats> backPressureStatsTracker) {
 			this.backPressureStatsTracker = backPressureStatsTracker;
 			return this;
 		}
@@ -496,6 +498,7 @@ public class SchedulerTestingUtils {
 				log,
 				jobGraph,
 				backPressureStatsTracker,
+				flameGraphStatsTracker,
 				ioExecutor,
 				jobMasterConfiguration,
 				futureExecutor,

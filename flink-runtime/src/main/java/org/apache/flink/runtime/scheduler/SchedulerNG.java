@@ -47,6 +47,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.query.KvStateLocation;
 import org.apache.flink.runtime.query.UnknownKvStateLocation;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.util.FlinkException;
@@ -115,6 +116,8 @@ public interface SchedulerNG {
 	// ------------------------------------------------------------------------
 
 	Optional<OperatorBackPressureStats> requestOperatorBackPressureStats(JobVertexID jobVertexId) throws FlinkException;
+
+	Optional<OperatorFlameGraph> requestOperatorFlameGraph(JobVertexID jobVertexId) throws FlinkException;
 
 	// ------------------------------------------------------------------------
 
