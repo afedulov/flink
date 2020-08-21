@@ -38,6 +38,7 @@ import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraphResponse;
 import org.apache.flink.runtime.rpc.FencedRpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.taskexecutor.AccumulatorReport;
@@ -252,6 +253,14 @@ public interface JobMasterGateway extends
 	 * @return A Future to the {@link OperatorBackPressureStatsResponse}.
 	 */
 	CompletableFuture<OperatorBackPressureStatsResponse> requestOperatorBackPressureStats(JobVertexID jobVertexId);
+
+	/**
+	 * Requests the statistics on operator flame graph
+	 *
+	 * @param jobVertexId JobVertex for which the stats are requested.
+	 * @return A Future to the {@link OperatorFlameGraphResponse}.
+	 */
+	CompletableFuture<OperatorFlameGraphResponse> requestOperatorFlameGraph(JobVertexID jobVertexId);
 
 	/**
 	 * Notifies that the allocation has failed.
