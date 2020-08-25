@@ -149,12 +149,14 @@ public class FromElementsFunction<T> implements SourceFunction<T>, CheckpointedF
 
 		final Object lock = ctx.getCheckpointLock();
 
-		while (isRunning && numElementsEmitted < numElements) {
+//		while (isRunning && numElementsEmitted < numElements) {
+		while (isRunning) {
 			T next;
 			try {
 				next = serializer.deserialize(input);
 			}
 			catch (Exception e) {
+				Thread.sleep(60000);
 				throw new IOException("Failed to deserialize an element from the source. " +
 						"If you are using user-defined serialization (Value and Writable types), check the " +
 						"serialization functions.\nSerializer is " + serializer, e);
