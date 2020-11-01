@@ -22,6 +22,9 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.IllegalConfigurationException;
+import org.apache.flink.configuration.WebOptions;
+import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.blob.TransientBlobService;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
@@ -79,6 +82,10 @@ import org.apache.flink.runtime.rest.handler.job.rescaling.RescalingHandlers;
 import org.apache.flink.runtime.rest.handler.job.savepoints.SavepointDisposalHandlers;
 import org.apache.flink.runtime.rest.handler.job.savepoints.SavepointHandlers;
 import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraphFactory;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.StackTraceOperatorTracker;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.StackTraceSampleCoordinator;
 import org.apache.flink.runtime.rest.handler.legacy.files.StaticFileServerHandler;
 import org.apache.flink.runtime.rest.handler.legacy.files.WebContentHandlerSpecification;
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
@@ -132,6 +139,7 @@ import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerThreadDumpH
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagersHeaders;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
+import org.apache.flink.runtime.util.Hardware;
 import org.apache.flink.runtime.webmonitor.history.ArchivedJson;
 import org.apache.flink.runtime.webmonitor.history.JsonArchivist;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
@@ -146,6 +154,7 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -180,10 +189,12 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 	private final LeaderElectionService leaderElectionService;
 
 	private final FatalErrorHandler fatalErrorHandler;
+	private final StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker;
 
 	private boolean hasWebUI = false;
 
 	private final Collection<JsonArchivist> archivingHandlers = new ArrayList<>(16);
+
 
 	@Nullable
 	private ScheduledFuture<?> executionGraphCleanupTask;
@@ -217,6 +228,43 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 
 		this.leaderElectionService = Preconditions.checkNotNull(leaderElectionService);
 		this.fatalErrorHandler = Preconditions.checkNotNull(fatalErrorHandler);
+		this.flameGraphStatsTracker = initializeStackTraceTracker();
+	}
+
+	private StackTraceOperatorTracker<OperatorFlameGraph> initializeStackTraceTracker() {
+		// setup flame graph tracker
+		// @todo config -> currently reusing backpressure settings
+
+		final ScheduledExecutorService futureExecutor = Executors.newScheduledThreadPool(
+			Hardware.getNumberCPUCores(),
+			new ExecutorThreadFactory("jobmanager-future"));
+
+		final Duration akkaTimeout;
+		try {
+			akkaTimeout = AkkaUtils.getTimeout(clusterConfiguration);
+		} catch (NumberFormatException e) {
+			throw new IllegalConfigurationException(AkkaUtils.formatDurationParsingErrorMessage());
+		}
+
+		final int flameGraphCleanUpInterval = clusterConfiguration.getInteger(WebOptions.BACKPRESSURE_CLEANUP_INTERVAL);
+		final StackTraceSampleCoordinator stackTraceSampleCoordinator =
+			new StackTraceSampleCoordinator(futureExecutor, akkaTimeout.toMillis());
+		final StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker =
+			StackTraceOperatorTracker.newBuilder(resourceManagerRetriever, OperatorFlameGraphFactory::createStatsFromSample)
+				.setCoordinator(stackTraceSampleCoordinator)
+				.setCleanUpInterval(flameGraphCleanUpInterval)
+				.setNumSamples(clusterConfiguration.getInteger(WebOptions.BACKPRESSURE_NUM_SAMPLES))
+				.setStatsRefreshInterval(clusterConfiguration.getInteger(WebOptions.BACKPRESSURE_REFRESH_INTERVAL))
+				.setDelayBetweenSamples(Time.milliseconds(clusterConfiguration.getInteger(WebOptions.BACKPRESSURE_DELAY)))
+				.build();
+
+		futureExecutor.scheduleWithFixedDelay(
+			flameGraphStatsTracker::cleanUpOperatorStatsCache,
+			flameGraphCleanUpInterval,
+			flameGraphCleanUpInterval,
+			TimeUnit.MILLISECONDS);
+
+		return flameGraphStatsTracker;
 	}
 
 	@Override
@@ -521,7 +569,11 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 			leaderRetriever,
 			timeout,
 			responseHeaders,
-			JobVertexFlameGraphHeaders.getInstance());
+			JobVertexFlameGraphHeaders.getInstance(),
+			executionGraphCache,
+			executor,
+			flameGraphStatsTracker);
+
 
 		final JobCancellationHandler jobCancelTerminationHandler = new JobCancellationHandler(
 			leaderRetriever,

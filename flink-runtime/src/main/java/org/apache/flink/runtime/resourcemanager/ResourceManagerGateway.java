@@ -39,10 +39,7 @@ import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.FencedRpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
-import org.apache.flink.runtime.taskexecutor.FileType;
-import org.apache.flink.runtime.taskexecutor.SlotReport;
-import org.apache.flink.runtime.taskexecutor.TaskExecutor;
-import org.apache.flink.runtime.taskexecutor.TaskExecutorHeartbeatPayload;
+import org.apache.flink.runtime.taskexecutor.*;
 
 import javax.annotation.Nullable;
 
@@ -248,4 +245,7 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	 * @return Future containing the thread dump information
 	 */
 	CompletableFuture<ThreadDumpInfo> requestThreadDump(ResourceID taskManagerId, @RpcTimeout Time timeout);
+
+	//TODO: add comment
+	CompletableFuture<TaskExecutorGateway> getTaskExecutorGateway(ResourceID resourceID);
 }

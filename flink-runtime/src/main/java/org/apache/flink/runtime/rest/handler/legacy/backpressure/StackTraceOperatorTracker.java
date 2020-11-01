@@ -20,21 +20,27 @@ package org.apache.flink.runtime.rest.handler.legacy.backpressure;
 
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.executiongraph.AccessExecution;
+import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
+import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 
+import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
+import org.apache.flink.runtime.taskmanager.TaskExecutionState;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
 import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.function.BiFunction;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -47,6 +53,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class StackTraceOperatorTracker<T extends Stats> implements OperatorStatsTracker<T> {
 
+	private final GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever;
+
 	/**
 	 * Create a new {@link Builder}.
 	 * @param createStatsFn Function that converts stack trace sample to a statistic.
@@ -54,8 +62,9 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 	 * @return Builder.
 	 */
 	public static <T extends Stats> Builder<T> newBuilder(
+		GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
 		BiFunction<ExecutionJobVertex, StackTraceSample, T> createStatsFn) {
-		return new Builder<>(createStatsFn);
+		return new Builder<>(resourceManagerGatewayRetriever, createStatsFn);
 	}
 
 	/**
@@ -66,6 +75,7 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 	public static class Builder<T extends Stats> {
 
 		private final BiFunction<ExecutionJobVertex, StackTraceSample, T> createStatsFn;
+		private final GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever;
 
 		private StackTraceSampleCoordinator coordinator;
 		private int cleanUpInterval;
@@ -74,8 +84,11 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 		private Time delayBetweenSamples;
 		private int maxStackTraceDepth = 0;
 
-		private Builder(BiFunction<ExecutionJobVertex, StackTraceSample, T> createStatsFn) {
+		private Builder(
+			GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
+			BiFunction<ExecutionJobVertex, StackTraceSample, T> createStatsFn) {
 			this.createStatsFn = createStatsFn;
+			this.resourceManagerGatewayRetriever = resourceManagerGatewayRetriever;
 		}
 
 		public Builder<T> setCoordinator(StackTraceSampleCoordinator coordinator) {
@@ -111,6 +124,7 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 		public StackTraceOperatorTracker<T> build() {
 			return new StackTraceOperatorTracker<>(
 				coordinator,
+				resourceManagerGatewayRetriever,
 				createStatsFn,
 				cleanUpInterval,
 				numSamples,
@@ -140,7 +154,7 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 	/** Pending in progress stats. Important: Job vertex IDs need to be scoped
 	 * by job ID, because they are potentially constant across runs messing up
 	 * the cached data.*/
-	private final Set<ExecutionJobVertex> pendingStats = new HashSet<>();
+	private final Set<AccessExecutionJobVertex> pendingStats = new HashSet<>();
 
 	private final int numSamples;
 
@@ -162,6 +176,7 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 	 */
 	private StackTraceOperatorTracker(
 		StackTraceSampleCoordinator coordinator,
+		GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
 		BiFunction<ExecutionJobVertex, StackTraceSample, T> createStatsFn,
 		int cleanUpInterval,
 		int numSamples,
@@ -170,6 +185,7 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 		int maxStackTraceDepth) {
 
 		this.coordinator = checkNotNull(coordinator, "Stack trace sample coordinator");
+		this.resourceManagerGatewayRetriever = checkNotNull(resourceManagerGatewayRetriever, "Gateway retriever");
 		this.createStatsFn = checkNotNull(createStatsFn, "Create stats function");
 
 		checkArgument(cleanUpInterval >= 0, "Clean up interval");
@@ -206,6 +222,28 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 		}
 	}
 
+
+	public Optional<T> getOperatorStats(AccessExecutionJobVertex vertex) {
+		synchronized (lock) {
+			final T stats = operatorStatsCache.getIfPresent(vertex);
+			if (stats == null || statsRefreshInterval <= System.currentTimeMillis() - stats.getEndTimestamp()) {
+				triggerStackTraceSampleInternal(vertex);
+			}
+			return Optional.ofNullable(stats);
+		}
+	}
+
+// TODO: discuss how to handle exceptions from here
+//	public ResourceManagerGateway getResourceManagerGateway() throws RestHandlerException {
+	public ResourceManagerGateway getResourceManagerGateway() {
+		return resourceManagerGatewayRetriever.getNow().get();
+//			.getNow()
+//			.orElseThrow(() -> new RestHandlerException(
+//				"Cannot connect to ResourceManager right now. Please try to refresh.",
+//				HttpResponseStatus.NOT_FOUND));
+	}
+
+
 	/**
 	 * Triggers a stack trace sample for a operator to gather the back pressure
 	 * statistics. If there is a sample in progress for the operator, the call
@@ -240,6 +278,63 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 			}
 		}
 	}
+
+
+	/**
+	 * Triggers a stack trace sample for a operator to gather the back pressure
+	 * statistics. If there is a sample in progress for the operator, the call
+	 * is ignored.
+	 *
+	 * @param vertex Operator to get the stats for.
+	 */
+	private void triggerStackTraceSampleInternal(final AccessExecutionJobVertex vertex) {
+		assert(Thread.holdsLock(lock));
+
+		if (!shutDown &&
+			!pendingStats.contains(vertex)
+			//TODO: check what to do with the archived graph
+//			&&
+//			!vertex.getGraph().getState().isGloballyTerminalState()) {
+		){
+			//TODO: not available - check which executor to use?
+//			Executor executor = vertex.getGraph().getFutureExecutor();
+			ExecutorService executor = Executors.newSingleThreadExecutor();
+
+
+			// Only trigger if still active job
+			if (executor != null) {
+				pendingStats.add(vertex);
+
+				if (LOG.isDebugEnabled()) {
+					LOG.debug("Triggering stack trace sample for tasks: " + Arrays.toString(vertex.getTaskVertices()));
+				}
+
+				AccessExecutionVertex[] execuctionVertices = vertex.getTaskVertices();
+				List<Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>>> executionsWithGateways = new ArrayList<>();
+				for (AccessExecutionVertex executionVertex : execuctionVertices) {
+					TaskManagerLocation tmLocation = executionVertex.getCurrentAssignedResourceLocation();
+					CompletableFuture<TaskExecutorGateway> taskExecutorGatewayFuture =
+						getResourceManagerGateway().getTaskExecutorGateway(tmLocation.getResourceID());
+
+					taskExecutorGatewayFuture.handle((gateway, throwable) -> {
+						return FutureUtils.completedExceptionally(new IllegalStateException("Task " + executionsWithGateway.f0
+							.getTaskNameWithSubtaskIndex() + " is not running."));
+						});
+
+					executionsWithGateways.add(new Tuple2<>(executionVertex, taskExecutorGatewayFuture));
+				}
+
+				CompletableFuture<StackTraceSample> sample = coordinator.triggerStackTraceSample(
+					executionsWithGateways,
+					numSamples,
+					delayBetweenSamples,
+					maxStackTraceDepth);
+
+				sample.handleAsync(new StackTraceSampleCompletionCallback(vertex), executor);
+			}
+		}
+	}
+
 
 	@Override
 	public void cleanUpOperatorStatsCache() {

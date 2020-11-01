@@ -24,7 +24,10 @@ import org.apache.flink.api.common.operators.ResourceSpec;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.IllegalConfigurationException;
+import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.client.DuplicateJobSubmissionException;
@@ -34,7 +37,7 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterEntryPointExceptionUtils;
-import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
+import org.apache.flink.runtime.executiongraph.*;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
@@ -62,12 +65,14 @@ import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceOverview;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraphResponse;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.*;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.PermanentlyFencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
+import org.apache.flink.runtime.util.Hardware;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
@@ -81,6 +86,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -89,8 +95,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -139,6 +144,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	protected final CompletableFuture<ApplicationStatus> shutDownFuture;
 
+	private final StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker;
+
 	public Dispatcher(
 			RpcService rpcService,
 			DispatcherId fencingToken,
@@ -177,6 +184,44 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.shutDownFuture = new CompletableFuture<>();
 
 		this.dispatcherBootstrap = checkNotNull(dispatcherBootstrap);
+
+		this.flameGraphStatsTracker = initializeStackTraceTracker();
+	}
+
+	private StackTraceOperatorTracker<OperatorFlameGraph> initializeStackTraceTracker() {
+		// setup flame graph tracker
+		// @todo config -> currently reusing backpressure settings
+
+		final ScheduledExecutorService futureExecutor = Executors.newScheduledThreadPool(
+			Hardware.getNumberCPUCores(),
+			new ExecutorThreadFactory("jobmanager-future"));
+
+		final Duration akkaTimeout;
+		try {
+			akkaTimeout = AkkaUtils.getTimeout(configuration);
+		} catch (NumberFormatException e) {
+			throw new IllegalConfigurationException(AkkaUtils.formatDurationParsingErrorMessage());
+		}
+
+		final int flameGraphCleanUpInterval = configuration.getInteger(WebOptions.BACKPRESSURE_CLEANUP_INTERVAL);
+		final StackTraceSampleCoordinator stackTraceSampleCoordinator =
+			new StackTraceSampleCoordinator(futureExecutor, akkaTimeout.toMillis());
+		final StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker =
+			StackTraceOperatorTracker.newBuilder(OperatorFlameGraphFactory::createStatsFromSample)
+				.setCoordinator(stackTraceSampleCoordinator)
+				.setCleanUpInterval(flameGraphCleanUpInterval)
+				.setNumSamples(configuration.getInteger(WebOptions.BACKPRESSURE_NUM_SAMPLES))
+				.setStatsRefreshInterval(configuration.getInteger(WebOptions.BACKPRESSURE_REFRESH_INTERVAL))
+				.setDelayBetweenSamples(Time.milliseconds(configuration.getInteger(WebOptions.BACKPRESSURE_DELAY)))
+				.build();
+
+		futureExecutor.scheduleWithFixedDelay(
+			flameGraphStatsTracker::cleanUpOperatorStatsCache,
+			flameGraphCleanUpInterval,
+			flameGraphCleanUpInterval,
+			TimeUnit.MILLISECONDS);
+
+		return flameGraphStatsTracker;
 	}
 
 	//------------------------------------------------------
@@ -549,10 +594,34 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	public CompletableFuture<OperatorFlameGraphResponse> requestOperatorFlameGraph(
 		final JobID jobId,
 		final JobVertexID jobVertexId) {
-		return getJobMasterGatewayFuture(jobId).thenCompose(
-			(JobMasterGateway jobMasterGateway) ->
-				jobMasterGateway.requestOperatorFlameGraph(jobVertexId));
+//		Class clazz = this.getClass();
+//		return getJobMasterGatewayFuture(jobId).thenCompose(
+//			(JobMasterGateway jobMasterGateway) ->
+//				jobMasterGateway.requestOperatorFlameGraph(jobVertexId));
+
+		//TODO: which timeout to use?
+//		final Time timeout = Time.milliseconds(configuration.get(ClientOptions.CLIENT_TIMEOUT).toMillis());
+		Time timeout = AkkaUtils.getTimeoutAsTime(configuration);
+		CompletableFuture<ArchivedExecutionGraph> jobGraphFuture = requestJob(jobId, timeout);
+
+		CompletableFuture<ArchivedExecutionJobVertex> vertexFuture = jobGraphFuture.thenCompose((ArchivedExecutionGraph jobGraph) -> CompletableFuture.completedFuture(jobGraph.getJobVertex(jobVertexId)));
+		vertexFuture.thenCompose()
+
+		flameGraphStatsTracker.getOperatorStats()
 	}
+
+	public String test(){
+		return "bla";
+	}
+
+	private <T extends Stats> Optional<T> getOperatorStatsFromTracker(JobVertexID jobVertexId, OperatorStatsTracker<T> tracker) throws FlinkException {
+		final ExecutionJobVertex jobVertex = executionGraph.getJobVertex(jobVertexId);
+		if (jobVertex == null) {
+			throw new FlinkException("JobVertexID not found " + jobVertexId);
+		}
+		return tracker.getOperatorStats(jobVertex);
+	}
+
 
 	@Override
 	public CompletableFuture<ArchivedExecutionGraph> requestJob(JobID jobId, Time timeout) {

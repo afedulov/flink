@@ -19,12 +19,12 @@
 package org.apache.flink.runtime.rest.handler.legacy.backpressure;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
-import org.apache.flink.runtime.executiongraph.Execution;
-import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
-import org.apache.flink.runtime.executiongraph.ExecutionVertex;
+import org.apache.flink.runtime.executiongraph.*;
 import org.apache.flink.runtime.messages.StackTraceSampleResponse;
+import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
@@ -32,14 +32,7 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -162,6 +155,98 @@ public class StackTraceSampleCoordinator {
 					delayBetweenSamples,
 					maxStackTraceDepth,
 					timeout);
+
+				stackTraceSampleFuture.handleAsync(
+					(StackTraceSampleResponse stackTraceSampleResponse, Throwable throwable) -> {
+						if (stackTraceSampleResponse != null) {
+							collectStackTraces(
+								stackTraceSampleResponse.getSampleId(),
+								stackTraceSampleResponse.getExecutionAttemptID(),
+								stackTraceSampleResponse.getSamples());
+						} else {
+							cancelStackTraceSample(sampleId, throwable);
+						}
+
+						return null;
+					},
+					executor);
+			}
+
+			return pending.getStackTraceSampleFuture();
+		}
+	}
+
+
+	/**
+	 * Triggers a stack trace sample to all tasks.
+	 *
+	 * @param executionsWithGateways       //TODO
+	 * @param numSamples          Number of stack trace samples to collect.
+	 * @param delayBetweenSamples Delay between consecutive samples.
+	 * @param maxStackTraceDepth  Maximum depth of the stack trace. 0 indicates
+	 *                            no maximum and keeps the complete stack trace.
+	 * @return A future of the completed stack trace sample
+	 */
+	@SuppressWarnings("unchecked")
+	public CompletableFuture<StackTraceSample> triggerStackTraceSample(
+		//TODO: wrap in some logic?
+		List<Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>>> executionsWithGateways,
+		int numSamples,
+		Time delayBetweenSamples,
+		int maxStackTraceDepth) {
+
+		checkNotNull(executionsWithGateways, "Tasks to sample");
+		checkArgument(executionsWithGateways.size() > 0, "No tasks to sample");
+		checkArgument(numSamples >= 1, "No number of samples");
+		checkArgument(maxStackTraceDepth >= 0, "Negative maximum stack trace depth");
+
+		// Execution IDs of running tasks
+		List<ExecutionAttemptID> triggerIds = new ArrayList<>();
+
+		//TODO: think if is necessary for an ArchivedExecution
+		//Check that all tasks are RUNNING before triggering anything. The
+		//triggering can still fail.
+		for (Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>> executionsWithGateway : executionsWithGateways) {
+			AccessExecution execution = executionsWithGateway.f0.getCurrentExecutionAttempt();
+			if (execution != null && execution.getState() == ExecutionState.RUNNING) {
+				triggerIds.add(execution.getAttemptId());
+			} else {
+				return FutureUtils.completedExceptionally(new IllegalStateException("Task " + executionsWithGateway.f0
+					.getTaskNameWithSubtaskIndex() + " is not running."));
+			}
+		}
+
+		synchronized (lock) {
+			if (isShutDown) {
+				return FutureUtils.completedExceptionally(new IllegalStateException("Shut down"));
+			}
+
+			final int sampleId = sampleIdCounter++;
+
+			LOG.debug("Triggering stack trace sample {}", sampleId);
+
+			final PendingStackTraceSample pending = new PendingStackTraceSample(
+				sampleId, triggerIds);
+
+			// Discard the sample if it takes too long. We don't send cancel
+			// messages to the task managers, but only wait for the responses
+			// and then ignore them.
+			long expectedDuration = numSamples * delayBetweenSamples.toMilliseconds();
+			Time timeout = Time.milliseconds(expectedDuration + sampleTimeout);
+
+			// Add the pending sample before scheduling the discard task to
+			// prevent races with removing it again.
+			pendingSamples.put(sampleId, pending);
+
+			// Trigger all samples
+			for (Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>> executionsWithGateway : executionsWithGateways) {
+
+				CompletableFuture<TaskExecutorGateway> executorGateway = executionsWithGateway.f1;
+				ExecutionAttemptID bla = executionsWithGateway.f0.getCurrentExecutionAttempt().getAttemptId();
+
+
+
+
 
 				stackTraceSampleFuture.handleAsync(
 					(StackTraceSampleResponse stackTraceSampleResponse, Throwable throwable) -> {
@@ -312,12 +397,12 @@ public class StackTraceSampleCoordinator {
 
 		PendingStackTraceSample(
 				int sampleId,
-				ExecutionAttemptID[] tasksToCollect) {
+				List<ExecutionAttemptID> tasksToCollect) {
 
 			this.sampleId = sampleId;
 			this.startTime = System.currentTimeMillis();
-			this.pendingTasks = new HashSet<>(Arrays.asList(tasksToCollect));
-			this.stackTracesByTask = Maps.newHashMapWithExpectedSize(tasksToCollect.length);
+			this.pendingTasks = new HashSet<>(tasksToCollect);
+			this.stackTracesByTask = Maps.newHashMapWithExpectedSize(tasksToCollect.size());
 			this.stackTraceFuture = new CompletableFuture<>();
 		}
 

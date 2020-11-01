@@ -20,68 +20,34 @@ package org.apache.flink.runtime.rest.handler.job;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.rest.handler.AbstractRestHandler;
 import org.apache.flink.runtime.rest.handler.HandlerRequest;
 import org.apache.flink.runtime.rest.handler.RestHandlerException;
-import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.StackTraceOperatorTracker;
-import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
-import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
-import org.apache.flink.runtime.rest.messages.JobIDPathParameter;
-import org.apache.flink.runtime.rest.messages.JobVertexFlameGraphInfo;
-import org.apache.flink.runtime.rest.messages.JobVertexIdPathParameter;
-import org.apache.flink.runtime.rest.messages.JobVertexMessageParameters;
-import org.apache.flink.runtime.rest.messages.MessageHeaders;
-import org.apache.flink.runtime.rest.messages.job.metrics.JobVertexWatermarksHeaders;
+import org.apache.flink.runtime.rest.messages.*;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 
 import javax.annotation.Nonnull;
-
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 /**
  * Request handler for the job vertex back pressure.
  */
-public class JobVertexFlameGraphHandler extends AbstractJobVertexHandler<JobVertexFlameGraphInfo, JobVertexMessageParameters> {
-
-	private final StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker;
+public class JobVertexFlameGraphHandler_Backup extends AbstractRestHandler<RestfulGateway, EmptyRequestBody, JobVertexFlameGraphInfo, JobVertexMessageParameters> {
 
 	private static JobVertexFlameGraphInfo createJobVertexFlameGraphInfo(OperatorFlameGraph flameGraph) {
 		return new JobVertexFlameGraphInfo(flameGraph.getEndTimestamp(), flameGraph.getRoot());
 	}
 
-	public JobVertexFlameGraphHandler(
+	public JobVertexFlameGraphHandler_Backup(
 		GatewayRetriever<? extends RestfulGateway> leaderRetriever,
 		Time timeout,
 		Map<String, String> responseHeaders,
-		MessageHeaders<EmptyRequestBody, JobVertexFlameGraphInfo, JobVertexMessageParameters> messageHeaders,
-		ExecutionGraphCache executionGraphCache,
-		Executor executor,
-		StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker
-	) {
-		super(leaderRetriever,
-			timeout,
-			responseHeaders,
-			messageHeaders,
-			executionGraphCache,
-			executor);
-		this.flameGraphStatsTracker = flameGraphStatsTracker;
-	}
-
-	@Override
-	protected JobVertexFlameGraphInfo handleRequest(
-		HandlerRequest<EmptyRequestBody, JobVertexMessageParameters> request,
-		AccessExecutionJobVertex jobVertex) throws RestHandlerException {
-
-		return flameGraphStatsTracker.getOperatorStats(jobVertex)
-			.map(JobVertexFlameGraphHandler::createJobVertexFlameGraphInfo)
-			.orElse(JobVertexFlameGraphInfo.empty());
+		MessageHeaders<EmptyRequestBody, JobVertexFlameGraphInfo, JobVertexMessageParameters> messageHeaders) {
+		super(leaderRetriever, timeout, responseHeaders, messageHeaders);
 	}
 
 	@Override
@@ -94,7 +60,7 @@ public class JobVertexFlameGraphHandler extends AbstractJobVertexHandler<JobVert
 			.requestOperatorFlameGraph(jobId, jobVertexId)
 			.thenApply(
 				flameGraphStats -> flameGraphStats.getOperatorFlameGraph()
-					.map(JobVertexFlameGraphHandler::createJobVertexFlameGraphInfo)
+					.map(JobVertexFlameGraphHandler_Backup::createJobVertexFlameGraphInfo)
 					.orElse(JobVertexFlameGraphInfo.empty()));
 	}
 }

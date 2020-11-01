@@ -17,13 +17,19 @@
  */
 package org.apache.flink.runtime.executiongraph;
 
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.accumulators.StringifiedAccumulatorResult;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
+import org.apache.flink.runtime.jobmaster.LogicalSlot;
+import org.apache.flink.runtime.messages.StackTraceSampleResponse;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.Serializable;
+import java.util.concurrent.CompletableFuture;
 
 public class ArchivedExecution implements AccessExecution, Serializable {
 	private static final long serialVersionUID = 4817108757483345173L;
@@ -139,4 +145,43 @@ public class ArchivedExecution implements AccessExecution, Serializable {
 	public IOMetrics getIOMetrics() {
 		return ioMetrics;
 	}
+
+
+	//TODO: remove this method
+	/**
+	 * Request a stack trace sample from the task of this execution.
+	 *
+	 * @param sampleId of the stack trace sample
+	 * @param numSamples the sample should contain
+	 * @param delayBetweenSamples to wait
+	 * @param maxStackTraceDepth of the samples
+	 * @param timeout until the request times out
+	 * @return Future stack trace sample response
+	 */
+	public CompletableFuture<StackTraceSampleResponse> requestStackTraceSample(
+		int sampleId,
+		int numSamples,
+		Time delayBetweenSamples,
+		int maxStackTraceDepth,
+		Time timeout) {
+
+
+		final LogicalSlot slot = assignedResource;
+		assignedResourceLocation.getResourceID();
+
+		if (slot != null) {
+			final TaskManagerGateway taskManagerGateway = slot.getTaskManagerGateway();
+
+			return taskManagerGateway.requestStackTraceSample(
+				attemptId,
+				sampleId,
+				numSamples,
+				delayBetweenSamples,
+				maxStackTraceDepth,
+				timeout);
+		} else {
+			return FutureUtils.completedExceptionally(new Exception("The execution has no slot assigned."));
+		}
+	}
+
 }

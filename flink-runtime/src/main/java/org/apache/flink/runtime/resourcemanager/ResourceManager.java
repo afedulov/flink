@@ -683,6 +683,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	}
 
+	@Override
+	public CompletableFuture<TaskExecutorGateway> getTaskExecutorGateway(ResourceID resourceID) {
+		return taskExecutorGatewayFutures.get(resourceID);
+	}
+
 	// ------------------------------------------------------------------------
 	//  Internal methods
 	// ------------------------------------------------------------------------
