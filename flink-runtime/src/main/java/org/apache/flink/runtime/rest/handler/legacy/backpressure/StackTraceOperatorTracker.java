@@ -309,17 +309,16 @@ public class StackTraceOperatorTracker<T extends Stats> implements OperatorStats
 					LOG.debug("Triggering stack trace sample for tasks: " + Arrays.toString(vertex.getTaskVertices()));
 				}
 
-				AccessExecutionVertex[] execuctionVertices = vertex.getTaskVertices();
+				AccessExecutionVertex[] executionVertices = vertex.getTaskVertices();
 				List<Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>>> executionsWithGateways = new ArrayList<>();
-				for (AccessExecutionVertex executionVertex : execuctionVertices) {
+				for (AccessExecutionVertex executionVertex : executionVertices) {
 					TaskManagerLocation tmLocation = executionVertex.getCurrentAssignedResourceLocation();
 					CompletableFuture<TaskExecutorGateway> taskExecutorGatewayFuture =
 						getResourceManagerGateway().getTaskExecutorGateway(tmLocation.getResourceID());
 
-					taskExecutorGatewayFuture.handle((gateway, throwable) -> {
-						return FutureUtils.completedExceptionally(new IllegalStateException("Task " + executionsWithGateway.f0
-							.getTaskNameWithSubtaskIndex() + " is not running."));
-						});
+					//TODO: where to handle gateway failures?
+//					taskExecutorGatewayFuture.handleAsync((gateway, throwable) ->
+//						FutureUtils.completedExceptionally(new IllegalStateException("Cannot resolve ")));
 
 					executionsWithGateways.add(new Tuple2<>(executionVertex, taskExecutorGatewayFuture));
 				}

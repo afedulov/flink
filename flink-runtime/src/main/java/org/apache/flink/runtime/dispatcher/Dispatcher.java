@@ -604,7 +604,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		Time timeout = AkkaUtils.getTimeoutAsTime(configuration);
 		CompletableFuture<ArchivedExecutionGraph> jobGraphFuture = requestJob(jobId, timeout);
 
-		CompletableFuture<ArchivedExecutionJobVertex> vertexFuture = jobGraphFuture.thenCompose((ArchivedExecutionGraph jobGraph) -> CompletableFuture.completedFuture(jobGraph.getJobVertex(jobVertexId)));
+		CompletableFuture<ArchivedExecutionJobVertex> vertexFuture = jobGraphFuture.thenCompose(
+			(ArchivedExecutionGraph jobGraph) -> CompletableFuture.completedFuture(jobGraph.getJobVertex(jobVertexId)));
 		vertexFuture.thenCompose()
 
 		flameGraphStatsTracker.getOperatorStats()
