@@ -245,14 +245,16 @@ public class StackTraceSampleCoordinator {
 				ExecutionAttemptID attemptId = executionsWithGateway.f0.getCurrentExecutionAttempt().getAttemptId();
 
 				CompletableFuture<StackTraceSampleResponse> stackTraceFuture = executorGatewayFuture.thenCompose(
-					executorGateway -> executorGateway.requestStackTraceSample(
-						attemptId,
-						sampleId,
-						numSamples,
-						delayBetweenSamples,
-						maxStackTraceDepth,
-						timeout)
-				);
+					executorGateway -> {
+						System.out.println(">> executorGateway: " + executorGateway);
+						return executorGateway.requestStackTraceSample(
+							attemptId,
+							sampleId,
+							numSamples,
+							delayBetweenSamples,
+							maxStackTraceDepth,
+							timeout);
+					} );
 
 				stackTraceFuture.handleAsync(
 					(StackTraceSampleResponse stackTraceSampleResponse, Throwable throwable) -> {

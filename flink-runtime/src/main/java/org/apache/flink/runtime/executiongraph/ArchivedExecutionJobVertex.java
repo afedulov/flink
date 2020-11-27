@@ -23,6 +23,7 @@ import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import static org.apache.flink.runtime.executiongraph.ExecutionJobVertex.getAggregateJobVertexState;
 
@@ -128,4 +129,16 @@ public class ArchivedExecutionJobVertex implements AccessExecutionJobVertex, Ser
 		return archivedUserAccumulators;
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		ArchivedExecutionJobVertex that = (ArchivedExecutionJobVertex) o;
+		return Objects.equals(id, that.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return id.hashCode();
+	}
 }

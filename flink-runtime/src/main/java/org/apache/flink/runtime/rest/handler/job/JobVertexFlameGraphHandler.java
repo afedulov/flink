@@ -42,6 +42,7 @@ import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import javax.annotation.Nonnull;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -79,22 +80,25 @@ public class JobVertexFlameGraphHandler extends AbstractJobVertexHandler<JobVert
 		HandlerRequest<EmptyRequestBody, JobVertexMessageParameters> request,
 		AccessExecutionJobVertex jobVertex) throws RestHandlerException {
 
-		return flameGraphStatsTracker.getOperatorStats(jobVertex)
+
+		Optional<OperatorFlameGraph> operatorStats = flameGraphStatsTracker.getOperatorStats(jobVertex);
+
+		return operatorStats
 			.map(JobVertexFlameGraphHandler::createJobVertexFlameGraphInfo)
 			.orElse(JobVertexFlameGraphInfo.empty());
 	}
 
-	@Override
-	protected CompletableFuture<JobVertexFlameGraphInfo> handleRequest(
-			@Nonnull HandlerRequest<EmptyRequestBody, JobVertexMessageParameters> request,
-			@Nonnull RestfulGateway gateway) throws RestHandlerException {
-		final JobID jobId = request.getPathParameter(JobIDPathParameter.class);
-		final JobVertexID jobVertexId = request.getPathParameter(JobVertexIdPathParameter.class);
-		return gateway
-			.requestOperatorFlameGraph(jobId, jobVertexId)
-			.thenApply(
-				flameGraphStats -> flameGraphStats.getOperatorFlameGraph()
-					.map(JobVertexFlameGraphHandler::createJobVertexFlameGraphInfo)
-					.orElse(JobVertexFlameGraphInfo.empty()));
-	}
+//	@Override
+//	protected CompletableFuture<JobVertexFlameGraphInfo> handleRequest(
+//			@Nonnull HandlerRequest<EmptyRequestBody, JobVertexMessageParameters> request,
+//			@Nonnull RestfulGateway gateway) throws RestHandlerException {
+//		final JobID jobId = request.getPathParameter(JobIDPathParameter.class);
+//		final JobVertexID jobVertexId = request.getPathParameter(JobVertexIdPathParameter.class);
+//		return gateway
+//			.requestOperatorFlameGraph(jobId, jobVertexId)
+//			.thenApply(
+//				flameGraphStats -> flameGraphStats.getOperatorFlameGraph()
+//					.map(JobVertexFlameGraphHandler::createJobVertexFlameGraphInfo)
+//					.orElse(JobVertexFlameGraphInfo.empty()));
+//	}
 }

@@ -192,6 +192,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		// setup flame graph tracker
 		// @todo config -> currently reusing backpressure settings
 
+		/*
 		final ScheduledExecutorService futureExecutor = Executors.newScheduledThreadPool(
 			Hardware.getNumberCPUCores(),
 			new ExecutorThreadFactory("jobmanager-future"));
@@ -222,6 +223,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			TimeUnit.MILLISECONDS);
 
 		return flameGraphStatsTracker;
+
+		 */
+		return null;
 	}
 
 	//------------------------------------------------------
@@ -601,6 +605,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		//TODO: which timeout to use?
 //		final Time timeout = Time.milliseconds(configuration.get(ClientOptions.CLIENT_TIMEOUT).toMillis());
+
+		/*
 		Time timeout = AkkaUtils.getTimeoutAsTime(configuration);
 		CompletableFuture<ArchivedExecutionGraph> jobGraphFuture = requestJob(jobId, timeout);
 
@@ -608,7 +614,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			(ArchivedExecutionGraph jobGraph) -> CompletableFuture.completedFuture(jobGraph.getJobVertex(jobVertexId)));
 		vertexFuture.thenCompose()
 
-		flameGraphStatsTracker.getOperatorStats()
+		flameGraphStatsTracker.getOperatorStats() */
+
+		return null;
 	}
 
 	public String test(){
@@ -616,11 +624,15 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	}
 
 	private <T extends Stats> Optional<T> getOperatorStatsFromTracker(JobVertexID jobVertexId, OperatorStatsTracker<T> tracker) throws FlinkException {
+		/*
 		final ExecutionJobVertex jobVertex = executionGraph.getJobVertex(jobVertexId);
 		if (jobVertex == null) {
 			throw new FlinkException("JobVertexID not found " + jobVertexId);
 		}
 		return tracker.getOperatorStats(jobVertex);
+
+		 */
+		return null;
 	}
 
 

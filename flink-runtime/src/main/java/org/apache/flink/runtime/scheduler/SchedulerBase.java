@@ -209,7 +209,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.log = checkNotNull(log);
 		this.jobGraph = checkNotNull(jobGraph);
 		this.backPressureStatsTracker = checkNotNull(backPressureStatsTracker);
-		this.flameGraphStatsTracker = checkNotNull(flameGraphStatsTracker);
+//		this.flameGraphStatsTracker = checkNotNull(flameGraphStatsTracker);
+		this.flameGraphStatsTracker = null;
 		this.ioExecutor = checkNotNull(ioExecutor);
 		this.jobMasterConfiguration = checkNotNull(jobMasterConfiguration);
 		this.slotProvider = checkNotNull(slotProvider);

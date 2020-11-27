@@ -202,7 +202,9 @@ public class JobManagerSharedServices {
 		final int flameGraphCleanUpInterval = config.getInteger(WebOptions.BACKPRESSURE_CLEANUP_INTERVAL);
 		final StackTraceSampleCoordinator stackTraceSampleCoordinator =
 			new StackTraceSampleCoordinator(futureExecutor, akkaTimeout.toMillis());
-		final StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker =
+		final StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker = null;
+
+		/*
 			StackTraceOperatorTracker.newBuilder(OperatorFlameGraphFactory::createStatsFromSample)
 				.setCoordinator(stackTraceSampleCoordinator)
 				.setCleanUpInterval(flameGraphCleanUpInterval)
@@ -216,7 +218,7 @@ public class JobManagerSharedServices {
 			flameGraphCleanUpInterval,
 			flameGraphCleanUpInterval,
 			TimeUnit.MILLISECONDS);
-
+		*/
 		return new JobManagerSharedServices(
 			futureExecutor,
 			libraryCacheManager,

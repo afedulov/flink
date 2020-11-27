@@ -306,7 +306,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			});
 
 		this.backPressureStatsTracker = checkNotNull(jobManagerSharedServices.getBackPressureStatsTracker());
-		this.flameGraphStatsTracker = checkNotNull(jobManagerSharedServices.getFlameGraphStatsTracker());
+//		this.flameGraphStatsTracker = checkNotNull(jobManagerSharedServices.getFlameGraphStatsTracker());
+		this.flameGraphStatsTracker = null;
 
 		this.shuffleMaster = checkNotNull(shuffleMaster);
 

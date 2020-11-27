@@ -684,9 +684,17 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	@Override
-	public CompletableFuture<TaskExecutorGateway> getTaskExecutorGateway(ResourceID resourceID) {
-		return taskExecutorGatewayFutures.get(resourceID);
+	public CompletableFuture<TaskExecutorGateway> requestTaskExecutorGateway(ResourceID resourceId) {
+
+		final WorkerRegistration<WorkerType> taskExecutor = taskExecutors.get(resourceId);
+
+		if (taskExecutor == null) {
+			return FutureUtils.completedExceptionally(new UnknownTaskExecutorException(resourceId));
+		} else {
+			return CompletableFuture.completedFuture(taskExecutor.getTaskExecutorGateway());
+		}
 	}
+
 
 	// ------------------------------------------------------------------------
 	//  Internal methods

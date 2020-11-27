@@ -165,7 +165,7 @@ public class ArchivedExecution implements AccessExecution, Serializable {
 		int maxStackTraceDepth,
 		Time timeout) {
 
-
+	/*
 		final LogicalSlot slot = assignedResource;
 		assignedResourceLocation.getResourceID();
 
@@ -182,6 +182,8 @@ public class ArchivedExecution implements AccessExecution, Serializable {
 		} else {
 			return FutureUtils.completedExceptionally(new Exception("The execution has no slot assigned."));
 		}
+		*/
+		return null;
 	}
 
 }

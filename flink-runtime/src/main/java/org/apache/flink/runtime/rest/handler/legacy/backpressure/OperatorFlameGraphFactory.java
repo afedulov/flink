@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.rest.handler.legacy.backpressure;
 
-import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
+import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,7 +32,7 @@ import java.util.Map;
 public class OperatorFlameGraphFactory {
 
 	public static OperatorFlameGraph createStatsFromSample(
-		ExecutionJobVertex vertex, StackTraceSample sample) {
+		AccessExecutionJobVertex vertex, StackTraceSample sample) {
 		final NodeBuilder root = new NodeBuilder("root");
 		for (List<StackTraceElement[]> executions : sample.getStackTraces().values()) {
 			for (StackTraceElement[] traces : executions) {

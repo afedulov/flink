@@ -247,5 +247,5 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	CompletableFuture<ThreadDumpInfo> requestThreadDump(ResourceID taskManagerId, @RpcTimeout Time timeout);
 
 	//TODO: add comment
-	CompletableFuture<TaskExecutorGateway> getTaskExecutorGateway(ResourceID resourceID);
+	CompletableFuture<TaskExecutorGateway> requestTaskExecutorGateway(ResourceID resourceId);
 }
