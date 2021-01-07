@@ -28,6 +28,7 @@ import org.apache.flink.runtime.executiongraph.PartitionInfo;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.messages.StackTraceSampleResponse;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.rpc.RpcTimeout;
@@ -61,6 +62,25 @@ public interface TaskManagerGateway extends TaskExecutorOperatorEventGateway {
 		ExecutionAttemptID executionAttemptID,
 		int requestId,
 		Time timeout);
+
+	/**
+	 * Request a stack trace sample from the given task.
+	 *
+	 * @param executionAttemptID identifying the task to sample
+	 * @param sampleId of the sample
+	 * @param numSamples to take from the given task
+	 * @param delayBetweenSamples to wait for
+	 * @param maxStackTraceDepth of the returned sample
+	 * @param timeout of the request
+	 * @return Future of stack trace sample response
+	 */
+	CompletableFuture<StackTraceSampleResponse> requestStackTraceSample(
+		final ExecutionAttemptID executionAttemptID,
+		final int sampleId,
+		final int numSamples,
+		final Time delayBetweenSamples,
+		final int maxStackTraceDepth,
+		final Time timeout);
 
 	/**
 	 * Submit a task to the task manager.
