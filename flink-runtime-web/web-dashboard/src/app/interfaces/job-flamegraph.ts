@@ -16,9 +16,13 @@
  * limitations under the License.
  */
 
-@import "../../node_modules/d3-flame-graph/dist/d3-flamegraph.css";
-@import "../../node_modules/ng-zorro-antd/ng-zorro-antd.less";
-@import "./base";
-@import "./global";
-@import "./theme";
-@import "./rewrite";
+export interface JobFlameGraphInterface {
+  'end-timestamp': number;
+  data: JobFlameGraphNodeInterface;
+}
+
+export interface JobFlameGraphNodeInterface {
+  name: string;
+  value: number;
+  children: JobFlameGraphNodeInterface[];
+}
