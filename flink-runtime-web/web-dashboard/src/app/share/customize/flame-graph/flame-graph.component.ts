@@ -16,47 +16,26 @@
  * limitations under the License.
  */
 
-@import "theme";
+import { Component, ChangeDetectionStrategy, ElementRef, Input, ViewChild } from '@angular/core';
+import { JobFlameGraphNodeInterface } from 'interfaces';
+import { select } from 'd3-selection';
+import { flamegraph} from 'd3-flame-graph';
 
-.container {
-  width: 100%;
-  overflow: hidden;
-  height: 500px;
-  position: relative;
-  border-bottom: solid 1px @border-color-split;
-}
+@Component({
+  selector: 'flink-flame-graph',
+  templateUrl: './flame-graph.component.html',
+  styleUrls: [],
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class FlameGraphComponent {
 
-nz-radio-group {
-  position: absolute;
-  right: 24px;
-  z-index: 1;
-  top: 15px;
-  opacity: .7;
-  transition: opacity ease-in .28s;
-  &:hover {
-    opacity: 1;
+  @ViewChild('flameGraphContainer') flameGraphContainer: ElementRef<Element>;
+  @Input() data: JobFlameGraphNodeInterface;
+
+  draw() {
+    if (this.data) {
+      const element = this.flameGraphContainer.nativeElement;
+      select(element).datum(this.data).call(flamegraph().width(element.clientWidth));
+    }
   }
 }
-
-flink-dagre {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  left: 0;
-}
-
-flink-job-overview-drawer {
-  width: 60%;
-  height: 100%;
-  position: absolute;
-  right: 0;
-  background: #ffffff;
-  border-left: solid 1px @border-color-split;
-}
-
-:host {
-  height: 100%;
-  display: block;
-  position: relative;
-}
-
