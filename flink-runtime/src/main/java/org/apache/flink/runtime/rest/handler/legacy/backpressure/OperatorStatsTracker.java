@@ -35,9 +35,8 @@ public interface OperatorStatsTracker<T extends Stats> {
 	 *
 	 * @param vertex Operator to get the stats for.
 	 * @return Statistics for an operator
-	 * @throws FlinkException if the {@link OperatorStatsTracker} could not be shut down
 	 */
-	Optional<T> getOperatorStats(AccessExecutionJobVertex vertex) throws FlinkException;
+	Optional<T> getOperatorStats(AccessExecutionJobVertex vertex);
 
 	/**
 	 * Cleans up the operator stats cache if it contains timed out entries.

@@ -24,20 +24,15 @@ import org.apache.flink.runtime.rest.handler.HandlerRequest;
 import org.apache.flink.runtime.rest.handler.RestHandlerException;
 import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraph;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorFlameGraphFactory;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.ThreadInfoOperatorTracker;
-import org.apache.flink.runtime.rest.handler.legacy.backpressure.ThreadInfoSample;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.StackTraceOperatorTracker;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
-import org.apache.flink.runtime.rest.messages.FlameGraphTypeQueryParameter;
 import org.apache.flink.runtime.rest.messages.JobVertexFlameGraphInfo;
 import org.apache.flink.runtime.rest.messages.JobVertexMessageParameters;
 import org.apache.flink.runtime.rest.messages.MessageHeaders;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
-import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -45,22 +40,22 @@ import java.util.concurrent.Executor;
 /**
  * Request handler for the job vertex Flame Graph.
  */
-public class JobVertexFlameGraphHandler extends AbstractJobVertexHandler<JobVertexFlameGraphInfo, JobVertexMessageParameters> {
+public class JobVertexFlameGraphLegacyHandler extends AbstractJobVertexHandler<JobVertexFlameGraphInfo, JobVertexMessageParameters> {
 
-	private final ThreadInfoOperatorTracker<ThreadInfoSample> threadInfoOperatorTracker;
+	private final StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker;
 
 	private static JobVertexFlameGraphInfo createJobVertexFlameGraphInfo(OperatorFlameGraph flameGraph) {
 		return new JobVertexFlameGraphInfo(flameGraph.getEndTime(), flameGraph.getRoot());
 	}
 
-	public JobVertexFlameGraphHandler(
+	public JobVertexFlameGraphLegacyHandler(
 		GatewayRetriever<? extends RestfulGateway> leaderRetriever,
 		Time timeout,
 		Map<String, String> responseHeaders,
 		MessageHeaders<EmptyRequestBody, JobVertexFlameGraphInfo, JobVertexMessageParameters> messageHeaders,
 		ExecutionGraphCache executionGraphCache,
 		Executor executor,
-		ThreadInfoOperatorTracker<ThreadInfoSample> threadInfoOperatorTracker
+		StackTraceOperatorTracker<OperatorFlameGraph> flameGraphStatsTracker
 	) {
 		super(leaderRetriever,
 			timeout,
@@ -68,7 +63,7 @@ public class JobVertexFlameGraphHandler extends AbstractJobVertexHandler<JobVert
 			messageHeaders,
 			executionGraphCache,
 			executor);
-		this.threadInfoOperatorTracker = threadInfoOperatorTracker;
+		this.flameGraphStatsTracker = flameGraphStatsTracker;
 	}
 
 	@Override
@@ -76,36 +71,18 @@ public class JobVertexFlameGraphHandler extends AbstractJobVertexHandler<JobVert
 		@Nonnull HandlerRequest<EmptyRequestBody, JobVertexMessageParameters> request,
 		@Nonnull AccessExecutionJobVertex jobVertex) throws RestHandlerException {
 
-		final Optional<ThreadInfoSample> threadInfoSample = threadInfoOperatorTracker.getOperatorStats(jobVertex);
-//		threadInfoSample.ifPresent(System.out::println);
+		Optional<OperatorFlameGraph> operatorStats;
 
-		final List<FlameGraphTypeQueryParameter.Type> flameGraphTypeParameter = request.getQueryParameter(FlameGraphTypeQueryParameter.class);
-		final FlameGraphTypeQueryParameter.Type flameGraphType;
 
-		if(flameGraphTypeParameter.isEmpty()){
-			flameGraphType = FlameGraphTypeQueryParameter.Type.FULL;
-		} else {
-			flameGraphType = flameGraphTypeParameter.get(0);
-		}
+//		try {
+			operatorStats = flameGraphStatsTracker.getOperatorStats(jobVertex);
+			operatorStats.ifPresent(System.out::println);
+//		} catch (FlinkException e) {
+//			throw new RestHandlerException(e.getMessage(), HttpResponseStatus.NOT_FOUND, e);
+//		}
 
-		final Optional<OperatorFlameGraph> operatorFlameGraph;
-
-		switch(flameGraphType){
-			case FULL:
-				operatorFlameGraph = threadInfoSample.map(OperatorFlameGraphFactory::createFullFlameGraphFrom);
-				break;
-			case ON_CPU:
-				operatorFlameGraph = threadInfoSample.map(OperatorFlameGraphFactory::createOnCpuFlameGraph);
-				break;
-			case OFF_CPU:
-				operatorFlameGraph = threadInfoSample.map(OperatorFlameGraphFactory::createOffCpuFlameGraph);
-				break;
-			default:
-				throw new RestHandlerException("Unknown Flame Graph type " + flameGraphType + '.', HttpResponseStatus.BAD_REQUEST);
-		}
-
-		return operatorFlameGraph
-			.map(JobVertexFlameGraphHandler::createJobVertexFlameGraphInfo)
+		return operatorStats
+			.map(JobVertexFlameGraphLegacyHandler::createJobVertexFlameGraphInfo)
 			.orElse(JobVertexFlameGraphInfo.empty());
 	}
 

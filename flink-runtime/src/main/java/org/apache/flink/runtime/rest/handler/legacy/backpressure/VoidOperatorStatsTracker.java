@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.rest.handler.legacy.backpressure;
 
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
-import org.apache.flink.util.FlinkException;
 
 import java.util.Optional;
 
@@ -44,7 +43,7 @@ public class VoidOperatorStatsTracker<T extends Stats> implements OperatorStatsT
 	private VoidOperatorStatsTracker() {}
 
 	@Override
-	public Optional<T> getOperatorStats(AccessExecutionJobVertex vertex) throws FlinkException {
+	public Optional<T> getOperatorStats(AccessExecutionJobVertex vertex) {
 		return Optional.empty();
 	}
 

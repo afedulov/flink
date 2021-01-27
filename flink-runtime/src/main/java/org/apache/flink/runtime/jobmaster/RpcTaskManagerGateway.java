@@ -77,7 +77,7 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
 		int maxStackTraceDepth,
 		Time timeout) {
 
-		return taskExecutorGateway.requestStackTraceSample(
+		return taskExecutorGateway.requestStackTraceSamples(
 			executionAttemptID,
 			sampleId,
 			numSamples,

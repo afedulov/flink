@@ -16,24 +16,33 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.rest.handler.legacy.backpressure;
+package org.apache.flink.runtime.webmonitor.stacktraces;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
-import org.apache.flink.runtime.executiongraph.*;
-import org.apache.flink.runtime.messages.StackTraceSampleResponse;
+import org.apache.flink.runtime.executiongraph.AccessExecution;
+import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.messages.TaskThreadInfoSampleResponse;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.StackTraceSample;
+import org.apache.flink.runtime.rest.handler.legacy.backpressure.ThreadInfoSample;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
-import org.apache.flink.util.Preconditions;
-
 import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
-
+import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.lang.management.ThreadInfo;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -43,9 +52,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * A coordinator for triggering and collecting stack traces of running tasks.
  */
-public class StackTraceSampleCoordinator {
+public class ThreadInfoSampleCoordinator {
 
-	private static final Logger LOG = LoggerFactory.getLogger(StackTraceSampleCoordinator.class);
+	private static final Logger LOG = LoggerFactory.getLogger(ThreadInfoSampleCoordinator.class);
 
 	private static final int NUM_GHOST_SAMPLE_IDS = 10;
 
@@ -81,23 +90,24 @@ public class StackTraceSampleCoordinator {
 	 *                      sample, which is determined by the number of
 	 *                      samples and the delay between each sample.
 	 */
-	public StackTraceSampleCoordinator(Executor executor, long sampleTimeout) {
+	public ThreadInfoSampleCoordinator(Executor executor, long sampleTimeout) {
 		checkArgument(sampleTimeout >= 0L);
 		this.executor = Preconditions.checkNotNull(executor);
 		this.sampleTimeout = sampleTimeout;
 	}
 
+
 	/**
 	 * Triggers a stack trace sample to all tasks.
 	 *
-	 * @param executionsWithGateways	execution vertices along with their associated task executor gateways.
-	 * @param numSamples          		Number of stack trace samples to collect.
-	 * @param delayBetweenSamples 		Delay between consecutive samples.
-	 * @param maxStackTraceDepth  		Maximum depth of the stack trace. 0 indicates
-	 *                            		no maximum and keeps the complete stack trace.
+	 * @param executionsWithGateways       //TODO
+	 * @param numSamples          Number of stack trace samples to collect.
+	 * @param delayBetweenSamples Delay between consecutive samples.
+	 * @param maxStackTraceDepth  Maximum depth of the stack trace. 0 indicates
+	 *                            no maximum and keeps the complete stack trace.
 	 * @return A future of the completed stack trace sample
 	 */
-	public CompletableFuture<StackTraceSample> triggerStackTraceSample(
+	public CompletableFuture<ThreadInfoSample> triggerThreadInfoSample(
 		List<Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>>> executionsWithGateways,
 		int numSamples,
 		Time delayBetweenSamples,
@@ -152,8 +162,8 @@ public class StackTraceSampleCoordinator {
 				CompletableFuture<TaskExecutorGateway> executorGatewayFuture = executionWithGateway.f1;
 				ExecutionAttemptID attemptId = executionWithGateway.f0.getCurrentExecutionAttempt().getAttemptId();
 
-				CompletableFuture<StackTraceSampleResponse> stackTraceFuture = executorGatewayFuture.thenCompose(
-					executorGateway -> executorGateway.requestStackTraceSamples(
+				CompletableFuture<TaskThreadInfoSampleResponse> threadInfo = executorGatewayFuture.thenCompose(
+					executorGateway -> executorGateway.requestThreadInfoSamples(
 						attemptId,
 						sampleId,
 						numSamples,
@@ -161,13 +171,13 @@ public class StackTraceSampleCoordinator {
 						maxStackTraceDepth,
 						timeout));
 
-				stackTraceFuture.handleAsync(
-					(StackTraceSampleResponse stackTraceSamplesResponse, Throwable throwable) -> {
-						if (stackTraceSamplesResponse != null) {
+				threadInfo.handleAsync(
+					(TaskThreadInfoSampleResponse threadInfoSamplesResponse, Throwable throwable) -> {
+						if (threadInfoSamplesResponse != null) {
 							collectStackTraces(
-								stackTraceSamplesResponse.getSampleId(),
-								stackTraceSamplesResponse.getExecutionAttemptID(),
-								stackTraceSamplesResponse.getSamples());
+								threadInfoSamplesResponse.getRequestId(),
+								threadInfoSamplesResponse.getExecutionAttemptID(),
+								threadInfoSamplesResponse.getSamples());
 						} else {
 							cancelStackTraceSample(sampleId, throwable);
 						}
@@ -240,7 +250,7 @@ public class StackTraceSampleCoordinator {
 	public void collectStackTraces(
 			int sampleId,
 			ExecutionAttemptID executionId,
-			List<StackTraceElement[]> stackTraces) {
+			List<ThreadInfo> stackTraces) {
 
 		synchronized (lock) {
 			if (isShutDown) {
@@ -302,8 +312,8 @@ public class StackTraceSampleCoordinator {
 		private final int sampleId;
 		private final long startTime;
 		private final Set<ExecutionAttemptID> pendingTasks;
-		private final Map<ExecutionAttemptID, List<StackTraceElement[]>> stackTracesByTask;
-		private final CompletableFuture<StackTraceSample> stackTraceFuture;
+		private final Map<ExecutionAttemptID, List<ThreadInfo>> threadInfoSubSamplesByTask;
+		private final CompletableFuture<ThreadInfoSample> resultFuture;
 
 		private boolean isDiscarded;
 
@@ -314,8 +324,8 @@ public class StackTraceSampleCoordinator {
 			this.sampleId = sampleId;
 			this.startTime = System.currentTimeMillis();
 			this.pendingTasks = new HashSet<>(tasksToCollect);
-			this.stackTracesByTask = Maps.newHashMapWithExpectedSize(tasksToCollect.size());
-			this.stackTraceFuture = new CompletableFuture<>();
+			this.threadInfoSubSamplesByTask = Maps.newHashMapWithExpectedSize(tasksToCollect.size());
+			this.resultFuture = new CompletableFuture<>();
 		}
 
 		int getSampleId() {
@@ -341,21 +351,21 @@ public class StackTraceSampleCoordinator {
 		void discard(Throwable cause) {
 			if (!isDiscarded) {
 				pendingTasks.clear();
-				stackTracesByTask.clear();
+				threadInfoSubSamplesByTask.clear();
 
-				stackTraceFuture.completeExceptionally(new RuntimeException("Discarded", cause));
+				resultFuture.completeExceptionally(new RuntimeException("Discarded", cause));
 
 				isDiscarded = true;
 			}
 		}
 
-		void collectStackTraces(ExecutionAttemptID executionId, List<StackTraceElement[]> stackTraces) {
+		void collectStackTraces(ExecutionAttemptID executionId, List<ThreadInfo> stackTraces) {
 			if (isDiscarded) {
 				throw new IllegalStateException("Discarded");
 			}
 
 			if (pendingTasks.remove(executionId)) {
-				stackTracesByTask.put(executionId, Collections.unmodifiableList(stackTraces));
+				threadInfoSubSamplesByTask.put(executionId, Collections.unmodifiableList(stackTraces));
 			} else if (isComplete()) {
 				throw new IllegalStateException("Completed");
 			} else {
@@ -369,20 +379,20 @@ public class StackTraceSampleCoordinator {
 
 				long endTime = System.currentTimeMillis();
 
-				StackTraceSample stackTraceSample = new StackTraceSample(
+				ThreadInfoSample stackTraceSample = new ThreadInfoSample(
 						sampleId,
 						startTime,
 						endTime,
-						stackTracesByTask);
+					threadInfoSubSamplesByTask);
 
-				stackTraceFuture.complete(stackTraceSample);
+				resultFuture.complete(stackTraceSample);
 			} else {
 				throw new IllegalStateException("Not completed yet");
 			}
 		}
 
-		CompletableFuture<StackTraceSample> getStackTraceSampleFuture() {
-			return stackTraceFuture;
+		CompletableFuture<ThreadInfoSample> getStackTraceSampleFuture() {
+			return resultFuture;
 		}
 	}
 }

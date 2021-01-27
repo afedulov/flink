@@ -38,6 +38,7 @@ import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.StackTraceSampleResponse;
+import org.apache.flink.runtime.messages.TaskThreadInfoSampleResponse;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
@@ -50,6 +51,7 @@ import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.TriConsumer;
 import org.apache.flink.util.function.TriFunction;
 
+import java.lang.management.ThreadInfo;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -139,7 +141,7 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	}
 
 	@Override
-	public CompletableFuture<StackTraceSampleResponse> requestStackTraceSample(
+	public CompletableFuture<StackTraceSampleResponse> requestStackTraceSamples(
 		final ExecutionAttemptID executionAttemptId,
 		final int sampleId,
 		final int numSamples,
@@ -247,6 +249,13 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	public CompletableFuture<ThreadDumpInfo> requestThreadDump(Time timeout) {
 		return requestThreadDumpSupplier.get();
 	}
+
+	@Override
+	public CompletableFuture<TaskThreadInfoSampleResponse> requestThreadInfoSamples(ExecutionAttemptID executionAttemptId, int requestId, int numSamples, Time delayBetweenSamples, int maxStackTraceDepth, Time timeout) {
+		//TODO:
+		return null;
+	}
+
 
 	@Override
 	public String getAddress() {

@@ -10,5 +10,5 @@ public interface Stats {
 	 *
 	 * @return the timestamp of the last sample.
 	 */
-	long getEndTimestamp();
+	long getEndTime();
 }

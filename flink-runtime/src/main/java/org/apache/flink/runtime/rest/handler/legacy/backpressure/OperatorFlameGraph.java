@@ -82,7 +82,7 @@ public class OperatorFlameGraph implements Serializable, Stats {
 		this.root = root;
 	}
 
-	public long getEndTimestamp() {
+	public long getEndTime() {
 		return endTimestamp;
 	}
 
