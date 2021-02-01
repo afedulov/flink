@@ -49,6 +49,7 @@ import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.slots.ResourceRequirements;
 import org.apache.flink.runtime.taskexecutor.FileType;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
+import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorHeartbeatPayload;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.util.Preconditions;
@@ -471,6 +472,13 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
             return FutureUtils.completedExceptionally(
                     new UnknownTaskExecutorException(taskManagerId));
         }
+    }
+
+    @Override
+    public CompletableFuture<TaskExecutorGateway> requestTaskExecutorGateway(
+            ResourceID resourceId) {
+        // TODO:
+        return null;
     }
 
     @Override
