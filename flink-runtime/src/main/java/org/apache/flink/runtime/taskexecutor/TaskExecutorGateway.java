@@ -37,6 +37,7 @@ import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
+import org.apache.flink.runtime.messages.TaskThreadInfoSampleResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.messages.LogInfo;
@@ -273,4 +274,23 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
      * @return the {@link ThreadDumpInfo} for this TaskManager.
      */
     CompletableFuture<ThreadDumpInfo> requestThreadDump(@RpcTimeout Time timeout);
+
+    /**
+     * Request a thread info sample from the given task.
+     *
+     * @param executionAttemptID identifying the task to sample
+     * @param sampleID of the sample
+     * @param numSubSamples to take from the given task
+     * @param delayBetweenSamples to wait for
+     * @param maxStackTraceDepth of the returned sample
+     * @param timeout of the request
+     * @return Future of stack trace sample response
+     */
+    CompletableFuture<TaskThreadInfoSampleResponse> requestThreadInfoSamples(
+            ExecutionAttemptID executionAttemptID,
+            int sampleID,
+            int numSubSamples,
+            Time delayBetweenSamples,
+            int maxStackTraceDepth,
+            Time timeout);
 }
