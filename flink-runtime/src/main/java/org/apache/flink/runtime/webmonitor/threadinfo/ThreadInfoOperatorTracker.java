@@ -29,13 +29,15 @@ import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.runtime.webmonitor.stats.OperatorStatsTracker;
-import org.apache.flink.runtime.webmonitor.stats.Stats;
+import org.apache.flink.runtime.webmonitor.stats.Statistics;
 
 import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
 import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,7 +48,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -57,7 +59,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *
  * @param <T> Type of the derived statistics to return.
  */
-public class ThreadInfoOperatorTracker<T extends Stats> implements OperatorStatsTracker<T> {
+public class ThreadInfoOperatorTracker<T extends Statistics> implements OperatorStatsTracker<T> {
 
     /**
      * Create a new {@link Builder}.
@@ -67,7 +69,7 @@ public class ThreadInfoOperatorTracker<T extends Stats> implements OperatorStats
      * @param <T> Type of the derived statistics to return.
      * @return Builder.
      */
-    public static <T extends Stats> Builder<T> newBuilder(
+    public static <T extends Statistics> Builder<T> newBuilder(
             GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
             Function<OperatorThreadInfoStats, T> createStatsFn,
             ExecutorService executor) {
@@ -79,7 +81,7 @@ public class ThreadInfoOperatorTracker<T extends Stats> implements OperatorStats
      *
      * @param <T> Type of the derived statistics to return.
      */
-    public static class Builder<T extends Stats> {
+    public static class Builder<T extends Statistics> {
 
         private final GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever;
         private final Function<OperatorThreadInfoStats, T> createStatsFn;
@@ -193,6 +195,7 @@ public class ThreadInfoOperatorTracker<T extends Stats> implements OperatorStats
     /** Lock guarding trigger operations. */
     private final Object lock = new Object();
 
+    @GuardedBy("lock")
     private final ThreadInfoRequestCoordinator coordinator;
 
     private final Function<OperatorThreadInfoStats, T> createStatsFn;
@@ -205,12 +208,14 @@ public class ThreadInfoOperatorTracker<T extends Stats> implements OperatorStats
      * Completed stats. Important: Job vertex IDs need to be scoped by job ID, because they are
      * potentially constant across runs messing up the cached data.
      */
+    @GuardedBy("lock")
     private final Cache<AccessExecutionJobVertex, T> operatorStatsCache;
 
     /**
      * Pending in progress stats. Important: Job vertex IDs need to be scoped by job ID, because
      * they are potentially constant across runs messing up the cached data.
      */
+    @GuardedBy("lock")
     private final Set<AccessExecutionJobVertex> pendingStats = new HashSet<>();
 
     private final int numSamples;
@@ -316,7 +321,7 @@ public class ThreadInfoOperatorTracker<T extends Stats> implements OperatorStats
                                             delayBetweenSamples,
                                             maxThreadInfoDepth));
 
-            sample.handleAsync(new ThreadInfoSampleCompletionCallback(vertex), executor);
+            sample.whenCompleteAsync(new ThreadInfoSampleCompletionCallback(vertex), executor);
         }
     }
 
@@ -370,7 +375,7 @@ public class ThreadInfoOperatorTracker<T extends Stats> implements OperatorStats
 
     /** Callback on completed thread info sample. */
     class ThreadInfoSampleCompletionCallback
-            implements BiFunction<OperatorThreadInfoStats, Throwable, Void> {
+            implements BiConsumer<OperatorThreadInfoStats, Throwable> {
 
         private final AccessExecutionJobVertex vertex;
 
@@ -379,11 +384,11 @@ public class ThreadInfoOperatorTracker<T extends Stats> implements OperatorStats
         }
 
         @Override
-        public Void apply(OperatorThreadInfoStats threadInfoStats, Throwable throwable) {
+        public void accept(OperatorThreadInfoStats threadInfoStats, Throwable throwable) {
             synchronized (lock) {
                 try {
                     if (shutDown) {
-                        return null;
+                        return;
                     }
                     if (threadInfoStats != null) {
                         resultAvailableFuture.complete(null);
@@ -396,7 +401,6 @@ public class ThreadInfoOperatorTracker<T extends Stats> implements OperatorStats
                 } finally {
                     pendingStats.remove(vertex);
                 }
-                return null;
             }
         }
     }

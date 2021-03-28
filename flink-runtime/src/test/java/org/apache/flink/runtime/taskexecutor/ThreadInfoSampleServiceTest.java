@@ -150,7 +150,7 @@ public class ThreadInfoSampleServiceTest extends TestLogger {
         fail("Exception expected.");
     }
 
-    private static class TestTask implements ThreadInfoSampleableTask {
+    private static class TestTask implements SampleableTask {
 
         private final ExecutionAttemptID executionAttemptID = new ExecutionAttemptID();
 

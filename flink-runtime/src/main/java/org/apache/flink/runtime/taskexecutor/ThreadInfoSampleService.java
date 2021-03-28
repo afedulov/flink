@@ -51,7 +51,7 @@ class ThreadInfoSampleService {
      * @return A future containing the stack trace samples.
      */
     public CompletableFuture<List<ThreadInfoSample>> requestThreadInfoSamples(
-            final ThreadInfoSampleableTask task, final ThreadInfoSamplesRequest requestParams) {
+            final SampleableTask task, final ThreadInfoSamplesRequest requestParams) {
         checkNotNull(task, "task must not be null");
 
         return requestThreadInfoSamples(
@@ -64,7 +64,7 @@ class ThreadInfoSampleService {
     }
 
     private CompletableFuture<List<ThreadInfoSample>> requestThreadInfoSamples(
-            final ThreadInfoSampleableTask task,
+            final SampleableTask task,
             final int numSamples,
             final Time delayBetweenSamples,
             final int maxStackTraceDepth,

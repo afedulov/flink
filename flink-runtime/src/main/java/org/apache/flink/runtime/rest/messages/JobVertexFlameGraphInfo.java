@@ -37,7 +37,7 @@ public class JobVertexFlameGraphInfo implements ResponseBody {
     private static final String FIELD_NAME_ROOT = "data";
 
     @JsonProperty(FIELD_NAME_END_TIMESTAMP)
-    private final Long endTimestamp;
+    private final long endTimestamp;
 
     @JsonProperty(FIELD_NAME_ROOT)
     private final OperatorFlameGraph.Node root;

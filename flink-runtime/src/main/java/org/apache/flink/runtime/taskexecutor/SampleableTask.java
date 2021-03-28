@@ -22,7 +22,7 @@ package org.apache.flink.runtime.taskexecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 
 /** Task interface used by {@link ThreadInfoSampleService} for thread info tracking. */
-interface ThreadInfoSampleableTask {
+interface SampleableTask {
 
     Thread getExecutingThread();
 

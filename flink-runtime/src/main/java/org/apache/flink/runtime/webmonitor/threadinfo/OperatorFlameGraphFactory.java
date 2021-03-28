@@ -21,12 +21,12 @@ package org.apache.flink.runtime.webmonitor.threadinfo;
 import org.apache.flink.runtime.messages.ThreadInfoSample;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Factory class for creating Flame Graph representations. */
 public class OperatorFlameGraphFactory {
@@ -38,7 +38,7 @@ public class OperatorFlameGraphFactory {
      * @return FlameGraph data structure
      */
     public static OperatorFlameGraph createFullFlameGraphFrom(OperatorThreadInfoStats sample) {
-        Collection<Thread.State> included = Arrays.asList(Thread.State.values());
+        EnumSet<Thread.State> included = EnumSet.allOf(Thread.State.class);
         return createFlameGraphFromSample(sample, included);
     }
 
@@ -46,16 +46,14 @@ public class OperatorFlameGraphFactory {
      * Converts {@link OperatorThreadInfoStats} into a FlameGraph representing blocked (Off-CPU)
      * threads.
      *
-     * <p>Includes threads in states Thread.State.[TIMED_WAITING, Thread.State.BLOCKED,
-     * Thread.State.WAITING].
+     * <p>Includes threads in states Thread.State.[TIMED_WAITING, BLOCKED, WAITING].
      *
      * @param sample Thread details sample containing stack traces.
      * @return FlameGraph data structure.
      */
     public static OperatorFlameGraph createOffCpuFlameGraph(OperatorThreadInfoStats sample) {
-        Collection<Thread.State> included =
-                Arrays.asList(
-                        Thread.State.TIMED_WAITING, Thread.State.BLOCKED, Thread.State.WAITING);
+        EnumSet<Thread.State> included =
+                EnumSet.of(Thread.State.TIMED_WAITING, Thread.State.BLOCKED, Thread.State.WAITING);
         return createFlameGraphFromSample(sample, included);
     }
 
@@ -63,19 +61,18 @@ public class OperatorFlameGraphFactory {
      * Converts {@link OperatorThreadInfoStats} into a FlameGraph representing actively running
      * (On-CPU) threads.
      *
-     * <p>Includes threads in states Thread.State.[TIMED_WAITING, Thread.State.BLOCKED,
-     * Thread.State.WAITING].
+     * <p>Includes threads in states Thread.State.[TIMED_WAITING, BLOCKED, WAITING].
      *
      * @param sample Thread details sample containing stack traces.
      * @return FlameGraph data structure
      */
     public static OperatorFlameGraph createOnCpuFlameGraph(OperatorThreadInfoStats sample) {
-        Collection<Thread.State> included = Arrays.asList(Thread.State.RUNNABLE, Thread.State.NEW);
+        EnumSet<Thread.State> included = EnumSet.of(Thread.State.RUNNABLE, Thread.State.NEW);
         return createFlameGraphFromSample(sample, included);
     }
 
     private static OperatorFlameGraph createFlameGraphFromSample(
-            OperatorThreadInfoStats sample, Collection<Thread.State> threadStates) {
+            OperatorThreadInfoStats sample, Set<Thread.State> threadStates) {
         final NodeBuilder root = new NodeBuilder("root");
         for (List<ThreadInfoSample> threadInfoSubSamples : sample.getSamplesBySubtask().values()) {
             for (ThreadInfoSample threadInfo : threadInfoSubSamples) {
@@ -95,16 +92,7 @@ public class OperatorFlameGraphFactory {
                 }
             }
         }
-        return new OperatorFlameGraph(sample.getEndTime(), buildFlameGraph(root));
-    }
-
-    private static OperatorFlameGraph.Node buildFlameGraph(NodeBuilder builder) {
-        final List<OperatorFlameGraph.Node> children = new ArrayList<>();
-        for (NodeBuilder builderChild : builder.children.values()) {
-            children.add(buildFlameGraph(builderChild));
-        }
-        return new OperatorFlameGraph.Node(
-                builder.name, builder.value, Collections.unmodifiableList(children));
+        return new OperatorFlameGraph(sample.getEndTime(), root.toNode());
     }
 
     private static class NodeBuilder {
@@ -113,7 +101,7 @@ public class OperatorFlameGraphFactory {
 
         private final String name;
 
-        private int value = 0;
+        private int hitCount = 0;
 
         NodeBuilder(String name) {
             this.name = name;
@@ -126,7 +114,16 @@ public class OperatorFlameGraphFactory {
         }
 
         void increment() {
-            value++;
+            hitCount++;
+        }
+
+        private OperatorFlameGraph.Node toNode() {
+            final List<OperatorFlameGraph.Node> childrenNodes = new ArrayList<>();
+            for (NodeBuilder builderChild : children.values()) {
+                childrenNodes.add(builderChild.toNode());
+            }
+            return new OperatorFlameGraph.Node(
+                    name, hitCount, Collections.unmodifiableList(childrenNodes));
         }
     }
 }

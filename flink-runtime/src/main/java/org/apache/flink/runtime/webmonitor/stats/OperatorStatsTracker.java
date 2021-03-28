@@ -28,7 +28,7 @@ import java.util.Optional;
  *
  * @param <T> Type of statistics to track
  */
-public interface OperatorStatsTracker<T extends Stats> {
+public interface OperatorStatsTracker<T extends Statistics> {
 
     /**
      * Returns statistics for an operator. Automatically triggers sampling request if statistics are
@@ -41,9 +41,6 @@ public interface OperatorStatsTracker<T extends Stats> {
 
     /**
      * Cleans up the operator stats cache if it contains timed out entries.
-     *
-     * <p>The Guava cache only evicts as maintenance during normal operations. If this handler is
-     * inactive, it will never be cleaned.
      */
     void cleanUpOperatorStatsCache();
 

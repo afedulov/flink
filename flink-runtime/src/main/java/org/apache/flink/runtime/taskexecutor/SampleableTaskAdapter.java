@@ -24,16 +24,16 @@ import org.apache.flink.runtime.taskmanager.Task;
 
 import static java.util.Objects.requireNonNull;
 
-/** Adapts {@link Task} to {@link ThreadInfoSampleableTask}. */
-class ThreadInfoSampleableTaskAdapter implements ThreadInfoSampleableTask {
+/** Adapts {@link Task} to {@link SampleableTask}. */
+class SampleableTaskAdapter implements SampleableTask {
 
     private final Task task;
 
-    static ThreadInfoSampleableTaskAdapter fromTask(final Task task) {
-        return new ThreadInfoSampleableTaskAdapter(task);
+    static SampleableTaskAdapter fromTask(final Task task) {
+        return new SampleableTaskAdapter(task);
     }
 
-    private ThreadInfoSampleableTaskAdapter(final Task task) {
+    private SampleableTaskAdapter(final Task task) {
         this.task = requireNonNull(task, "task must not be null");
     }
 

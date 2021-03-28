@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.webmonitor.threadinfo;
 
-import org.apache.flink.runtime.webmonitor.stats.Stats;
+import org.apache.flink.runtime.webmonitor.stats.Statistics;
 
 import java.io.Serializable;
 import java.util.List;
@@ -28,7 +28,7 @@ import java.util.List;
  *
  * <p>Statistics are gathered by sampling stack traces of running tasks.
  */
-public class OperatorFlameGraph implements Serializable, Stats {
+public class OperatorFlameGraph implements Serializable, Statistics {
 
     /** Graph node. */
     public static class Node {

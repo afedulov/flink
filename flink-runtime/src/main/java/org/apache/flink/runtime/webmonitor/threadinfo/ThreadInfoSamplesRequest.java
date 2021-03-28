@@ -22,7 +22,6 @@ package org.apache.flink.runtime.webmonitor.threadinfo;
 import org.apache.flink.api.common.time.Time;
 
 import javax.annotation.Nonnegative;
-import javax.annotation.Nonnull;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -43,7 +42,7 @@ public class ThreadInfoSamplesRequest {
     public ThreadInfoSamplesRequest(
             int requestId,
             @Nonnegative int numSamples,
-            @Nonnull Time delayBetweenSamples,
+            Time delayBetweenSamples,
             int maxStackTraceDepth) {
         checkArgument(numSamples > 0, "numSamples must be positive");
         checkNotNull(delayBetweenSamples, "delayBetweenSamples must not be null");

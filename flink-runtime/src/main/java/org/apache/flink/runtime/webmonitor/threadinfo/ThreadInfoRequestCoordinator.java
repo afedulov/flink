@@ -155,7 +155,7 @@ public class ThreadInfoRequestCoordinator
                                     executorGateway.requestThreadInfoSamples(
                                             taskExecutionAttemptId, requestParams, timeout));
 
-            threadInfo.handleAsync(
+            threadInfo.whenCompleteAsync(
                     (TaskThreadInfoResponse threadInfoSamplesResponse, Throwable throwable) -> {
                         if (threadInfoSamplesResponse != null) {
                             handleSuccessfulResponse(
@@ -165,7 +165,6 @@ public class ThreadInfoRequestCoordinator
                         } else {
                             handleFailedResponse(requestParams.getRequestId(), throwable);
                         }
-                        return null;
                     },
                     executor);
         }

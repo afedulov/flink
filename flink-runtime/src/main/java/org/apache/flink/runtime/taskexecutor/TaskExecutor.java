@@ -523,7 +523,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
         final CompletableFuture<List<ThreadInfoSample>> stackTracesFuture =
                 threadInfoSampleService.requestThreadInfoSamples(
-                        ThreadInfoSampleableTaskAdapter.fromTask(task), requestParams);
+                        SampleableTaskAdapter.fromTask(task), requestParams);
 
         return stackTracesFuture.thenApply(
                 stackTraces ->

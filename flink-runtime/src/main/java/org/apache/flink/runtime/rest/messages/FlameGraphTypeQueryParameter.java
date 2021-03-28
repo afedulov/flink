@@ -20,7 +20,7 @@ package org.apache.flink.runtime.rest.messages;
 
 import java.util.Arrays;
 
-/** Termination mode query parameter. */
+/** Flame Graph type query parameter. */
 public class FlameGraphTypeQueryParameter
         extends MessageQueryParameter<FlameGraphTypeQueryParameter.Type> {
 
@@ -47,7 +47,7 @@ public class FlameGraphTypeQueryParameter
                 + "\".";
     }
 
-    /** Termination mode. */
+    /** Flame Graph type. */
     public enum Type {
         FULL,
         ON_CPU,

@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.messages;
 
+import com.sun.istack.Nullable;
+
 import java.io.Serializable;
 import java.lang.management.LockInfo;
 import java.lang.management.ThreadInfo;
@@ -78,7 +80,7 @@ public class ThreadInfoSample implements Serializable {
      * @param threadInfo {@link ThreadInfo} where the data will be copied from.
      * @return new {@link ThreadInfoSample}
      */
-    public static ThreadInfoSample from(ThreadInfo threadInfo) {
+    public static @Nullable ThreadInfoSample from(@Nullable ThreadInfo threadInfo) {
         if (threadInfo != null) {
             return new ThreadInfoSample(
                     threadInfo.getThreadName(),

@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -52,7 +53,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 public class TaskStatsRequestCoordinator<T, V> {
     protected final Logger log = LoggerFactory.getLogger(getClass());
 
-    protected final int numGhostSampleIds = 10;
+    protected static final int NUM_GHOST_SAMPLE_IDS = 10;
 
     protected final Object lock = new Object();
 
@@ -68,7 +69,7 @@ public class TaskStatsRequestCoordinator<T, V> {
 
     /** A list of recent request IDs to identify late messages vs. invalid ones. */
     protected final ArrayDeque<Integer> recentPendingRequestIds =
-            new ArrayDeque<>(numGhostSampleIds);
+            new ArrayDeque<>(NUM_GHOST_SAMPLE_IDS);
 
     /** Sample ID counter. */
     @GuardedBy("lock")
@@ -184,7 +185,7 @@ public class TaskStatsRequestCoordinator<T, V> {
     }
 
     private void rememberRecentRequestId(int sampleId) {
-        if (recentPendingRequestIds.size() >= numGhostSampleIds) {
+        if (recentPendingRequestIds.size() >= NUM_GHOST_SAMPLE_IDS) {
             recentPendingRequestIds.removeFirst();
         }
         recentPendingRequestIds.addLast(sampleId);
@@ -208,6 +209,7 @@ public class TaskStatsRequestCoordinator<T, V> {
      * @param <T> Type of the result collected from tasks.
      * @param <V> Type of the result assembled and returned when all tasks where sampled.
      */
+    @NotThreadSafe
     protected abstract static class PendingStatsRequest<T, V> {
 
         /** ID of the sampling request to this coordinator. */

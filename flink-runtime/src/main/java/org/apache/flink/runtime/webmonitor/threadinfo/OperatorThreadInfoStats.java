@@ -20,7 +20,7 @@ package org.apache.flink.runtime.webmonitor.threadinfo;
 
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.messages.ThreadInfoSample;
-import org.apache.flink.runtime.webmonitor.stats.Stats;
+import org.apache.flink.runtime.webmonitor.stats.Statistics;
 
 import java.util.Collections;
 import java.util.List;
@@ -29,10 +29,10 @@ import java.util.Map;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
- * Tnread info statistics of multiple tasks. Each subtask can deliver multiple samples for
+ * Thread info statistics of multiple tasks. Each subtask can deliver multiple samples for
  * statistical purposes.
  */
-public class OperatorThreadInfoStats implements Stats {
+public class OperatorThreadInfoStats implements Statistics {
 
     /** ID of the corresponding request. */
     private final int requestId;
