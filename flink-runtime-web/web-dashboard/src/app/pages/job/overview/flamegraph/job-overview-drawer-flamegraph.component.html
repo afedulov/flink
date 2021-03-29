@@ -29,8 +29,8 @@ Type:
 </nz-radio-group>
 
 Measurement:
-<span *ngIf="flameGraph['end-timestamp']">
-  {{ (now - flameGraph['end-timestamp']) | humanizeDuration }} ago
+<span *ngIf="flameGraph.endTimestamp">
+  {{ (now - flameGraph.endTimestamp) | humanizeDuration }} ago
 </span>
 
 <div class="flame-graph-area">

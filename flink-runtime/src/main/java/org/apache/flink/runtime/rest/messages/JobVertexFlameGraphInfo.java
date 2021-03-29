@@ -33,7 +33,7 @@ public class JobVertexFlameGraphInfo implements ResponseBody {
         return new JobVertexFlameGraphInfo(-1, null);
     }
 
-    private static final String FIELD_NAME_END_TIMESTAMP = "end-timestamp";
+    private static final String FIELD_NAME_END_TIMESTAMP = "endTimestamp";
     private static final String FIELD_NAME_ROOT = "data";
 
     @JsonProperty(FIELD_NAME_END_TIMESTAMP)

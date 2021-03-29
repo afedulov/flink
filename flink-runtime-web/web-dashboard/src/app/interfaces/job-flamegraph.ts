@@ -17,7 +17,7 @@
  */
 
 export interface JobFlameGraphInterface {
-  'end-timestamp': number;
+  endTimestamp: number;
   data: JobFlameGraphNodeInterface;
   graphType: string;
 }

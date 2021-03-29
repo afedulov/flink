@@ -53,7 +53,7 @@ export class JobOverviewDrawerFlameGraphComponent implements OnInit, OnDestroy {
       .subscribe(
         data => {
           this.now = Date.now();
-          if (this.flameGraph['end-timestamp'] !== data['end-timestamp']) {
+          if (this.flameGraph.endTimestamp !== data['endTimestamp']) {
             this.isLoading = false;
             this.flameGraph = data;
             this.flameGraph.graphType = this.graphType;
