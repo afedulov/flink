@@ -117,14 +117,14 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
                                         ExecutionState.RUNNING,
                                         CompletionType.SUCCESSFULLY));
 
-        CompletableFuture<OperatorThreadInfoStats> requestFuture =
+        CompletableFuture<JobVertexThreadInfoStats> requestFuture =
                 coordinator.triggerThreadInfoRequest(
                         subtaskWithGateways,
                         DEFAULT_NUMBER_OF_SAMPLES,
                         DEFAULT_DELAY_BETWEEN_SAMPLES,
                         DEFAULT_MAX_STACK_TRACE_DEPTH);
 
-        OperatorThreadInfoStats threadInfoStats = requestFuture.get();
+        JobVertexThreadInfoStats threadInfoStats = requestFuture.get();
 
         // verify the request result
         assertEquals(0, threadInfoStats.getRequestId());
@@ -152,7 +152,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
                                         ExecutionState.RUNNING,
                                         CompletionType.SUCCESSFULLY));
 
-        CompletableFuture<OperatorThreadInfoStats> requestFuture =
+        CompletableFuture<JobVertexThreadInfoStats> requestFuture =
                 coordinator.triggerThreadInfoRequest(
                         subtaskWithGateways,
                         DEFAULT_NUMBER_OF_SAMPLES,
@@ -183,7 +183,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
                                         ExecutionState.RUNNING,
                                         CompletionType.EXCEPTIONALLY));
 
-        CompletableFuture<OperatorThreadInfoStats> requestFuture =
+        CompletableFuture<JobVertexThreadInfoStats> requestFuture =
                 coordinator.triggerThreadInfoRequest(
                         subtaskWithGateways,
                         DEFAULT_NUMBER_OF_SAMPLES,
@@ -213,7 +213,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
                                         ExecutionState.RUNNING,
                                         CompletionType.TIMEOUT));
 
-        CompletableFuture<OperatorThreadInfoStats> requestFuture =
+        CompletableFuture<JobVertexThreadInfoStats> requestFuture =
                 coordinator.triggerThreadInfoRequest(
                         subtaskWithGateways,
                         DEFAULT_NUMBER_OF_SAMPLES,
@@ -247,16 +247,16 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
                                         ExecutionState.RUNNING,
                                         CompletionType.TIMEOUT));
 
-        List<CompletableFuture<OperatorThreadInfoStats>> requestFutures = new ArrayList<>();
+        List<CompletableFuture<JobVertexThreadInfoStats>> requestFutures = new ArrayList<>();
 
-        CompletableFuture<OperatorThreadInfoStats> requestFuture1 =
+        CompletableFuture<JobVertexThreadInfoStats> requestFuture1 =
                 coordinator.triggerThreadInfoRequest(
                         subtaskWithGateways,
                         DEFAULT_NUMBER_OF_SAMPLES,
                         DEFAULT_DELAY_BETWEEN_SAMPLES,
                         DEFAULT_MAX_STACK_TRACE_DEPTH);
 
-        CompletableFuture<OperatorThreadInfoStats> requestFuture2 =
+        CompletableFuture<JobVertexThreadInfoStats> requestFuture2 =
                 coordinator.triggerThreadInfoRequest(
                         subtaskWithGateways,
                         DEFAULT_NUMBER_OF_SAMPLES,
@@ -267,7 +267,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
         requestFutures.add(requestFuture1);
         requestFutures.add(requestFuture2);
 
-        for (CompletableFuture<OperatorThreadInfoStats> future : requestFutures) {
+        for (CompletableFuture<JobVertexThreadInfoStats> future : requestFutures) {
             assertFalse(future.isDone());
         }
 
@@ -275,12 +275,12 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
         coordinator.shutDown();
 
         // verify all completed
-        for (CompletableFuture<OperatorThreadInfoStats> future : requestFutures) {
+        for (CompletableFuture<JobVertexThreadInfoStats> future : requestFutures) {
             assertTrue(future.isCompletedExceptionally());
         }
 
         // verify new trigger returns failed future
-        CompletableFuture<OperatorThreadInfoStats> future =
+        CompletableFuture<JobVertexThreadInfoStats> future =
                 coordinator.triggerThreadInfoRequest(
                         subtaskWithGateways,
                         DEFAULT_NUMBER_OF_SAMPLES,

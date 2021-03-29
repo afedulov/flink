@@ -28,26 +28,26 @@ import java.util.Optional;
  *
  * @param <T> Type of statistics to track
  */
-public interface OperatorStatsTracker<T extends Statistics> {
+public interface JobVertexStatsTracker<T extends Statistics> {
 
     /**
-     * Returns statistics for an operator. Automatically triggers sampling request if statistics are
+     * Returns statistics for a job vertex. Automatically triggers sampling request if statistics are
      * not available or outdated.
      *
-     * @param vertex Operator to get the stats for.
-     * @return Statistics for an operator. This interface is intended to be used for polling request
+     * @param vertex Vertex to get the stats for.
+     * @return Statistics for a vertex. This interface is intended to be used for polling request
      *     and for the duration while the statistics are being gathered, the returned Optional can
      *     be empty.
      */
-    Optional<T> getOperatorStats(AccessExecutionJobVertex vertex);
+    Optional<T> getVertexStats(AccessExecutionJobVertex vertex);
 
-    /** Cleans up the operator stats cache if it contains timed out entries. */
-    void cleanUpOperatorStatsCache();
+    /** Cleans up the vertex stats cache if it contains timed out entries. */
+    void cleanUpVertexStatsCache();
 
     /**
-     * Shuts the {@link OperatorStatsTracker} down.
+     * Shuts the {@link JobVertexStatsTracker} down.
      *
-     * @throws FlinkException if the {@link OperatorStatsTracker} could not be shut down
+     * @throws FlinkException if the {@link JobVertexStatsTracker} could not be shut down
      */
     void shutDown() throws FlinkException;
 }

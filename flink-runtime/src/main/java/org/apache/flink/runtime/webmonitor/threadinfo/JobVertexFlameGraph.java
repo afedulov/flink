@@ -24,11 +24,36 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * Flame Graph representation for an operator.
+ * Flame Graph representation for a job vertex.
  *
  * <p>Statistics are gathered by sampling stack traces of running tasks.
  */
-public class OperatorFlameGraph implements Serializable, Statistics {
+public class JobVertexFlameGraph implements Serializable, Statistics {
+
+    private static final long serialVersionUID = 1L;
+
+    /** End time stamp of the corresponding sample. */
+    private final long endTimestamp;
+
+    private final Node root;
+
+    public JobVertexFlameGraph(long endTimestamp, Node root) {
+        this.endTimestamp = endTimestamp;
+        this.root = root;
+    }
+
+    public long getEndTime() {
+        return endTimestamp;
+    }
+
+    public Node getRoot() {
+        return root;
+    }
+
+    @Override
+    public String toString() {
+        return "OperatorFlameGraph: endTimestamp=" + endTimestamp + "\n" + getRoot().toString();
+    }
 
     /** Graph node. */
     public static class Node {
@@ -67,30 +92,5 @@ public class OperatorFlameGraph implements Serializable, Statistics {
             }
             return sb.toString();
         }
-    }
-
-    private static final long serialVersionUID = 1L;
-
-    /** End time stamp of the corresponding sample. */
-    private final long endTimestamp;
-
-    private final Node root;
-
-    public OperatorFlameGraph(long endTimestamp, Node root) {
-        this.endTimestamp = endTimestamp;
-        this.root = root;
-    }
-
-    public long getEndTime() {
-        return endTimestamp;
-    }
-
-    public Node getRoot() {
-        return root;
-    }
-
-    @Override
-    public String toString() {
-        return "OperatorFlameGraph: endTimestamp=" + endTimestamp + "\n" + getRoot().toString();
     }
 }

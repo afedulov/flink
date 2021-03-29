@@ -28,7 +28,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
-import org.apache.flink.runtime.webmonitor.stats.OperatorStatsTracker;
+import org.apache.flink.runtime.webmonitor.stats.JobVertexStatsTracker;
 import org.apache.flink.runtime.webmonitor.stats.Statistics;
 
 import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
@@ -59,7 +59,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *
  * @param <T> Type of the derived statistics to return.
  */
-public class ThreadInfoOperatorTracker<T extends Statistics> implements OperatorStatsTracker<T> {
+public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVertexStatsTracker<T> {
 
     /**
      * Create a new {@link Builder}.
@@ -71,20 +71,20 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
      */
     public static <T extends Statistics> Builder<T> newBuilder(
             GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
-            Function<OperatorThreadInfoStats, T> createStatsFn,
+            Function<JobVertexThreadInfoStats, T> createStatsFn,
             ExecutorService executor) {
         return new Builder<>(resourceManagerGatewayRetriever, createStatsFn, executor);
     }
 
     /**
-     * Builder for {@link ThreadInfoOperatorTracker}.
+     * Builder for {@link JobVertexThreadInfoTracker}.
      *
      * @param <T> Type of the derived statistics to return.
      */
     public static class Builder<T extends Statistics> {
 
         private final GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever;
-        private final Function<OperatorThreadInfoStats, T> createStatsFn;
+        private final Function<JobVertexThreadInfoStats, T> createStatsFn;
         private final ExecutorService executor;
 
         private ThreadInfoRequestCoordinator coordinator;
@@ -96,7 +96,7 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
 
         private Builder(
                 GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
-                Function<OperatorThreadInfoStats, T> createStatsFn,
+                Function<JobVertexThreadInfoStats, T> createStatsFn,
                 ExecutorService executor) {
             this.resourceManagerGatewayRetriever = resourceManagerGatewayRetriever;
             this.createStatsFn = createStatsFn;
@@ -172,12 +172,12 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
         }
 
         /**
-         * Constructs a new {@link ThreadInfoOperatorTracker}.
+         * Constructs a new {@link JobVertexThreadInfoTracker}.
          *
-         * @return a new {@link ThreadInfoOperatorTracker} instance.
+         * @return a new {@link JobVertexThreadInfoTracker} instance.
          */
-        public ThreadInfoOperatorTracker<T> build() {
-            return new ThreadInfoOperatorTracker<>(
+        public JobVertexThreadInfoTracker<T> build() {
+            return new JobVertexThreadInfoTracker<>(
                     coordinator,
                     resourceManagerGatewayRetriever,
                     createStatsFn,
@@ -190,7 +190,7 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
         }
     }
 
-    private static final Logger LOG = LoggerFactory.getLogger(ThreadInfoOperatorTracker.class);
+    private static final Logger LOG = LoggerFactory.getLogger(JobVertexThreadInfoTracker.class);
 
     /** Lock guarding trigger operations. */
     private final Object lock = new Object();
@@ -198,7 +198,7 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
     @GuardedBy("lock")
     private final ThreadInfoRequestCoordinator coordinator;
 
-    private final Function<OperatorThreadInfoStats, T> createStatsFn;
+    private final Function<JobVertexThreadInfoStats, T> createStatsFn;
 
     private final ExecutorService executor;
 
@@ -209,7 +209,7 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
      * potentially constant across runs messing up the cached data.
      */
     @GuardedBy("lock")
-    private final Cache<AccessExecutionJobVertex, T> operatorStatsCache;
+    private final Cache<AccessExecutionJobVertex, T> vertexStatsCache;
 
     /**
      * Pending in progress stats. Important: Job vertex IDs need to be scoped by job ID, because
@@ -232,10 +232,10 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
     /** Flag indicating whether the stats tracker has been shut down. */
     private boolean shutDown;
 
-    private ThreadInfoOperatorTracker(
+    private JobVertexThreadInfoTracker(
             ThreadInfoRequestCoordinator coordinator,
             GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
-            Function<OperatorThreadInfoStats, T> createStatsFn,
+            Function<JobVertexThreadInfoStats, T> createStatsFn,
             ExecutorService executor,
             int cleanUpInterval,
             int numSamples,
@@ -266,7 +266,7 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
                 "Max stack trace depth must be greater than or equal to 0");
         this.maxThreadInfoDepth = maxStackTraceDepth;
 
-        this.operatorStatsCache =
+        this.vertexStatsCache =
                 CacheBuilder.newBuilder()
                         .concurrencyLevel(1)
                         .expireAfterAccess(cleanUpInterval, TimeUnit.MILLISECONDS)
@@ -274,9 +274,9 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
     }
 
     @Override
-    public Optional<T> getOperatorStats(AccessExecutionJobVertex vertex) {
+    public Optional<T> getVertexStats(AccessExecutionJobVertex vertex) {
         synchronized (lock) {
-            final T stats = operatorStatsCache.getIfPresent(vertex);
+            final T stats = vertexStatsCache.getIfPresent(vertex);
             if (stats == null
                     || System.currentTimeMillis() >= stats.getEndTime() + statsRefreshInterval) {
                 triggerThreadInfoSampleInternal(vertex);
@@ -286,10 +286,10 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
     }
 
     /**
-     * Triggers a request for an operator to gather the thread info statistics. If there is a sample
-     * in progress for the operator, the call is ignored.
+     * Triggers a request for a vertex to gather the thread info statistics. If there is a sample
+     * in progress for the vertex, the call is ignored.
      *
-     * @param vertex Operator to get the stats for.
+     * @param vertex Vertex to get the stats for.
      */
     private void triggerThreadInfoSampleInternal(final AccessExecutionJobVertex vertex) {
         assert (Thread.holdsLock(lock));
@@ -311,7 +311,7 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
             final CompletableFuture<ResourceManagerGateway> gatewayFuture =
                     resourceManagerGatewayRetriever.getFuture();
 
-            CompletableFuture<OperatorThreadInfoStats> sample =
+            CompletableFuture<JobVertexThreadInfoStats> sample =
                     gatewayFuture.thenCompose(
                             (ResourceManagerGateway resourceManagerGateway) ->
                                     coordinator.triggerThreadInfoRequest(
@@ -352,15 +352,15 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
     }
 
     @Override
-    public void cleanUpOperatorStatsCache() {
-        operatorStatsCache.cleanUp();
+    public void cleanUpVertexStatsCache() {
+        vertexStatsCache.cleanUp();
     }
 
     @Override
     public void shutDown() {
         synchronized (lock) {
             if (!shutDown) {
-                operatorStatsCache.invalidateAll();
+                vertexStatsCache.invalidateAll();
                 pendingStats.clear();
 
                 shutDown = true;
@@ -374,8 +374,8 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
     }
 
     /** Callback on completed thread info sample. */
-    class ThreadInfoSampleCompletionCallback
-            implements BiConsumer<OperatorThreadInfoStats, Throwable> {
+    private class ThreadInfoSampleCompletionCallback
+            implements BiConsumer<JobVertexThreadInfoStats, Throwable> {
 
         private final AccessExecutionJobVertex vertex;
 
@@ -384,7 +384,7 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
         }
 
         @Override
-        public void accept(OperatorThreadInfoStats threadInfoStats, Throwable throwable) {
+        public void accept(JobVertexThreadInfoStats threadInfoStats, Throwable throwable) {
             synchronized (lock) {
                 try {
                     if (shutDown) {
@@ -392,7 +392,7 @@ public class ThreadInfoOperatorTracker<T extends Statistics> implements Operator
                     }
                     if (threadInfoStats != null) {
                         resultAvailableFuture.complete(null);
-                        operatorStatsCache.put(vertex, createStatsFn.apply(threadInfoStats));
+                        vertexStatsCache.put(vertex, createStatsFn.apply(threadInfoStats));
                     } else {
                         LOG.debug("Failed to gather a thread info sample.", throwable);
                     }

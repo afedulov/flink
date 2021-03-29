@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.rest.messages;
 
 import org.apache.flink.runtime.rest.handler.job.JobVertexFlameGraphHandler;
-import org.apache.flink.runtime.webmonitor.threadinfo.OperatorFlameGraph;
+import org.apache.flink.runtime.webmonitor.threadinfo.JobVertexFlameGraph;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonInclude;
@@ -40,12 +40,12 @@ public class JobVertexFlameGraphInfo implements ResponseBody {
     private final long endTimestamp;
 
     @JsonProperty(FIELD_NAME_ROOT)
-    private final OperatorFlameGraph.Node root;
+    private final JobVertexFlameGraph.Node root;
 
     @JsonCreator
     public JobVertexFlameGraphInfo(
             @JsonProperty(FIELD_NAME_END_TIMESTAMP) long endTimestamp,
-            @JsonProperty(FIELD_NAME_ROOT) OperatorFlameGraph.Node root) {
+            @JsonProperty(FIELD_NAME_ROOT) JobVertexFlameGraph.Node root) {
         this.endTimestamp = endTimestamp;
         this.root = root;
     }
@@ -54,7 +54,7 @@ public class JobVertexFlameGraphInfo implements ResponseBody {
         return endTimestamp;
     }
 
-    public OperatorFlameGraph.Node getData() {
+    public JobVertexFlameGraph.Node getData() {
         return root;
     }
 }

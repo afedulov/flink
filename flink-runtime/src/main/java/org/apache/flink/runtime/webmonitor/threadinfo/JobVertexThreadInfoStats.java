@@ -32,7 +32,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * Thread info statistics of multiple tasks. Each subtask can deliver multiple samples for
  * statistical purposes.
  */
-public class OperatorThreadInfoStats implements Statistics {
+public class JobVertexThreadInfoStats implements Statistics {
 
     /** ID of the corresponding request. */
     private final int requestId;
@@ -54,7 +54,7 @@ public class OperatorThreadInfoStats implements Statistics {
      * @param endTime Timestamp, when all thread info samples were collected.
      * @param samplesBySubtask Map of thread info samples by subtask (execution ID).
      */
-    public OperatorThreadInfoStats(
+    public JobVertexThreadInfoStats(
             int requestId,
             long startTime,
             long endTime,
@@ -113,7 +113,7 @@ public class OperatorThreadInfoStats implements Statistics {
 
     @Override
     public String toString() {
-        return "OperatorThreadInfoStats{"
+        return "VertexThreadInfoStats{"
                 + "sampleId="
                 + requestId
                 + ", startTime="

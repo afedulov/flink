@@ -29,21 +29,21 @@ import java.util.Map;
 import java.util.Set;
 
 /** Factory class for creating Flame Graph representations. */
-public class OperatorFlameGraphFactory {
+public class JobVertexFlameGraphFactory {
 
     /**
-     * Converts {@link OperatorThreadInfoStats} into a FlameGraph.
+     * Converts {@link JobVertexThreadInfoStats} into a FlameGraph.
      *
      * @param sample Thread details sample containing stack traces.
      * @return FlameGraph data structure
      */
-    public static OperatorFlameGraph createFullFlameGraphFrom(OperatorThreadInfoStats sample) {
+    public static JobVertexFlameGraph createFullFlameGraphFrom(JobVertexThreadInfoStats sample) {
         EnumSet<Thread.State> included = EnumSet.allOf(Thread.State.class);
         return createFlameGraphFromSample(sample, included);
     }
 
     /**
-     * Converts {@link OperatorThreadInfoStats} into a FlameGraph representing blocked (Off-CPU)
+     * Converts {@link JobVertexThreadInfoStats} into a FlameGraph representing blocked (Off-CPU)
      * threads.
      *
      * <p>Includes threads in states Thread.State.[TIMED_WAITING, BLOCKED, WAITING].
@@ -51,14 +51,14 @@ public class OperatorFlameGraphFactory {
      * @param sample Thread details sample containing stack traces.
      * @return FlameGraph data structure.
      */
-    public static OperatorFlameGraph createOffCpuFlameGraph(OperatorThreadInfoStats sample) {
+    public static JobVertexFlameGraph createOffCpuFlameGraph(JobVertexThreadInfoStats sample) {
         EnumSet<Thread.State> included =
                 EnumSet.of(Thread.State.TIMED_WAITING, Thread.State.BLOCKED, Thread.State.WAITING);
         return createFlameGraphFromSample(sample, included);
     }
 
     /**
-     * Converts {@link OperatorThreadInfoStats} into a FlameGraph representing actively running
+     * Converts {@link JobVertexThreadInfoStats} into a FlameGraph representing actively running
      * (On-CPU) threads.
      *
      * <p>Includes threads in states Thread.State.[RUNNABLE, NEW].
@@ -66,19 +66,19 @@ public class OperatorFlameGraphFactory {
      * @param sample Thread details sample containing stack traces.
      * @return FlameGraph data structure
      */
-    public static OperatorFlameGraph createOnCpuFlameGraph(OperatorThreadInfoStats sample) {
+    public static JobVertexFlameGraph createOnCpuFlameGraph(JobVertexThreadInfoStats sample) {
         EnumSet<Thread.State> included = EnumSet.of(Thread.State.RUNNABLE, Thread.State.NEW);
         return createFlameGraphFromSample(sample, included);
     }
 
-    private static OperatorFlameGraph createFlameGraphFromSample(
-            OperatorThreadInfoStats sample, Set<Thread.State> threadStates) {
+    private static JobVertexFlameGraph createFlameGraphFromSample(
+            JobVertexThreadInfoStats sample, Set<Thread.State> threadStates) {
         final NodeBuilder root = new NodeBuilder("root");
         for (List<ThreadInfoSample> threadInfoSubSamples : sample.getSamplesBySubtask().values()) {
             for (ThreadInfoSample threadInfo : threadInfoSubSamples) {
                 if (threadStates.contains(threadInfo.getThreadState())) {
                     StackTraceElement[] traces = threadInfo.getStackTrace();
-                    root.increment();
+                    root.incrementHitCount();
                     NodeBuilder parent = root;
                     for (int i = traces.length - 1; i >= 0; i--) {
                         final String name =
@@ -92,7 +92,7 @@ public class OperatorFlameGraphFactory {
                 }
             }
         }
-        return new OperatorFlameGraph(sample.getEndTime(), root.toNode());
+        return new JobVertexFlameGraph(sample.getEndTime(), root.toNode());
     }
 
     private static class NodeBuilder {
@@ -109,20 +109,20 @@ public class OperatorFlameGraphFactory {
 
         NodeBuilder addChild(String name) {
             final NodeBuilder child = children.computeIfAbsent(name, NodeBuilder::new);
-            child.increment();
+            child.incrementHitCount();
             return child;
         }
 
-        void increment() {
+        void incrementHitCount() {
             hitCount++;
         }
 
-        private OperatorFlameGraph.Node toNode() {
-            final List<OperatorFlameGraph.Node> childrenNodes = new ArrayList<>();
+        private JobVertexFlameGraph.Node toNode() {
+            final List<JobVertexFlameGraph.Node> childrenNodes = new ArrayList<>();
             for (NodeBuilder builderChild : children.values()) {
                 childrenNodes.add(builderChild.toNode());
             }
-            return new OperatorFlameGraph.Node(
+            return new JobVertexFlameGraph.Node(
                     name, hitCount, Collections.unmodifiableList(childrenNodes));
         }
     }

@@ -38,9 +38,9 @@ import java.util.concurrent.Executor;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/** A coordinator for triggering and collecting thread info stats of running operator subtasks. */
+/** A coordinator for triggering and collecting thread info stats of running job vertex subtasks. */
 public class ThreadInfoRequestCoordinator
-        extends TaskStatsRequestCoordinator<List<ThreadInfoSample>, OperatorThreadInfoStats> {
+        extends TaskStatsRequestCoordinator<List<ThreadInfoSample>, JobVertexThreadInfoStats> {
 
     /**
      * Creates a new coordinator for the job.
@@ -55,7 +55,7 @@ public class ThreadInfoRequestCoordinator
     }
 
     /**
-     * Triggers collection of thread info stats of an operator by combining thread info responses
+     * Triggers collection of thread info stats of a job vertex by combining thread info responses
      * from given subtasks. A thread info response of a subtask in turn consists of {@code
      * numSamples}, collected with {@code delayBetweenSamples} milliseconds delay between them.
      *
@@ -66,7 +66,7 @@ public class ThreadInfoRequestCoordinator
      *     samples.
      * @return A future of the completed thread info stats.
      */
-    public CompletableFuture<OperatorThreadInfoStats> triggerThreadInfoRequest(
+    public CompletableFuture<JobVertexThreadInfoStats> triggerThreadInfoRequest(
             List<Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>>>
                     subtasksWithGateways,
             int numSamples,
@@ -173,15 +173,15 @@ public class ThreadInfoRequestCoordinator
     // ------------------------------------------------------------------------
 
     private static class PendingThreadInfoRequest
-            extends PendingStatsRequest<List<ThreadInfoSample>, OperatorThreadInfoStats> {
+            extends PendingStatsRequest<List<ThreadInfoSample>, JobVertexThreadInfoStats> {
 
         PendingThreadInfoRequest(int requestId, List<ExecutionAttemptID> tasksToCollect) {
             super(requestId, tasksToCollect);
         }
 
         @Override
-        protected OperatorThreadInfoStats assembleCompleteStats(long endTime) {
-            return new OperatorThreadInfoStats(requestId, startTime, endTime, statsResultByTask);
+        protected JobVertexThreadInfoStats assembleCompleteStats(long endTime) {
+            return new JobVertexThreadInfoStats(requestId, startTime, endTime, statsResultByTask);
         }
     }
 }
