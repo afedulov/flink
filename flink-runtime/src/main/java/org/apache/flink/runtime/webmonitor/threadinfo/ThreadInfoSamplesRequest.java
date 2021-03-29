@@ -19,9 +19,9 @@
 
 package org.apache.flink.runtime.webmonitor.threadinfo;
 
-import org.apache.flink.api.common.time.Time;
-
 import javax.annotation.Nonnegative;
+
+import java.time.Duration;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -30,7 +30,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class ThreadInfoSamplesRequest {
     private final int requestId;
     private final int numSubSamples;
-    private final Time delayBetweenSamples;
+    private final Duration delayBetweenSamples;
     private final int maxStackTraceDepth;
 
     /**
@@ -42,7 +42,7 @@ public class ThreadInfoSamplesRequest {
     public ThreadInfoSamplesRequest(
             int requestId,
             @Nonnegative int numSamples,
-            Time delayBetweenSamples,
+            Duration delayBetweenSamples,
             @Nonnegative int maxStackTraceDepth) {
         checkArgument(numSamples > 0, "numSamples must be positive");
         checkArgument(maxStackTraceDepth > 0, "maxStackTraceDepth must be positive");
@@ -75,9 +75,9 @@ public class ThreadInfoSamplesRequest {
     /**
      * Returns the configured delay between the individual samples.
      *
-     * @return the number of requested samples.
+     * @return the delay between the individual samples.
      */
-    public Time getDelayBetweenSamples() {
+    public Duration getDelayBetweenSamples() {
         return delayBetweenSamples;
     }
 

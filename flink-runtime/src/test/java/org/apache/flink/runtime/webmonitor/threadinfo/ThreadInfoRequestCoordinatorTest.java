@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.webmonitor.threadinfo;
 
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
@@ -41,6 +40,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -64,12 +64,12 @@ import static org.junit.Assert.fail;
 /** Tests for the {@link ThreadInfoRequestCoordinator}. */
 public class ThreadInfoRequestCoordinatorTest extends TestLogger {
 
-    private static final long REQUEST_TIMEOUT = 100;
+    private static final Duration REQUEST_TIMEOUT = Duration.ofMillis(100);
     private static final String REQUEST_TIMEOUT_MESSAGE = "Request timeout.";
 
     private static final int DEFAULT_NUMBER_OF_SAMPLES = 1;
     private static final int DEFAULT_MAX_STACK_TRACE_DEPTH = 100;
-    private static final Time DEFAULT_DELAY_BETWEEN_SAMPLES = Time.milliseconds(50);
+    private static final Duration DEFAULT_DELAY_BETWEEN_SAMPLES = Duration.ofMillis(50);
 
     private static ScheduledExecutorService executorService;
     private ThreadInfoRequestCoordinator coordinator;
@@ -310,7 +310,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
                         () ->
                                 responseFuture.completeExceptionally(
                                         new TimeoutException(REQUEST_TIMEOUT_MESSAGE)),
-                        REQUEST_TIMEOUT,
+                        REQUEST_TIMEOUT.toMillis(),
                         TimeUnit.MILLISECONDS);
                 break;
             case NEVER_COMPLETE:

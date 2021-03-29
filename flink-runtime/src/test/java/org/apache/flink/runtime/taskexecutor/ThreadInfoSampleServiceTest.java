@@ -19,7 +19,6 @@
 
 package org.apache.flink.runtime.taskexecutor;
 
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
@@ -34,6 +33,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -55,7 +55,7 @@ public class ThreadInfoSampleServiceTest extends TestLogger {
     private ThreadInfoSampleService threadInfoSampleService;
 
     private static final int NUMBER_OF_SAMPLES = 10;
-    private static final Time DELAY_BETWEEN_SAMPLES = Time.milliseconds(10);
+    private static final Duration DELAY_BETWEEN_SAMPLES = Duration.ofMillis(10);
     private static final int MAX_STACK_TRACK_DEPTH = 10;
 
     private static final ThreadInfoSamplesRequest requestParams =

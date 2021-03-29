@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.webmonitor.threadinfo;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
@@ -39,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -88,10 +88,10 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
         private final ExecutorService executor;
 
         private ThreadInfoRequestCoordinator coordinator;
-        private int cleanUpInterval;
+        private Duration cleanUpInterval;
         private int numSamples;
-        private int statsRefreshInterval;
-        private Time delayBetweenSamples;
+        private Duration statsRefreshInterval;
+        private Duration delayBetweenSamples;
         private int maxThreadInfoDepth;
 
         private Builder(
@@ -120,7 +120,7 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
          * @param cleanUpInterval Clean up interval for completed stats.
          * @return Builder.
          */
-        public Builder<T> setCleanUpInterval(int cleanUpInterval) {
+        public Builder<T> setCleanUpInterval(Duration cleanUpInterval) {
             this.cleanUpInterval = cleanUpInterval;
             return this;
         }
@@ -143,7 +143,7 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
          *     deprecated and need to be refreshed.
          * @return Builder.
          */
-        public Builder<T> setStatsRefreshInterval(int statsRefreshInterval) {
+        public Builder<T> setStatsRefreshInterval(Duration statsRefreshInterval) {
             this.statsRefreshInterval = statsRefreshInterval;
             return this;
         }
@@ -154,7 +154,7 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
          * @param delayBetweenSamples Delay between individual samples per task.
          * @return Builder.
          */
-        public Builder<T> setDelayBetweenSamples(Time delayBetweenSamples) {
+        public Builder<T> setDelayBetweenSamples(Duration delayBetweenSamples) {
             this.delayBetweenSamples = delayBetweenSamples;
             return this;
         }
@@ -220,9 +220,9 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
 
     private final int numSamples;
 
-    private final int statsRefreshInterval;
+    private final Duration statsRefreshInterval;
 
-    private final Time delayBetweenSamples;
+    private final Duration delayBetweenSamples;
 
     private final int maxThreadInfoDepth;
 
@@ -237,10 +237,10 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
             GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
             Function<JobVertexThreadInfoStats, T> createStatsFn,
             ExecutorService executor,
-            int cleanUpInterval,
+            Duration cleanUpInterval,
             int numSamples,
-            int statsRefreshInterval,
-            Time delayBetweenSamples,
+            Duration statsRefreshInterval,
+            Duration delayBetweenSamples,
             int maxStackTraceDepth) {
 
         this.coordinator = checkNotNull(coordinator, "Thread info samples coordinator");
@@ -248,16 +248,17 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
                 checkNotNull(resourceManagerGatewayRetriever, "Gateway retriever");
         this.createStatsFn = checkNotNull(createStatsFn, "Create stats function");
         this.executor = checkNotNull(executor, "Scheduled executor");
+        this.statsRefreshInterval =
+                checkNotNull(statsRefreshInterval, "Statistics refresh interval");
 
-        checkArgument(cleanUpInterval >= 0, "Clean up interval");
+        checkArgument(cleanUpInterval.toMillis() >= 0, "Clean up interval");
 
         checkArgument(numSamples >= 1, "Number of samples");
         this.numSamples = numSamples;
 
         checkArgument(
-                statsRefreshInterval >= 0,
+                statsRefreshInterval.toMillis() >= 0,
                 "Stats refresh interval must be greater than or equal to 0");
-        this.statsRefreshInterval = statsRefreshInterval;
 
         this.delayBetweenSamples = checkNotNull(delayBetweenSamples, "Delay between samples");
 
@@ -269,7 +270,7 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
         this.vertexStatsCache =
                 CacheBuilder.newBuilder()
                         .concurrencyLevel(1)
-                        .expireAfterAccess(cleanUpInterval, TimeUnit.MILLISECONDS)
+                        .expireAfterAccess(cleanUpInterval.toMillis(), TimeUnit.MILLISECONDS)
                         .build();
     }
 
@@ -278,7 +279,8 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
         synchronized (lock) {
             final T stats = vertexStatsCache.getIfPresent(vertex);
             if (stats == null
-                    || System.currentTimeMillis() >= stats.getEndTime() + statsRefreshInterval) {
+                    || System.currentTimeMillis()
+                            >= stats.getEndTime() + statsRefreshInterval.toMillis()) {
                 triggerThreadInfoSampleInternal(vertex);
             }
             return Optional.ofNullable(stats);
@@ -286,8 +288,8 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
     }
 
     /**
-     * Triggers a request for a vertex to gather the thread info statistics. If there is a sample
-     * in progress for the vertex, the call is ignored.
+     * Triggers a request for a vertex to gather the thread info statistics. If there is a sample in
+     * progress for the vertex, the call is ignored.
      *
      * @param vertex Vertex to get the stats for.
      */

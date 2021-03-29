@@ -225,7 +225,6 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 
         this.leaderElectionService = Preconditions.checkNotNull(leaderElectionService);
         this.fatalErrorHandler = Preconditions.checkNotNull(fatalErrorHandler);
-
     }
 
     private JobVertexThreadInfoTracker<JobVertexThreadInfoStats> initializeThreadInfoTracker(
@@ -237,10 +236,10 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
             throw new IllegalConfigurationException(AkkaUtils.formatDurationParsingErrorMessage());
         }
 
-        final int flameGraphCleanUpInterval =
-                clusterConfiguration.getInteger(WebOptions.FLAMEGRAPH_CLEANUP_INTERVAL);
+        final Duration flameGraphCleanUpInterval =
+                clusterConfiguration.get(WebOptions.FLAMEGRAPH_CLEANUP_INTERVAL);
         final ThreadInfoRequestCoordinator threadInfoRequestCoordinator =
-                new ThreadInfoRequestCoordinator(executor, akkaTimeout.toMillis());
+                new ThreadInfoRequestCoordinator(executor, akkaTimeout);
         final JobVertexThreadInfoTracker<JobVertexThreadInfoStats> vertexThreadInfoTracker =
                 JobVertexThreadInfoTracker.newBuilder(
                                 resourceManagerRetriever, Function.identity(), executor)
@@ -249,12 +248,9 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
                         .setNumSamples(
                                 clusterConfiguration.getInteger(WebOptions.FLAMEGRAPH_NUM_SAMPLES))
                         .setStatsRefreshInterval(
-                                clusterConfiguration.getInteger(
-                                        WebOptions.FLAMEGRAPH_REFRESH_INTERVAL))
+                                clusterConfiguration.get(WebOptions.FLAMEGRAPH_REFRESH_INTERVAL))
                         .setDelayBetweenSamples(
-                                Time.milliseconds(
-                                        clusterConfiguration.getInteger(
-                                                WebOptions.FLAMEGRAPH_DELAY)))
+                                clusterConfiguration.get(WebOptions.FLAMEGRAPH_DELAY))
                         .setMaxThreadInfoDepth(
                                 clusterConfiguration.getInteger(
                                         WebOptions.FLAMEGRAPH_STACK_TRACE_DEPTH))
@@ -262,8 +258,8 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 
         executor.scheduleWithFixedDelay(
                 vertexThreadInfoTracker::cleanUpVertexStatsCache,
-                flameGraphCleanUpInterval,
-                flameGraphCleanUpInterval,
+                flameGraphCleanUpInterval.toMillis(),
+                flameGraphCleanUpInterval.toMillis(),
                 TimeUnit.MILLISECONDS);
 
         return vertexThreadInfoTracker;

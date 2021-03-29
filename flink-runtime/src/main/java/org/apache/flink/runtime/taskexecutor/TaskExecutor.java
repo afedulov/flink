@@ -145,6 +145,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ThreadInfo;
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -509,7 +510,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     public CompletableFuture<TaskThreadInfoResponse> requestThreadInfoSamples(
             final ExecutionAttemptID taskExecutionAttemptId,
             final ThreadInfoSamplesRequest requestParams,
-            final Time timeout) {
+            final Duration timeout) {
 
         final Task task = taskSlotTable.getTask(taskExecutionAttemptId);
         if (task == null) {

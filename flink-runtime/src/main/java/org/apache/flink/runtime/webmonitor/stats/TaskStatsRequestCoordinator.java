@@ -19,9 +19,7 @@
 package org.apache.flink.runtime.webmonitor.stats;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
-import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
 
@@ -32,6 +30,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Encapsulates the common functionality for requesting statistics from individual tasks and
@@ -61,7 +61,7 @@ public class TaskStatsRequestCoordinator<T, V> {
     protected final Executor executor;
 
     /** Request time out of a triggered task stats request. */
-    protected final Time requestTimeout;
+    protected final Duration requestTimeout;
 
     /** In progress samples. */
     @GuardedBy("lock")
@@ -85,10 +85,11 @@ public class TaskStatsRequestCoordinator<T, V> {
      * @param executor Used to execute the futures.
      * @param requestTimeout Request time out of a triggered task stats request.
      */
-    public TaskStatsRequestCoordinator(Executor executor, long requestTimeout) {
-        checkArgument(requestTimeout >= 0L, "The request timeout must be non-negative.");
-        this.executor = Preconditions.checkNotNull(executor);
-        this.requestTimeout = Time.milliseconds(requestTimeout);
+    public TaskStatsRequestCoordinator(Executor executor, Duration requestTimeout) {
+        checkNotNull(requestTimeout, "The request timeout must cannot be null.");
+        checkArgument(requestTimeout.toMillis() >= 0L, "The request timeout must be non-negative.");
+        this.executor = checkNotNull(executor);
+        this.requestTimeout = requestTimeout;
     }
 
     /**

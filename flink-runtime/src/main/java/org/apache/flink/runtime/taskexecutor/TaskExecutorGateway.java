@@ -48,6 +48,7 @@ import org.apache.flink.runtime.webmonitor.threadinfo.ThreadInfoSamplesRequest;
 import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.SerializedValue;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -280,5 +281,5 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
     CompletableFuture<TaskThreadInfoResponse> requestThreadInfoSamples(
             ExecutionAttemptID taskExecutionAttemptId,
             ThreadInfoSamplesRequest requestParams,
-            Time timeout);
+            Duration timeout);
 }

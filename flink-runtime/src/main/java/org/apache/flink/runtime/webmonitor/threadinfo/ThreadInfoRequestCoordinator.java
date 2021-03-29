@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.webmonitor.threadinfo;
 
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
@@ -30,6 +29,7 @@ import org.apache.flink.runtime.messages.ThreadInfoSample;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.webmonitor.stats.TaskStatsRequestCoordinator;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -50,7 +50,7 @@ public class ThreadInfoRequestCoordinator
      *     expected duration of a request, which is determined by the number of samples and the
      *     delay between each sample.
      */
-    public ThreadInfoRequestCoordinator(Executor executor, long requestTimeout) {
+    public ThreadInfoRequestCoordinator(Executor executor, Duration requestTimeout) {
         super(executor, requestTimeout);
     }
 
@@ -70,7 +70,7 @@ public class ThreadInfoRequestCoordinator
             List<Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>>>
                     subtasksWithGateways,
             int numSamples,
-            Time delayBetweenSamples,
+            Duration delayBetweenSamples,
             int maxStackTraceDepth) {
 
         checkNotNull(subtasksWithGateways, "Tasks to sample");
@@ -113,8 +113,8 @@ public class ThreadInfoRequestCoordinator
             // Discard the request if it takes too long. We don't send cancel
             // messages to the task managers, but only wait for the responses
             // and then ignore them.
-            long expectedDuration = numSamples * delayBetweenSamples.toMilliseconds();
-            Time timeout = Time.milliseconds(expectedDuration + requestTimeout.toMilliseconds());
+            long expectedDuration = numSamples * delayBetweenSamples.toMillis();
+            Duration timeout = Duration.ofMillis(expectedDuration + requestTimeout.toMillis());
 
             // Add the pending request before scheduling the discard task to
             // prevent races with removing it again.
@@ -138,7 +138,7 @@ public class ThreadInfoRequestCoordinator
             List<Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>>>
                     subtasksWithGateways,
             ThreadInfoSamplesRequest requestParams,
-            Time timeout) {
+            Duration timeout) {
 
         // Trigger samples collection from all subtasks
         for (Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>>

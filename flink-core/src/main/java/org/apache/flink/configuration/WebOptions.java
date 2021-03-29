@@ -21,6 +21,8 @@ package org.apache.flink.configuration;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
 
+import java.time.Duration;
+
 import static org.apache.flink.configuration.ConfigOptions.key;
 
 /** Configuration options for the WebMonitorEndpoint. */
@@ -156,25 +158,29 @@ public class WebOptions {
                     .withDeprecatedKeys("jobmanager.web.backpressure.delay-between-samples")
                     .withDescription("This config option is no longer used");
 
-    /** Time, in milliseconds, after which cached stats are cleaned up if not accessed. */
-    public static final ConfigOption<Integer> FLAMEGRAPH_CLEANUP_INTERVAL =
+    /**
+     * "Time after which cached stats are cleaned up if not accessed. It can be specified using
+     * notation: "100 s", "10 m".
+     */
+    public static final ConfigOption<Duration> FLAMEGRAPH_CLEANUP_INTERVAL =
             key("web.flamegraph.cleanup-interval")
-                    .intType()
-                    .defaultValue(10 * 60 * 1000)
+                    .durationType()
+                    .defaultValue(Duration.ofMinutes(10))
                     .withDescription(
-                            "Time, in milliseconds, after which cached stats are cleaned up if not accessed.");
+                            "Time after which cached stats are cleaned up if not accessed. It can"
+                                    + " be specified using notation: \"100 s\", \"10 m\".");
 
     /**
-     * Time, in milliseconds, after which available stats are deprecated and need to be refreshed
-     * (by resampling).
+     * Time after which available stats are deprecated and need to be refreshed (by resampling). It
+     * can be specified using notation: "30 s", "1 m".
      */
-    public static final ConfigOption<Integer> FLAMEGRAPH_REFRESH_INTERVAL =
+    public static final ConfigOption<Duration> FLAMEGRAPH_REFRESH_INTERVAL =
             key("web.flamegraph.refresh-interval")
-                    .intType()
-                    .defaultValue(60 * 1000)
+                    .durationType()
+                    .defaultValue(Duration.ofSeconds(60))
                     .withDescription(
-                            "Time, in milliseconds, after which available stats are deprecated and need to be refreshed"
-                                    + " (by resampling).");
+                            "Time after which available stats are deprecated and need to be refreshed"
+                                    + " (by resampling).  It can be specified using notation: \"30 s\", \"1 m\".");
 
     /** Number of samples to take to build a FlameGraph. */
     public static final ConfigOption<Integer> FLAMEGRAPH_NUM_SAMPLES =
@@ -183,13 +189,16 @@ public class WebOptions {
                     .defaultValue(100)
                     .withDescription("Number of samples to take to build a FlameGraph.");
 
-    /** Delay between samples to build a FlameGraph in milliseconds. */
-    public static final ConfigOption<Integer> FLAMEGRAPH_DELAY =
+    /**
+     * Delay between individual stack trace samples taken for building a FlameGraph. It can be
+     * specified using notation: "100 ms", "1 s".
+     */
+    public static final ConfigOption<Duration> FLAMEGRAPH_DELAY =
             key("web.flamegraph.delay-between-samples")
-                    .intType()
-                    .defaultValue(50)
+                    .durationType()
+                    .defaultValue(Duration.ofMillis(50))
                     .withDescription(
-                            "Delay between samples to build a FlameGraph in milliseconds.");
+                            "Delay between individual stack trace samples taken for building a FlameGraph. It can be specified using notation: \"100 ms\", \"1 s\".");
 
     /** Maximum depth of stack traces used to create FlameGraphs. */
     public static final ConfigOption<Integer> FLAMEGRAPH_STACK_TRACE_DEPTH =

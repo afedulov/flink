@@ -19,16 +19,17 @@
 
 package org.apache.flink.runtime.taskexecutor;
 
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.messages.ThreadInfoSample;
 import org.apache.flink.runtime.util.JvmUtils;
 import org.apache.flink.runtime.webmonitor.threadinfo.ThreadInfoSamplesRequest;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -66,7 +67,7 @@ class ThreadInfoSampleService {
     private CompletableFuture<List<ThreadInfoSample>> requestThreadInfoSamples(
             final SampleableTask task,
             final int numSamples,
-            final Time delayBetweenSamples,
+            final Duration delayBetweenSamples,
             final int maxStackTraceDepth,
             final List<ThreadInfoSample> currentTraces,
             final CompletableFuture<List<ThreadInfoSample>> resultFuture) {
@@ -98,8 +99,8 @@ class ThreadInfoSampleService {
                                     maxStackTraceDepth,
                                     currentTraces,
                                     resultFuture),
-                    delayBetweenSamples.getSize(),
-                    delayBetweenSamples.getUnit());
+                    delayBetweenSamples.toMillis(),
+                    TimeUnit.MILLISECONDS);
         } else {
             resultFuture.complete(currentTraces);
         }

@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.webmonitor.threadinfo;
 
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
@@ -39,6 +38,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -69,16 +69,16 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
     private static ThreadInfoSample threadInfoSample;
     private static JobVertexThreadInfoStats threadInfoStatsDefaultSample;
 
-    private static final int CLEAN_UP_INTERVAL = 60000;
-    private static final int STATS_REFRESH_INTERVAL = 60000;
-    private static final long TIME_GAP = 60000;
-    private static final long SMALL_TIME_GAP = 1;
-    private static final long REQUEST_TIMEOUT = 10000;
+    private static final Duration CLEAN_UP_INTERVAL = Duration.ofSeconds(60);
+    private static final Duration STATS_REFRESH_INTERVAL = Duration.ofSeconds(60);
+    private static final Duration TIME_GAP = Duration.ofSeconds(60);
+    private static final Duration SMALL_TIME_GAP = Duration.ofMillis(1);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
     private static final int PARALLELISM = 4;
     private static final int NUMBER_OF_SAMPLES = 1;
     private static final int MAX_STACK_TRACE_DEPTH = 100;
-    private static final Time DELAY_BETWEEN_SAMPLES = Time.milliseconds(50);
+    private static final Duration DELAY_BETWEEN_SAMPLES = Duration.ofMillis(50);
 
     @Rule public Timeout caseTimeout = new Timeout(10, TimeUnit.SECONDS);
 
@@ -126,8 +126,8 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
     /** Tests that cached result is NOT reused after refresh interval. */
     @Test
     public void testCachedStatsUpdatedAfterRefreshInterval() throws Exception {
-        final int threadInfoStatsRefreshInterval2 = 10;
-        final long waitingTime = threadInfoStatsRefreshInterval2 + 10;
+        final Duration threadInfoStatsRefreshInterval2 = Duration.ofMillis(10);
+        final long waitingTime = threadInfoStatsRefreshInterval2.toMillis() + 10;
 
         final int requestId2 = 1;
         final JobVertexThreadInfoStats threadInfoStats2 =
@@ -155,8 +155,8 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
     /** Tests that cached results are removed within the cleanup interval. */
     @Test
     public void testCachedStatsCleanedAfterCleanupInterval() throws Exception {
-        final int cleanUpInterval2 = 10;
-        final long waitingTime = cleanUpInterval2 + 10;
+        final Duration cleanUpInterval2 = Duration.ofMillis(10);
+        final long waitingTime = cleanUpInterval2.toMillis() + 10;
 
         final JobVertexThreadInfoTracker<JobVertexThreadInfoStats> tracker =
                 createThreadInfoTracker(
@@ -233,8 +233,8 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
     }
 
     private JobVertexThreadInfoTracker<JobVertexThreadInfoStats> createThreadInfoTracker(
-            int cleanUpInterval,
-            int threadInfoStatsRefreshInterval,
+            Duration cleanUpInterval,
+            Duration threadInfoStatsRefreshInterval,
             JobVertexThreadInfoStats... stats) {
 
         final ThreadInfoRequestCoordinator coordinator =
@@ -256,9 +256,9 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
     }
 
     private static JobVertexThreadInfoStats createThreadInfoStats(
-            int requestId, long timeGap, List<ThreadInfoSample> threadInfoSamples) {
+            int requestId, Duration timeGap, List<ThreadInfoSample> threadInfoSamples) {
         long startTime = System.currentTimeMillis();
-        long endTime = startTime + timeGap;
+        long endTime = startTime + timeGap.toMillis();
 
         final Map<ExecutionAttemptID, List<ThreadInfoSample>> threadInfoRatiosByTask =
                 new HashMap<>();
@@ -311,7 +311,7 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
 
         TestingThreadInfoRequestCoordinator(
                 Executor executor,
-                long requestTimeout,
+                Duration requestTimeout,
                 JobVertexThreadInfoStats... jobVertexThreadInfoStats) {
             super(executor, requestTimeout);
             this.jobVertexThreadInfoStats = jobVertexThreadInfoStats;
@@ -322,7 +322,7 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
                 List<Tuple2<AccessExecutionVertex, CompletableFuture<TaskExecutorGateway>>>
                         ignored1,
                 int ignored2,
-                Time ignored3,
+                Duration ignored3,
                 int ignored4) {
             return CompletableFuture.completedFuture(
                     jobVertexThreadInfoStats[(counter++) % jobVertexThreadInfoStats.length]);
