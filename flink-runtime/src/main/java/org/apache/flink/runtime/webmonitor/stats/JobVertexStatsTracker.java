@@ -31,8 +31,8 @@ import java.util.Optional;
 public interface JobVertexStatsTracker<T extends Statistics> {
 
     /**
-     * Returns statistics for a job vertex. Automatically triggers sampling request if statistics are
-     * not available or outdated.
+     * Returns statistics for a job vertex. Automatically triggers sampling request if statistics
+     * are not available or outdated.
      *
      * @param vertex Vertex to get the stats for.
      * @return Statistics for a vertex. This interface is intended to be used for polling request

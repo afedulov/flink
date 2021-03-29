@@ -53,8 +53,7 @@ public final class JvmUtils {
             long threadId, int maxStackTraceDepth) {
         ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
-        return Optional.ofNullable(
-                ThreadInfoSample.from(threadMxBean.getThreadInfo(threadId, maxStackTraceDepth)));
+        return ThreadInfoSample.from(threadMxBean.getThreadInfo(threadId, maxStackTraceDepth));
     }
 
     /** Private default constructor to avoid instantiation. */

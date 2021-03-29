@@ -18,22 +18,22 @@
 
 package org.apache.flink.runtime.messages;
 
-import com.sun.istack.Nullable;
+import javax.annotation.Nullable;
 
 import java.io.Serializable;
 import java.lang.management.ThreadInfo;
+import java.util.Optional;
 
 /**
- * A serializable wrapper container for transferring parts of the {@link java.lang.management.ThreadInfo}.
+ * A serializable wrapper container for transferring parts of the {@link
+ * java.lang.management.ThreadInfo}.
  */
 public class ThreadInfoSample implements Serializable {
 
     private final Thread.State threadState;
     private final StackTraceElement[] stackTrace;
 
-    private ThreadInfoSample(
-            Thread.State threadState,
-            StackTraceElement[] stackTrace) {
+    private ThreadInfoSample(Thread.State threadState, StackTraceElement[] stackTrace) {
         this.threadState = threadState;
         this.stackTrace = stackTrace;
     }
@@ -42,15 +42,15 @@ public class ThreadInfoSample implements Serializable {
      * Constructs a {@link ThreadInfoSample} from {@link ThreadInfo}.
      *
      * @param threadInfo {@link ThreadInfo} where the data will be copied from.
-     * @return new {@link ThreadInfoSample}
+     * @return an Optional containing the {@link ThreadInfoSample} if the {@code threadInfo} is not
+     *     null and an empty Optional otherwise.
      */
-    public static @Nullable ThreadInfoSample from(@Nullable ThreadInfo threadInfo) {
+    public static Optional<ThreadInfoSample> from(@Nullable ThreadInfo threadInfo) {
         if (threadInfo != null) {
-            return new ThreadInfoSample(
-                    threadInfo.getThreadState(),
-                    threadInfo.getStackTrace());
+            return Optional.of(
+                    new ThreadInfoSample(threadInfo.getThreadState(), threadInfo.getStackTrace()));
         } else {
-            return null;
+            return Optional.empty();
         }
     }
 
@@ -61,5 +61,4 @@ public class ThreadInfoSample implements Serializable {
     public StackTraceElement[] getStackTrace() {
         return stackTrace.clone();
     }
-
 }

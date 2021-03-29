@@ -81,10 +81,11 @@ class ThreadInfoSampleService {
             resultFuture.complete(currentTraces);
             return resultFuture;
         } else {
-            throw new IllegalStateException(
-                    String.format(
-                            "Cannot sample task %s. The task is not running.",
-                            task.getExecutionId()));
+            resultFuture.completeExceptionally(
+                    new IllegalStateException(
+                            String.format(
+                                    "Cannot sample task %s. The task is not running.",
+                                    task.getExecutionId())));
         }
 
         if (numSamples > 1) {

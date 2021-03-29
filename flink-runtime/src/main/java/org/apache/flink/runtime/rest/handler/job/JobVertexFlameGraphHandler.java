@@ -25,9 +25,9 @@ import org.apache.flink.runtime.rest.handler.RestHandlerException;
 import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.FlameGraphTypeQueryParameter;
+import org.apache.flink.runtime.rest.messages.JobVertexFlameGraphHeaders;
 import org.apache.flink.runtime.rest.messages.JobVertexFlameGraphInfo;
 import org.apache.flink.runtime.rest.messages.JobVertexFlameGraphParameters;
-import org.apache.flink.runtime.rest.messages.MessageHeaders;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.runtime.webmonitor.threadinfo.JobVertexFlameGraph;
@@ -57,16 +57,14 @@ public class JobVertexFlameGraphHandler
             GatewayRetriever<? extends RestfulGateway> leaderRetriever,
             Time timeout,
             Map<String, String> responseHeaders,
-            MessageHeaders<EmptyRequestBody, JobVertexFlameGraphInfo, JobVertexFlameGraphParameters>
-                    messageHeaders,
             ExecutionGraphCache executionGraphCache,
             Executor executor,
-            ThreadInfoOperatorTracker<OperatorThreadInfoStats> threadInfoOperatorTracker) {
+            JobVertexThreadInfoTracker<JobVertexThreadInfoStats> threadInfoOperatorTracker) {
         super(
                 leaderRetriever,
                 timeout,
                 responseHeaders,
-                messageHeaders,
+                JobVertexFlameGraphHeaders.getInstance(),
                 executionGraphCache,
                 executor);
         this.threadInfoOperatorTracker = threadInfoOperatorTracker;

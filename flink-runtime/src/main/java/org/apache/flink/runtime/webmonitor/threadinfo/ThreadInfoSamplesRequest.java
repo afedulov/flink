@@ -43,8 +43,9 @@ public class ThreadInfoSamplesRequest {
             int requestId,
             @Nonnegative int numSamples,
             Time delayBetweenSamples,
-            int maxStackTraceDepth) {
+            @Nonnegative int maxStackTraceDepth) {
         checkArgument(numSamples > 0, "numSamples must be positive");
+        checkArgument(maxStackTraceDepth > 0, "maxStackTraceDepth must be positive");
         checkNotNull(delayBetweenSamples, "delayBetweenSamples must not be null");
 
         this.requestId = requestId;

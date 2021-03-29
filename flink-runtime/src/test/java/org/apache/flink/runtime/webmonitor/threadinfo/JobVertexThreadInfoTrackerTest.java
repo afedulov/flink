@@ -212,7 +212,8 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
     }
 
     private void assertExpectedEqualsReceived(
-            JobVertexThreadInfoStats expected, Optional<JobVertexThreadInfoStats> receivedOptional) {
+            JobVertexThreadInfoStats expected,
+            Optional<JobVertexThreadInfoStats> receivedOptional) {
         assertTrue(receivedOptional.isPresent());
         JobVertexThreadInfoStats received = receivedOptional.get();
 
