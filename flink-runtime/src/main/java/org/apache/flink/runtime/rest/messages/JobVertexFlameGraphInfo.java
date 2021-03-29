@@ -30,7 +30,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonPro
 public class JobVertexFlameGraphInfo implements ResponseBody {
 
     public static JobVertexFlameGraphInfo empty() {
-        return new JobVertexFlameGraphInfo(null, null);
+        return new JobVertexFlameGraphInfo(-1, null);
     }
 
     private static final String FIELD_NAME_END_TIMESTAMP = "end-timestamp";
@@ -44,13 +44,13 @@ public class JobVertexFlameGraphInfo implements ResponseBody {
 
     @JsonCreator
     public JobVertexFlameGraphInfo(
-            @JsonProperty(FIELD_NAME_END_TIMESTAMP) Long endTimestamp,
+            @JsonProperty(FIELD_NAME_END_TIMESTAMP) long endTimestamp,
             @JsonProperty(FIELD_NAME_ROOT) OperatorFlameGraph.Node root) {
         this.endTimestamp = endTimestamp;
         this.root = root;
     }
 
-    public Long getEndTimestamp() {
+    public long getEndTimestamp() {
         return endTimestamp;
     }
 

@@ -49,8 +49,14 @@ public class FlameGraphTypeQueryParameter
 
     /** Flame Graph type. */
     public enum Type {
+        /** Type of the Flame Graph that includes threads in all possible states. */
         FULL,
+        /** Type of the Flame Graph that includes threads in states Thread.State.[RUNNABLE, NEW]. */
         ON_CPU,
+        /**
+         * Type of the Flame Graph that includes threads in states Thread.State.[TIMED_WAITING,
+         * BLOCKED, WAITING].
+         */
         OFF_CPU
     }
 }

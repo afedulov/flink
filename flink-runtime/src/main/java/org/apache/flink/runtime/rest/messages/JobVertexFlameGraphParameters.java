@@ -18,22 +18,17 @@
 
 package org.apache.flink.runtime.rest.messages;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 
-/** Message parameters for job vertex REST handlers. */
-public class JobVertexMessageParameters extends JobMessageParameters {
+/** Message parameters for job vertex Flame Graph REST handler. */
+public class JobVertexFlameGraphParameters extends JobVertexMessageParameters {
 
-    public final JobVertexIdPathParameter jobVertexIdPathParameter = new JobVertexIdPathParameter();
-
-    @Override
-    public Collection<MessagePathParameter<?>> getPathParameters() {
-        return Arrays.asList(jobPathParameter, jobVertexIdPathParameter);
-    }
+    public final FlameGraphTypeQueryParameter flameGraphTypeQueryParameter =
+            new FlameGraphTypeQueryParameter();
 
     @Override
     public Collection<MessageQueryParameter<?>> getQueryParameters() {
-        return Collections.emptySet();
+        return Collections.singleton(flameGraphTypeQueryParameter);
     }
 }

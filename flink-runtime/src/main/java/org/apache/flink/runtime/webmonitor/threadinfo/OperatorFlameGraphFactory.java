@@ -61,7 +61,7 @@ public class OperatorFlameGraphFactory {
      * Converts {@link OperatorThreadInfoStats} into a FlameGraph representing actively running
      * (On-CPU) threads.
      *
-     * <p>Includes threads in states Thread.State.[TIMED_WAITING, BLOCKED, WAITING].
+     * <p>Includes threads in states Thread.State.[RUNNABLE, NEW].
      *
      * @param sample Thread details sample containing stack traces.
      * @return FlameGraph data structure

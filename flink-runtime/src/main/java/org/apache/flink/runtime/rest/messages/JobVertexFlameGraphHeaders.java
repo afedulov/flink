@@ -26,7 +26,7 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseSt
 /** Message headers for the {@link JobVertexFlameGraphHandler}. */
 public class JobVertexFlameGraphHeaders
         implements MessageHeaders<
-                EmptyRequestBody, JobVertexFlameGraphInfo, JobVertexMessageParameters> {
+                EmptyRequestBody, JobVertexFlameGraphInfo, JobVertexFlameGraphParameters> {
 
     private static final JobVertexFlameGraphHeaders INSTANCE = new JobVertexFlameGraphHeaders();
 
@@ -53,8 +53,8 @@ public class JobVertexFlameGraphHeaders
     }
 
     @Override
-    public JobVertexMessageParameters getUnresolvedMessageParameters() {
-        return new JobVertexMessageParameters();
+    public JobVertexFlameGraphParameters getUnresolvedMessageParameters() {
+        return new JobVertexFlameGraphParameters();
     }
 
     @Override
@@ -73,6 +73,6 @@ public class JobVertexFlameGraphHeaders
 
     @Override
     public String getDescription() {
-        return "Returns flame graph information for a job, and may initiate flame graph sampling if necessary.";
+        return "Returns flame graph information for a vertex, and may initiate flame graph sampling if necessary.";
     }
 }

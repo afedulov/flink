@@ -508,7 +508,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     @Override
     public CompletableFuture<TaskThreadInfoResponse> requestThreadInfoSamples(
             final ExecutionAttemptID taskExecutionAttemptId,
-            ThreadInfoSamplesRequest requestParams,
+            final ThreadInfoSamplesRequest requestParams,
             final Time timeout) {
 
         final Task task = taskSlotTable.getTask(taskExecutionAttemptId);

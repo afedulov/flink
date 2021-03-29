@@ -35,13 +35,13 @@ public interface OperatorStatsTracker<T extends Statistics> {
      * not available or outdated.
      *
      * @param vertex Operator to get the stats for.
-     * @return Statistics for an operator
+     * @return Statistics for an operator. This interface is intended to be used for polling request
+     *     and for the duration while the statistics are being gathered, the returned Optional can
+     *     be empty.
      */
     Optional<T> getOperatorStats(AccessExecutionJobVertex vertex);
 
-    /**
-     * Cleans up the operator stats cache if it contains timed out entries.
-     */
+    /** Cleans up the operator stats cache if it contains timed out entries. */
     void cleanUpOperatorStatsCache();
 
     /**

@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static java.util.Objects.requireNonNull;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Samples thread infos of tasks. */
@@ -40,7 +39,7 @@ class ThreadInfoSampleService {
 
     ThreadInfoSampleService(final ScheduledExecutor scheduledExecutor) {
         this.scheduledExecutor =
-                requireNonNull(scheduledExecutor, "scheduledExecutor must not be null");
+                checkNotNull(scheduledExecutor, "scheduledExecutor must not be null");
     }
 
     /**
@@ -53,6 +52,7 @@ class ThreadInfoSampleService {
     public CompletableFuture<List<ThreadInfoSample>> requestThreadInfoSamples(
             final SampleableTask task, final ThreadInfoSamplesRequest requestParams) {
         checkNotNull(task, "task must not be null");
+        checkNotNull(requestParams, "requestParams must not be null");
 
         return requestThreadInfoSamples(
                 task,
@@ -83,7 +83,7 @@ class ThreadInfoSampleService {
         } else {
             throw new IllegalStateException(
                     String.format(
-                            "Cannot sample task %s. " + "The task is not running.",
+                            "Cannot sample task %s. The task is not running.",
                             task.getExecutionId()));
         }
 

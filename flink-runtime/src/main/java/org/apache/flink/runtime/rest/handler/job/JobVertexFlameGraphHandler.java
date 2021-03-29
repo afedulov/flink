@@ -26,7 +26,7 @@ import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.FlameGraphTypeQueryParameter;
 import org.apache.flink.runtime.rest.messages.JobVertexFlameGraphInfo;
-import org.apache.flink.runtime.rest.messages.JobVertexMessageParameters;
+import org.apache.flink.runtime.rest.messages.JobVertexFlameGraphParameters;
 import org.apache.flink.runtime.rest.messages.MessageHeaders;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
@@ -37,8 +37,6 @@ import org.apache.flink.runtime.webmonitor.threadinfo.ThreadInfoOperatorTracker;
 
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
 
-import javax.annotation.Nonnull;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,7 +44,7 @@ import java.util.concurrent.Executor;
 
 /** Request handler for the job vertex Flame Graph. */
 public class JobVertexFlameGraphHandler
-        extends AbstractJobVertexHandler<JobVertexFlameGraphInfo, JobVertexMessageParameters> {
+        extends AbstractJobVertexHandler<JobVertexFlameGraphInfo, JobVertexFlameGraphParameters> {
 
     private final ThreadInfoOperatorTracker<OperatorThreadInfoStats> threadInfoOperatorTracker;
 
@@ -59,7 +57,7 @@ public class JobVertexFlameGraphHandler
             GatewayRetriever<? extends RestfulGateway> leaderRetriever,
             Time timeout,
             Map<String, String> responseHeaders,
-            MessageHeaders<EmptyRequestBody, JobVertexFlameGraphInfo, JobVertexMessageParameters>
+            MessageHeaders<EmptyRequestBody, JobVertexFlameGraphInfo, JobVertexFlameGraphParameters>
                     messageHeaders,
             ExecutionGraphCache executionGraphCache,
             Executor executor,
@@ -76,8 +74,8 @@ public class JobVertexFlameGraphHandler
 
     @Override
     protected JobVertexFlameGraphInfo handleRequest(
-            @Nonnull HandlerRequest<EmptyRequestBody, JobVertexMessageParameters> request,
-            @Nonnull AccessExecutionJobVertex jobVertex)
+            HandlerRequest<EmptyRequestBody, JobVertexFlameGraphParameters> request,
+            AccessExecutionJobVertex jobVertex)
             throws RestHandlerException {
 
         final Optional<OperatorThreadInfoStats> threadInfoSample =
