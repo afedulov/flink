@@ -31,7 +31,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 
 /**
- * A reader format that text lines from a file.
+ * A reader format that reads text lines from a file.
  *
  * <p>The reader uses Java's built-in {@link InputStreamReader} to decode the byte stream using
  * various supported charset encodings.

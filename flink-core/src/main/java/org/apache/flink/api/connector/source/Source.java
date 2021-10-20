@@ -57,7 +57,7 @@ public interface Source<T, SplitT extends SourceSplit, EnumChkT> extends Seriali
      *
      * @param enumContext The {@link SplitEnumeratorContext context} for the split enumerator.
      * @return A new SplitEnumerator.
-     * @throws Exception The implementor is free to forward all exceptions directly. * Exceptions
+     * @throws Exception The implementor is free to forward all exceptions directly. Exceptions
      *     thrown from this method cause JobManager failure/recovery.
      */
     SplitEnumerator<SplitT, EnumChkT> createEnumerator(SplitEnumeratorContext<SplitT> enumContext)
