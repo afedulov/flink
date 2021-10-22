@@ -16,8 +16,9 @@
  * limitations under the License.
  */
 
-package org.apache.flink.formats.csv.converter;
+package org.apache.flink.formats.common;
 
-interface Converter<I,O>{
+//TODO: move to generic class
+public interface Converter<I,O>{
   O convert(I input);
 }

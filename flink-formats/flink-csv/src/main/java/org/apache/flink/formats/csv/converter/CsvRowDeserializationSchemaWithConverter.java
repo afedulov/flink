@@ -26,6 +26,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.formats.common.ConverterRegistry;
 import org.apache.flink.formats.csv.CsvRowSchemaConverter;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
