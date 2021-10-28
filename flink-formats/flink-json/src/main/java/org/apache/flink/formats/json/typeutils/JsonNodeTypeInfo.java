@@ -24,13 +24,6 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.util.Objects;
-
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
 public class JsonNodeTypeInfo extends TypeInformation<JsonNode> {
 
     private static final long serialVersionUID = 4141977586453820650L;
@@ -70,7 +63,7 @@ public class JsonNodeTypeInfo extends TypeInformation<JsonNode> {
     public TypeSerializer<JsonNode> createSerializer(ExecutionConfig config) {
         return null;
 
-        //TODO: create JsonSerializer
+        // TODO: create JsonSerializer
     }
 
     @Override
@@ -95,7 +88,7 @@ public class JsonNodeTypeInfo extends TypeInformation<JsonNode> {
 
     //  ----- Remove above
 
-/*    @Override
+    /*    @Override
     public TypeSerializer<JsonNode> createSerializer(ExecutionConfig config) {
         return new AvroSerializer<>(JsonNode.class, schema);
     }

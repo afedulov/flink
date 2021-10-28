@@ -16,23 +16,23 @@
  * limitations under the License.
  */
 
-package org.apache.flink.formats.common;
-
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-
-import java.util.HashMap;
-import java.util.Map;
-
-public class ConverterRegistry {
-    //TODO: TypeInformation adds dependency on flink-core. Check if that's OK for format-common
-    private final Map<TypeInformation<?>, Converter<?,?>> register = new HashMap<>();
-
-    static {
-
-    }
-
-    private <I,O> void registerConverter(TypeInformation<O> typeInfo, Converter<I,O> converter){
-        register.put(typeInfo, converter);
-    }
-
-}
+// package org.apache.flink.formats.common;
+//
+// import org.apache.flink.api.common.typeinfo.TypeInformation;
+//
+// import java.util.HashMap;
+// import java.util.Map;
+//
+// public class ConverterRegistry {
+//    //TODO: TypeInformation adds dependency on flink-core. Check if that's OK for format-common
+//    private final Map<TypeInformation<?>, Converter<?,?>> register = new HashMap<>();
+//
+//    static {
+//
+//    }
+//
+//    private <I,O> void registerConverter(TypeInformation<O> typeInfo, Converter<I,O> converter){
+//        register.put(typeInfo, converter);
+//    }
+//
+// }

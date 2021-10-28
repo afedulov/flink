@@ -18,7 +18,7 @@
 
 package org.apache.flink.formats.common;
 
-//TODO: move to generic class
-public interface Converter<I,O>{
-  O convert(I input);
+// TODO: move to generic class
+public interface Converter<I, O> {
+    O convert(I input);
 }
