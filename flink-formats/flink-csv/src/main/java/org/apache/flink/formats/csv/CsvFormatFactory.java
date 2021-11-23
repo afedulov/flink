@@ -28,10 +28,12 @@ import org.apache.flink.connector.file.src.impl.StreamFormatAdapter;
 import org.apache.flink.connector.file.src.reader.BulkFormat;
 import org.apache.flink.formats.csv.RowDataToCsvConverters.RowDataToCsvFormatConverter;
 import org.apache.flink.table.connector.ChangelogMode;
+import org.apache.flink.table.connector.Projection;
 import org.apache.flink.table.connector.format.BulkDecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
+import org.apache.flink.table.connector.format.ProjectableDecodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
-import org.apache.flink.table.connector.source.DynamicTableSource;
+import org.apache.flink.table.connector.source.DynamicTableSource.Context;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.BulkReaderFormatFactory;
 import org.apache.flink.table.factories.BulkWriterFormatFactory;
@@ -75,35 +77,52 @@ public class CsvFormatFactory implements BulkReaderFormatFactory, BulkWriterForm
         return CsvCommons.optionalOptions();
     }
 
-    // TODO: is it possible to avoid the cast with a reasonable effort?
+
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public BulkDecodingFormat<RowData> createDecodingFormat(
             DynamicTableFactory.Context context, ReadableConfig formatOptions) {
-        return new BulkDecodingFormat<RowData>() {
-            @Override
-            public BulkFormat<RowData, FileSourceSplit> createRuntimeDecoder(
-                    DynamicTableSource.Context context, DataType physicalDataType) {
-                final RowType rowType = (RowType) physicalDataType.getLogicalType();
-                final CsvSchema schema = buildCsvSchema(rowType, formatOptions);
 
-                final Converter<JsonNode, RowData, Void> converter =
-                        (Converter)
-                                new CsvToRowDataConverters(false).createRowConverter(rowType, true);
-                return new StreamFormatAdapter<>(
-                        new CsvFormat<>(
-                                new CsvMapper(),
-                                schema,
-                                JsonNode.class,
-                                converter,
-                                context.createTypeInformation(physicalDataType)));
-            }
+        return new CsvBulkDecodingFormat(formatOptions);
+    }
 
-            @Override
-            public ChangelogMode getChangelogMode() {
-                return ChangelogMode.insertOnly();
-            }
-        };
+    private static class CsvBulkDecodingFormat implements BulkDecodingFormat<RowData>,
+            ProjectableDecodingFormat<BulkFormat<RowData, FileSourceSplit>> {
+
+        private final ReadableConfig formatOptions;
+
+        public CsvBulkDecodingFormat(ReadableConfig formatOptions) {
+            this.formatOptions = formatOptions;
+        }
+
+        @Override
+        // TODO: is it possible to avoid the cast with a reasonable effort?
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        public BulkFormat<RowData, FileSourceSplit> createRuntimeDecoder(
+                Context context, DataType physicalDataType, int[][] projections) {
+
+            final DataType projectedDataDype = Projection.of(projections).project(physicalDataType);
+            final RowType rowTypeProjected = (RowType) projectedDataDype.getLogicalType();
+
+            final RowType rowType = (RowType) physicalDataType.getLogicalType();
+            final CsvSchema schema = buildCsvSchema(rowType, formatOptions);
+
+            final Converter<JsonNode, RowData, Void> converter =
+                    (Converter)
+                            new CsvToRowDataConverters(false).createRowConverter(rowTypeProjected, true);
+            return new StreamFormatAdapter<>(
+                    new CsvFormat<>(
+                            new CsvMapper(),
+                            schema,
+                            JsonNode.class,
+                            converter,
+//                            context.createTypeInformation(projectedDataDype)));
+                            context.createTypeInformation(physicalDataType)));
+        }
+
+        @Override
+        public ChangelogMode getChangelogMode() {
+            return ChangelogMode.insertOnly();
+        }
     }
 
     @Override
@@ -129,7 +148,8 @@ public class CsvFormatFactory implements BulkReaderFormatFactory, BulkWriterForm
         };
     }
 
-    private CsvSchema buildCsvSchema(RowType rowType, ReadableConfig options) {
+    //TODO: moved to static due to the new projectable classes structure.
+    private static CsvSchema buildCsvSchema(RowType rowType, ReadableConfig options) {
         final CsvSchema csvSchema = CsvRowSchemaConverter.convert(rowType);
         final CsvSchema.Builder csvBuilder = csvSchema.rebuild();
         // format properties
@@ -160,5 +180,4 @@ public class CsvFormatFactory implements BulkReaderFormatFactory, BulkWriterForm
         options.getOptional(NULL_LITERAL).ifPresent(csvBuilder::setNullValue);
 
         return csvBuilder.build();
-    }
-}
+    }}
