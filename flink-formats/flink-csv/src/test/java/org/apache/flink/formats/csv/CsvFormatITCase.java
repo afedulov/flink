@@ -21,24 +21,28 @@ package org.apache.flink.formats.csv;
 import org.apache.flink.formats.common.TimeFormats;
 import org.apache.flink.table.planner.runtime.utils.TestData;
 import org.apache.flink.table.planner.utils.JavaScalaConversionUtil;
+import org.apache.flink.table.planner.utils.JsonPlanTestBase;
 
 import org.junit.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.flink.table.utils.DateTimeUtils.unixTimestampToLocalDateTime;
 
-// based on TableSourceJsonPlanITCase
-public class CsvFormatITCase extends CsvJsonPlanTestBase {
+public class CsvFormatITCase extends JsonPlanTestBase {
 
     @Test
     public void testProjectPushDown() throws Exception {
         List<String> data = Arrays.asList("1,1,hi", "2,1,hello", "3,2,hello world");
-        createTestCsvSourceTable("MyTable", data, "a bigint", "b int not null", "c varchar");
-        File sinkPath = createTestCsvSinkTable("MySink", "a bigint", "c varchar");
+        createSourceTable("MyTable", data, "a bigint", "b int not null", "c varchar");
+        File sinkPath = createSinkTable("MySink", "a bigint", "c varchar");
 
         String jsonPlan = tableEnv.getJsonPlan("insert into MySink select a, c from MyTable");
         tableEnv.executeJsonPlan(jsonPlan).await();
@@ -58,7 +62,7 @@ public class CsvFormatITCase extends CsvJsonPlanTestBase {
                     }
                 });
 
-        File sinkPath = createTestCsvSinkTable("MySink", "a bigint", "m varchar");
+        File sinkPath = createSinkTable("MySink", "a bigint", "m varchar");
 
         String jsonPlan = tableEnv.getJsonPlan("insert into MySink select a, m from MyTable");
         tableEnv.executeJsonPlan(jsonPlan).await();
@@ -69,8 +73,8 @@ public class CsvFormatITCase extends CsvJsonPlanTestBase {
     @Test
     public void testFilterPushDown() throws Exception {
         List<String> data = Arrays.asList("1,1,hi", "2,1,hello", "3,2,hello world");
-        createTestCsvSourceTable("MyTable", data, "a bigint", "b int not null", "c varchar");
-        File sinkPath = createTestCsvSinkTable("MySink", "a bigint", "b int", "c varchar");
+        createSourceTable("MyTable", data, "a bigint", "b int not null", "c varchar");
+        File sinkPath = createSinkTable("MySink", "a bigint", "b int", "c varchar");
 
         String jsonPlan =
                 tableEnv.getJsonPlan("insert into MySink select * from MyTable where a > 1");
@@ -91,7 +95,7 @@ public class CsvFormatITCase extends CsvJsonPlanTestBase {
                         put("partition-list", "p:1;p:2");
                     }
                 });
-        File sinkPath = createTestCsvSinkTable("MySink", "a int", "p bigint", "c varchar");
+        File sinkPath = createSinkTable("MySink", "a int", "p bigint", "c varchar");
 
         String jsonPlan =
                 tableEnv.getJsonPlan("insert into MySink select * from MyTable where p = 2");
@@ -118,7 +122,7 @@ public class CsvFormatITCase extends CsvJsonPlanTestBase {
                     }
                 });
 
-        File sinkPath = createTestCsvSinkTable("MySink", "a int", "b bigint", "ts timestamp(3)");
+        File sinkPath = createSinkTable("MySink", "a int", "b bigint", "ts timestamp(3)");
 
         String jsonPlan =
                 tableEnv.getJsonPlan("insert into MySink select a, b, ts from MyTable where b = 3");
@@ -154,7 +158,7 @@ public class CsvFormatITCase extends CsvJsonPlanTestBase {
                     }
                 });
 
-        File sinkPath = createTestCsvSinkTable("MySink", "a int", "ts timestamp(3)");
+        File sinkPath = createSinkTable("MySink", "a int", "ts timestamp(3)");
 
         String jsonPlan =
                 tableEnv.getJsonPlan(
@@ -162,14 +166,38 @@ public class CsvFormatITCase extends CsvJsonPlanTestBase {
         tableEnv.executeJsonPlan(jsonPlan).await();
 
         assertResult(
-                Arrays.asList(
-                        "5," + formatSqlTimestamp(5000L),
-                        "6," + formatSqlTimestamp(6000L)),
+                Arrays.asList("5," + formatSqlTimestamp(5000L), "6," + formatSqlTimestamp(6000L)),
                 sinkPath);
     }
 
-    private static String formatSqlTimestamp(long timestamp){
+    private static String formatSqlTimestamp(long timestamp) {
         return TimeFormats.SQL_TIMESTAMP_FORMAT.format(unixTimestampToLocalDateTime(timestamp));
     }
 
+    private void createSourceTable(String tableName, List<String> data, String... fieldNameAndTypes)
+            throws IOException {
+        File sourceFile = TEMPORARY_FOLDER.newFile();
+        Collections.shuffle(data);
+        Files.write(sourceFile.toPath(), String.join("\n", data).getBytes());
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("connector", "filesystem");
+        properties.put("path", sourceFile.getAbsolutePath());
+        properties.put("format", "csv");
+
+        createTestSourceTable(tableName, fieldNameAndTypes, null, properties);
+    }
+
+    private File createSinkTable(String tableName, String... fieldNameAndTypes) throws IOException {
+        File sinkPath = TEMPORARY_FOLDER.newFolder();
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("connector", "filesystem");
+        properties.put("path", sinkPath.getAbsolutePath());
+        properties.put("format", "csv");
+        properties.put("csv.disable-quote-character", "true");
+
+        createTestSinkTable(tableName, fieldNameAndTypes, null, properties);
+        return sinkPath;
+    }
 }
