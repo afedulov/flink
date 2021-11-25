@@ -26,7 +26,7 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.file.src.FileSourceSplit;
 import org.apache.flink.connector.file.src.impl.StreamFormatAdapter;
 import org.apache.flink.connector.file.src.reader.BulkFormat;
-import org.apache.flink.formats.csv.RowDataToCsvConverters.RowDataToCsvFormatConverter;
+import org.apache.flink.formats.csv.RowDataToCsvConverters.RowDataToCsvConverter;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.Projection;
 import org.apache.flink.table.connector.format.BulkDecodingFormat;
@@ -77,7 +77,6 @@ public class CsvFormatFactory implements BulkReaderFormatFactory, BulkWriterForm
         return CsvCommons.optionalOptions();
     }
 
-
     @Override
     public BulkDecodingFormat<RowData> createDecodingFormat(
             DynamicTableFactory.Context context, ReadableConfig formatOptions) {
@@ -85,8 +84,9 @@ public class CsvFormatFactory implements BulkReaderFormatFactory, BulkWriterForm
         return new CsvBulkDecodingFormat(formatOptions);
     }
 
-    private static class CsvBulkDecodingFormat implements BulkDecodingFormat<RowData>,
-            ProjectableDecodingFormat<BulkFormat<RowData, FileSourceSplit>> {
+    private static class CsvBulkDecodingFormat
+            implements BulkDecodingFormat<RowData>,
+                    ProjectableDecodingFormat<BulkFormat<RowData, FileSourceSplit>> {
 
         private final ReadableConfig formatOptions;
 
@@ -108,14 +108,16 @@ public class CsvFormatFactory implements BulkReaderFormatFactory, BulkWriterForm
 
             final Converter<JsonNode, RowData, Void> converter =
                     (Converter)
-                            new CsvToRowDataConverters(false).createRowConverter(rowTypeProjected, true);
+                            new CsvToRowDataConverters(false)
+                                    .createRowConverter(rowTypeProjected, true);
             return new StreamFormatAdapter<>(
                     new CsvFormat<>(
                             new CsvMapper(),
                             schema,
                             JsonNode.class,
                             converter,
-//                            context.createTypeInformation(projectedDataDype)));
+                            //
+                            // context.createTypeInformation(projectedDataDype)));
                             context.createTypeInformation(physicalDataType)));
         }
 
@@ -136,8 +138,8 @@ public class CsvFormatFactory implements BulkReaderFormatFactory, BulkWriterForm
                 final RowType rowType = (RowType) physicalDataType.getLogicalType();
                 final CsvSchema schema = buildCsvSchema(rowType, formatOptions);
 
-                final RowDataToCsvFormatConverter converter =
-                        RowDataToCsvConverters.createRowFormatConverter(rowType);
+                final RowDataToCsvConverter converter =
+                        RowDataToCsvConverters.createRowConverter(rowType);
                 return out -> new CsvBulkWriter(new CsvMapper(), schema, converter, out);
             }
 
@@ -148,7 +150,7 @@ public class CsvFormatFactory implements BulkReaderFormatFactory, BulkWriterForm
         };
     }
 
-    //TODO: moved to static due to the new projectable classes structure.
+    // TODO: moved to static due to the new projectable classes structure.
     private static CsvSchema buildCsvSchema(RowType rowType, ReadableConfig options) {
         final CsvSchema csvSchema = CsvRowSchemaConverter.convert(rowType);
         final CsvSchema.Builder csvBuilder = csvSchema.rebuild();
@@ -180,4 +182,5 @@ public class CsvFormatFactory implements BulkReaderFormatFactory, BulkWriterForm
         options.getOptional(NULL_LITERAL).ifPresent(csvBuilder::setNullValue);
 
         return csvBuilder.build();
-    }}
+    }
+}

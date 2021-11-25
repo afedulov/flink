@@ -57,15 +57,9 @@ public class RowDataToCsvConverters implements Serializable {
      * Runtime converter that converts objects of Flink Table & SQL internal data structures to
      * corresponding {@link JsonNode}s.
      */
-    public interface RowDataToCsvConverter extends Serializable {
-        JsonNode convert(CsvMapper csvMapper, ContainerNode<?> container, RowData row);
-    }
-
-    public interface RowDataToCsvFormatConverter
+    public interface RowDataToCsvConverter
             extends Converter<
-                    RowData,
-                    JsonNode,
-                    RowDataToCsvFormatConverter.RowDataToCsvFormatConverterContext> {
+                    RowData, JsonNode, RowDataToCsvConverter.RowDataToCsvFormatConverterContext> {
 
         class RowDataToCsvFormatConverterContext {
             CsvMapper csvMapper;
@@ -87,8 +81,7 @@ public class RowDataToCsvConverters implements Serializable {
         JsonNode convert(CsvMapper csvMapper, ContainerNode<?> container, ArrayData array, int pos);
     }
 
-    // TODO: refactor duplicated code if the overall approach is seen as valid
-    public static RowDataToCsvFormatConverter createRowFormatConverter(RowType type) {
+    public static RowDataToCsvConverter createRowConverter(RowType type) {
         LogicalType[] fieldTypes =
                 type.getFields().stream()
                         .map(RowType.RowField::getType)
@@ -108,35 +101,6 @@ public class RowDataToCsvConverters implements Serializable {
                             fieldNames[i],
                             fieldConverters[i].convert(
                                     context.csvMapper, context.container, row, i));
-                } catch (Throwable t) {
-                    throw new RuntimeException(
-                            String.format("Fail to serialize at field: %s.", fieldNames[i]), t);
-                }
-            }
-            return objectNode;
-        };
-    }
-
-    public static RowDataToCsvConverter createRowConverter(RowType type) {
-        LogicalType[] fieldTypes =
-                type.getFields().stream()
-                        .map(RowType.RowField::getType)
-                        .toArray(LogicalType[]::new);
-        final String[] fieldNames = type.getFieldNames().toArray(new String[0]);
-
-        final RowFieldConverter[] fieldConverters =
-                Arrays.stream(fieldTypes)
-                        .map(RowDataToCsvConverters::createNullableRowFieldConverter)
-                        .toArray(RowFieldConverter[]::new);
-        final int rowArity = type.getFieldCount();
-        return (csvMapper, container, row) -> {
-            // top level reuses the object node container
-            final ObjectNode objectNode = (ObjectNode) container;
-            for (int i = 0; i < rowArity; i++) {
-                try {
-                    objectNode.set(
-                            fieldNames[i],
-                            fieldConverters[i].convert(csvMapper, container, row, i));
                 } catch (Throwable t) {
                     throw new RuntimeException(
                             String.format("Fail to serialize at field: %s.", fieldNames[i]), t);

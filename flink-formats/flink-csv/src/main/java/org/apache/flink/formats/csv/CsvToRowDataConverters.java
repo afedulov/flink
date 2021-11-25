@@ -310,7 +310,7 @@ public class CsvToRowDataConverters implements Serializable {
     }
 
     private static void validateArity(int expected, int actual, boolean ignoreParseErrors) {
-        if (expected != actual && !ignoreParseErrors) {
+        if (expected > actual && !ignoreParseErrors) {
             throw new RuntimeException(
                     "Row length mismatch. "
                             + expected

@@ -21,7 +21,7 @@ package org.apache.flink.formats.csv;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.serialization.BulkWriter;
 import org.apache.flink.core.fs.FSDataOutputStream;
-import org.apache.flink.formats.csv.RowDataToCsvConverters.RowDataToCsvFormatConverter.RowDataToCsvFormatConverterContext;
+import org.apache.flink.formats.csv.RowDataToCsvConverters.RowDataToCsvConverter.RowDataToCsvFormatConverterContext;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
