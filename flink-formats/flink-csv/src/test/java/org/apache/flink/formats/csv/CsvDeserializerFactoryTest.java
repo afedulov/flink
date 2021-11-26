@@ -48,8 +48,8 @@ import static org.apache.flink.table.factories.utils.FactoryMocks.createTableSin
 import static org.apache.flink.table.factories.utils.FactoryMocks.createTableSource;
 import static org.junit.Assert.assertEquals;
 
-/** Tests for {@link CsvFormatFactory}. */
-public class CsvFormatFactoryTest extends TestLogger {
+/** Tests for {@link CsvSerDeSchemaFactory}. */
+public class CsvDeserializerFactoryTest extends TestLogger {
     @Rule public ExpectedException thrown = ExpectedException.none();
 
     @Test
@@ -249,7 +249,7 @@ public class CsvFormatFactoryTest extends TestLogger {
         options.put("target", "MyTarget");
         options.put("buffer-size", "1000");
 
-        options.put("format", CsvFormatFactory.IDENTIFIER);
+        options.put("format", CsvCommons.IDENTIFIER);
         options.put("csv.field-delimiter", ";");
         options.put("csv.quote-character", "'");
         options.put("csv.allow-comments", "true");

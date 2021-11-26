@@ -19,29 +19,30 @@
 package org.apache.flink.formats.csv;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.common.serialization.DeserializationSchema;
-import org.apache.flink.api.common.serialization.SerializationSchema;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.connector.file.src.FileSourceSplit;
+import org.apache.flink.connector.file.src.impl.StreamFormatAdapter;
+import org.apache.flink.connector.file.src.reader.BulkFormat;
+import org.apache.flink.formats.common.Converter;
 import org.apache.flink.table.connector.ChangelogMode;
-import org.apache.flink.table.connector.format.DecodingFormat;
-import org.apache.flink.table.connector.format.EncodingFormat;
-import org.apache.flink.table.connector.sink.DynamicTableSink;
-import org.apache.flink.table.connector.source.DynamicTableSource;
+import org.apache.flink.table.connector.Projection;
+import org.apache.flink.table.connector.format.BulkDecodingFormat;
+import org.apache.flink.table.connector.format.ProjectableDecodingFormat;
+import org.apache.flink.table.connector.source.DynamicTableSource.Context;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.factories.DeserializationFormatFactory;
+import org.apache.flink.table.factories.BulkReaderFormatFactory;
 import org.apache.flink.table.factories.DynamicTableFactory;
-import org.apache.flink.table.factories.FactoryUtil;
-import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
+
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.CsvSchema;
 
 import org.apache.commons.lang3.StringEscapeUtils;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
 import static org.apache.flink.formats.csv.CsvFormatOptions.ALLOW_COMMENTS;
@@ -49,73 +50,16 @@ import static org.apache.flink.formats.csv.CsvFormatOptions.ARRAY_ELEMENT_DELIMI
 import static org.apache.flink.formats.csv.CsvFormatOptions.DISABLE_QUOTE_CHARACTER;
 import static org.apache.flink.formats.csv.CsvFormatOptions.ESCAPE_CHARACTER;
 import static org.apache.flink.formats.csv.CsvFormatOptions.FIELD_DELIMITER;
-import static org.apache.flink.formats.csv.CsvFormatOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.csv.CsvFormatOptions.NULL_LITERAL;
 import static org.apache.flink.formats.csv.CsvFormatOptions.QUOTE_CHARACTER;
 
-/**
- * Format factory for providing configured instances of CSV to RowData {@link SerializationSchema}
- * and {@link DeserializationSchema}.
- */
+/** CSV format factory for file system. */
 @Internal
-public final class CsvFormatFactory
-        implements DeserializationFormatFactory, SerializationFormatFactory {
-
-    public static final String IDENTIFIER = "csv";
-
-    @Override
-    public DecodingFormat<DeserializationSchema<RowData>> createDecodingFormat(
-            DynamicTableFactory.Context context, ReadableConfig formatOptions) {
-        FactoryUtil.validateFactoryOptions(this, formatOptions);
-        validateFormatOptions(formatOptions);
-
-        return new DecodingFormat<DeserializationSchema<RowData>>() {
-            @Override
-            public DeserializationSchema<RowData> createRuntimeDecoder(
-                    DynamicTableSource.Context context, DataType producedDataType) {
-                final RowType rowType = (RowType) producedDataType.getLogicalType();
-                final TypeInformation<RowData> rowDataTypeInfo =
-                        context.createTypeInformation(producedDataType);
-                final CsvRowDataDeserializationSchema.Builder schemaBuilder =
-                        new CsvRowDataDeserializationSchema.Builder(rowType, rowDataTypeInfo);
-                configureDeserializationSchema(formatOptions, schemaBuilder);
-                return schemaBuilder.build();
-            }
-
-            @Override
-            public ChangelogMode getChangelogMode() {
-                return ChangelogMode.insertOnly();
-            }
-        };
-    }
-
-    @Override
-    public EncodingFormat<SerializationSchema<RowData>> createEncodingFormat(
-            DynamicTableFactory.Context context, ReadableConfig formatOptions) {
-        FactoryUtil.validateFactoryOptions(this, formatOptions);
-        validateFormatOptions(formatOptions);
-
-        return new EncodingFormat<SerializationSchema<RowData>>() {
-            @Override
-            public SerializationSchema<RowData> createRuntimeEncoder(
-                    DynamicTableSink.Context context, DataType consumedDataType) {
-                final RowType rowType = (RowType) consumedDataType.getLogicalType();
-                final CsvRowDataSerializationSchema.Builder schemaBuilder =
-                        new CsvRowDataSerializationSchema.Builder(rowType);
-                configureSerializationSchema(formatOptions, schemaBuilder);
-                return schemaBuilder.build();
-            }
-
-            @Override
-            public ChangelogMode getChangelogMode() {
-                return ChangelogMode.insertOnly();
-            }
-        };
-    }
+public class CsvFormatFactory implements BulkReaderFormatFactory {
 
     @Override
     public String factoryIdentifier() {
-        return IDENTIFIER;
+        return CsvCommons.IDENTIFIER;
     }
 
     @Override
@@ -125,128 +69,88 @@ public final class CsvFormatFactory
 
     @Override
     public Set<ConfigOption<?>> optionalOptions() {
-        Set<ConfigOption<?>> options = new HashSet<>();
-        options.add(FIELD_DELIMITER);
-        options.add(DISABLE_QUOTE_CHARACTER);
-        options.add(QUOTE_CHARACTER);
-        options.add(ALLOW_COMMENTS);
-        options.add(IGNORE_PARSE_ERRORS);
-        options.add(ARRAY_ELEMENT_DELIMITER);
-        options.add(ESCAPE_CHARACTER);
-        options.add(NULL_LITERAL);
-        return options;
+        return CsvCommons.optionalOptions();
     }
 
-    // ------------------------------------------------------------------------
-    //  Validation
-    // ------------------------------------------------------------------------
+    @Override
+    public BulkDecodingFormat<RowData> createDecodingFormat(
+            DynamicTableFactory.Context context, ReadableConfig formatOptions) {
 
-    static void validateFormatOptions(ReadableConfig tableOptions) {
-        final boolean hasQuoteCharacter = tableOptions.getOptional(QUOTE_CHARACTER).isPresent();
-        final boolean isDisabledQuoteCharacter = tableOptions.get(DISABLE_QUOTE_CHARACTER);
-        if (isDisabledQuoteCharacter && hasQuoteCharacter) {
-            throw new ValidationException(
-                    "Format cannot define a quote character and disabled quote character at the same time.");
+        return new CsvBulkDecodingFormat(formatOptions);
+    }
+
+    private static class CsvBulkDecodingFormat
+            implements BulkDecodingFormat<RowData>,
+                    ProjectableDecodingFormat<BulkFormat<RowData, FileSourceSplit>> {
+
+        private final ReadableConfig formatOptions;
+
+        public CsvBulkDecodingFormat(ReadableConfig formatOptions) {
+            this.formatOptions = formatOptions;
         }
-        // Validate the option value must be a single char.
-        validateCharacterVal(tableOptions, FIELD_DELIMITER, true);
-        validateCharacterVal(tableOptions, ARRAY_ELEMENT_DELIMITER);
-        validateCharacterVal(tableOptions, QUOTE_CHARACTER);
-        validateCharacterVal(tableOptions, ESCAPE_CHARACTER);
-    }
 
-    /** Validates the option {@code option} value must be a Character. */
-    private static void validateCharacterVal(
-            ReadableConfig tableOptions, ConfigOption<String> option) {
-        validateCharacterVal(tableOptions, option, false);
-    }
+        @Override
+        // TODO: is it possible to avoid the cast with a reasonable effort?
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        public BulkFormat<RowData, FileSourceSplit> createRuntimeDecoder(
+                Context context, DataType physicalDataType, int[][] projections) {
 
-    /**
-     * Validates the option {@code option} value must be a Character.
-     *
-     * @param tableOptions the table options
-     * @param option the config option
-     * @param unescape whether to unescape the option value
-     */
-    private static void validateCharacterVal(
-            ReadableConfig tableOptions, ConfigOption<String> option, boolean unescape) {
-        if (tableOptions.getOptional(option).isPresent()) {
-            final String value =
-                    unescape
-                            ? StringEscapeUtils.unescapeJava(tableOptions.get(option))
-                            : tableOptions.get(option);
-            if (value.length() != 1) {
-                throw new ValidationException(
-                        String.format(
-                                "Option '%s.%s' must be a string with single character, but was: %s",
-                                IDENTIFIER, option.key(), tableOptions.get(option)));
-            }
+            final DataType projectedDataType = Projection.of(projections).project(physicalDataType);
+            final RowType projectedRowType = (RowType) projectedDataType.getLogicalType();
+
+            final RowType physicalRowType = (RowType) physicalDataType.getLogicalType();
+            final CsvSchema schema = buildCsvSchema(physicalRowType, formatOptions);
+
+            final Converter<JsonNode, RowData, Void> converter =
+                    (Converter)
+                            new CsvToRowDataConverters(false)
+                                    .createRowConverter(projectedRowType, true);
+            return new StreamFormatAdapter<>(
+                    new CsvReaderFormat<>(
+                            new CsvMapper(),
+                            schema,
+                            JsonNode.class,
+                            converter,
+                            //
+                            context.createTypeInformation(projectedDataType)));
+        }
+
+        @Override
+        public ChangelogMode getChangelogMode() {
+            return ChangelogMode.insertOnly();
         }
     }
 
-    // ------------------------------------------------------------------------
-    //  Utilities
-    // ------------------------------------------------------------------------
+    private static CsvSchema buildCsvSchema(RowType rowType, ReadableConfig options) {
+        final CsvSchema csvSchema = CsvRowSchemaConverter.convert(rowType);
+        final CsvSchema.Builder csvBuilder = csvSchema.rebuild();
+        // format properties
+        options.getOptional(FIELD_DELIMITER)
+                .map(s -> StringEscapeUtils.unescapeJava(s).charAt(0))
+                .ifPresent(csvBuilder::setColumnSeparator);
 
-    private static void configureDeserializationSchema(
-            ReadableConfig formatOptions, CsvRowDataDeserializationSchema.Builder schemaBuilder) {
-        formatOptions
-                .getOptional(FIELD_DELIMITER)
-                .map(delimiter -> StringEscapeUtils.unescapeJava(delimiter).charAt(0))
-                .ifPresent(schemaBuilder::setFieldDelimiter);
-
-        if (formatOptions.get(DISABLE_QUOTE_CHARACTER)) {
-            schemaBuilder.disableQuoteCharacter();
+        if (options.get(DISABLE_QUOTE_CHARACTER)) {
+            csvBuilder.disableQuoteChar();
         } else {
-            formatOptions
-                    .getOptional(QUOTE_CHARACTER)
-                    .map(quote -> quote.charAt(0))
-                    .ifPresent(schemaBuilder::setQuoteCharacter);
+            options.getOptional(QUOTE_CHARACTER)
+                    .map(s -> s.charAt(0))
+                    .ifPresent(csvBuilder::setQuoteChar);
         }
 
-        formatOptions.getOptional(ALLOW_COMMENTS).ifPresent(schemaBuilder::setAllowComments);
+        options.getOptional(ALLOW_COMMENTS).ifPresent(csvBuilder::setAllowComments);
 
-        formatOptions
-                .getOptional(IGNORE_PARSE_ERRORS)
-                .ifPresent(schemaBuilder::setIgnoreParseErrors);
+        options.getOptional(ARRAY_ELEMENT_DELIMITER)
+                .ifPresent(csvBuilder::setArrayElementSeparator);
 
-        formatOptions
-                .getOptional(ARRAY_ELEMENT_DELIMITER)
-                .ifPresent(schemaBuilder::setArrayElementDelimiter);
+        options.getOptional(ARRAY_ELEMENT_DELIMITER)
+                .ifPresent(csvBuilder::setArrayElementSeparator);
 
-        formatOptions
-                .getOptional(ESCAPE_CHARACTER)
-                .map(escape -> escape.charAt(0))
-                .ifPresent(schemaBuilder::setEscapeCharacter);
+        options.getOptional(ESCAPE_CHARACTER)
+                .map(s -> s.charAt(0))
+                .ifPresent(csvBuilder::setEscapeChar);
 
-        formatOptions.getOptional(NULL_LITERAL).ifPresent(schemaBuilder::setNullLiteral);
-    }
+        options.getOptional(NULL_LITERAL).ifPresent(csvBuilder::setNullValue);
 
-    private static void configureSerializationSchema(
-            ReadableConfig formatOptions, CsvRowDataSerializationSchema.Builder schemaBuilder) {
-        formatOptions
-                .getOptional(FIELD_DELIMITER)
-                .map(delimiter -> StringEscapeUtils.unescapeJava(delimiter).charAt(0))
-                .ifPresent(schemaBuilder::setFieldDelimiter);
-
-        if (formatOptions.get(DISABLE_QUOTE_CHARACTER)) {
-            schemaBuilder.disableQuoteCharacter();
-        } else {
-            formatOptions
-                    .getOptional(QUOTE_CHARACTER)
-                    .map(quote -> quote.charAt(0))
-                    .ifPresent(schemaBuilder::setQuoteCharacter);
-        }
-
-        formatOptions
-                .getOptional(ARRAY_ELEMENT_DELIMITER)
-                .ifPresent(schemaBuilder::setArrayElementDelimiter);
-
-        formatOptions
-                .getOptional(ESCAPE_CHARACTER)
-                .map(escape -> escape.charAt(0))
-                .ifPresent(schemaBuilder::setEscapeCharacter);
-
-        formatOptions.getOptional(NULL_LITERAL).ifPresent(schemaBuilder::setNullLiteral);
+        return csvBuilder.build();
     }
 }
