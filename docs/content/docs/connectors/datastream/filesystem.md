@@ -43,8 +43,8 @@ The `File Source` is based on the [Source API]({{< ref "docs/dev/datastream/sour
 a unified data source that reads files - both in batch and in streaming mode. 
 It is divided into the following two parts: File SplitEnumerator and File SourceReader. 
 
-* File SplitEnumerator is responsible for discovering and identifying the files to read and assigns them to the File SourceReader.
-* File SourceReader requests the files it needs to process and reads the file from the filesystem. 
+* File `SplitEnumerator` is responsible for discovering and identifying the files to read and assigns them to the File SourceReader.
+* File `SourceReader` requests the files it needs to process and reads the file from the filesystem. 
 
 You'll need to combine the File Source with a [format]({{< ref "docs/connectors/datastream/formats/overview" >}}). This allows you to
 parse CSV, decode AVRO or read Parquet columnar files.
@@ -145,6 +145,23 @@ final FileSource<byte[]> source =
 {{< /tab >}}
 {{< /tabs >}}
 
+An example of a `SimpleStreamFormat` is `CsvReaderFormat`. It can be initialized as follows:
+```java
+CsvReaderFormat<SomePojo> csvFormat = CsvReaderFormat.forPojo(SomePojo.class);
+FileSource<SomePojo> source = 
+        FileSource.forRecordStreamFormat(csvFormat, Path.fromLocalFile(...)).build();
+```
+
+The schema for CSV parsing, in this case, is automatically derived based on the fields of the `SomePojo` class using the `Jackson` library. (Note: you might need to add `@JsonPropertyOrder({field1, field2, ...})` annotation to your class definition with the fields order exactly matching those of the CSV file columns).
+
+If you need more fine-grained control over the CSV schema or the parsing options, use the more low-level `forSchema` static factory method of `CsvReaderFormat`:
+
+```java
+CsvReaderFormat<T> forSchema(CsvMapper mapper, 
+                             CsvSchema schema, 
+                             TypeInformation<T> typeInformation) 
+```
+
 #### Bulk Format
 
 The BulkFormat reads and decodes batches of records at a time. Examples of bulk formats
@@ -154,6 +171,12 @@ reader. The actual reading is done by the `BulkFormat.Reader`, which is created 
 `BulkFormat#createReader(Configuration, FileSourceSplit)` method. If a bulk reader is
 created based on a checkpoint during checkpointed streaming execution, then the reader is
 re-created in the `BulkFormat#restoreReader(Configuration, FileSourceSplit)` method.
+
+A `SimpleStreamFormat` can be turned into a `BulkFormat` by wrapping it in a `StreamFormatAdapter`:
+```java
+BulkFormat<SomePojo, ?> bulkFormat = 
+        new StreamFormatAdapter<>(CsvReaderFormat.forPojo(SomePojo.class));
+```
 
 ### Customizing File Enumeration
 
