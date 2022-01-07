@@ -174,7 +174,7 @@ re-created in the `BulkFormat#restoreReader(Configuration, FileSourceSplit)` met
 
 A `SimpleStreamFormat` can be turned into a `BulkFormat` by wrapping it in a `StreamFormatAdapter`:
 ```java
-BulkFormat<SomePojo, ?> bulkFormat = 
+BulkFormat<SomePojo, FileSourceSplit> bulkFormat = 
         new StreamFormatAdapter<>(CsvReaderFormat.forPojo(SomePojo.class));
 ```
 
