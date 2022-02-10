@@ -1,0 +1,4 @@
+org.apache.flink:flink-elasticsearch7-test:jar:1.15-SNAPSHOT
+\- org.apache.flink:flink-connector-elasticsearch7:jar:1.15-SNAPSHOT:compile
+   \- org.apache.flink:flink-connector-elasticsearch-base:jar:1.15-SNAPSHOT:compile
+      \- org.apache.flink:flink-connector-base:jar:1.15-SNAPSHOT:compile

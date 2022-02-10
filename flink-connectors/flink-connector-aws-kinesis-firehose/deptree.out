@@ -1,0 +1,3 @@
+org.apache.flink:flink-connector-aws-kinesis-firehose:jar:1.15-SNAPSHOT
++- org.apache.flink:flink-connector-base:jar:1.15-SNAPSHOT:compile
+\- org.apache.flink:flink-connector-base:test-jar:tests:1.15-SNAPSHOT:test
