@@ -82,6 +82,10 @@ under the License.
 									<pattern>org.apache.kafka</pattern>
 									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.kafka</shadedPattern>
 								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.connector.base</pattern>
+									<shadedPattern>org.apache.flink.connector.kafka.sql.shaded.org.apache.flink.connector.base</shadedPattern>
+								</relocation>
 							</relocations>
 						</configuration>
 					</execution>

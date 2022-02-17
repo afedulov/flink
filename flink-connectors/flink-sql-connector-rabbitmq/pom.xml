@@ -68,6 +68,10 @@ under the License.
 									<pattern>com.rabbitmq</pattern>
 									<shadedPattern>org.apache.flink.rabbitmq.shaded.com.rabbitmq</shadedPattern>
 								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.connector.base</pattern>
+									<shadedPattern>org.apache.flink.connector.sql.rabbitmq.shaded.org.apache.flink.connector.base</shadedPattern>
+								</relocation>
 							</relocations>
 						</configuration>
 					</execution>

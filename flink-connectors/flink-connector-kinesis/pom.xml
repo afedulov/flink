@@ -325,6 +325,7 @@ under the License.
 								<includes>
 									<include>org.apache.flink:flink-connector-aws-base:*</include>
 									<include>org.apache.flink:flink-connector-aws-kinesis-data-streams:*</include>
+									<include>org.apache.flink:flink-connector-base:*</include>
 									<include>com.amazonaws:*</include>
 									<include>com.google.protobuf:*</include>
 									<include>org.apache.httpcomponents:*</include>
@@ -346,6 +347,10 @@ under the License.
 								<relocation>
 									<pattern>org.apache.flink.connector.aws.util</pattern>
 									<shadedPattern>org.apache.flink.kinesis.shaded.org.apache.flink.connector.aws.util</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.connector.base</pattern>
+									<shadedPattern>org.apache.flink.kinesis.shaded.org.apache.flink.connector.base</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>com.google.protobuf</pattern>
