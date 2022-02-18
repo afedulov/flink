@@ -27,11 +27,13 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -46,22 +48,23 @@ class ThreadInfoSampleService implements Closeable {
     }
 
     /**
-     * Returns a future that completes with a given number of thread info samples of a task thread.
+     * Returns a future that completes with a given number of thread info samples for a set of task
+     * threads.
      *
-     * @param task The task to be sampled from.
+     * @param tasks The tasks to be sampled.
      * @param requestParams Parameters of the sampling request.
      * @return A future containing the stack trace samples.
      */
     public CompletableFuture<List<ThreadInfoSample>> requestThreadInfoSamples(
-            final SampleableTask task, final ThreadInfoSamplesRequest requestParams) {
-        checkNotNull(task, "task must not be null");
+            final Set<SampleableTask> tasks, final ThreadInfoSamplesRequest requestParams) {
+        checkNotNull(tasks, "task must not be null");
         checkNotNull(requestParams, "requestParams must not be null");
 
         CompletableFuture<List<ThreadInfoSample>> resultFuture = new CompletableFuture<>();
         scheduledExecutor.execute(
                 () ->
                         requestThreadInfoSamples(
-                                task,
+                                tasks,
                                 requestParams.getNumSamples(),
                                 requestParams.getDelayBetweenSamples(),
                                 requestParams.getMaxStackTraceDepth(),
@@ -71,34 +74,44 @@ class ThreadInfoSampleService implements Closeable {
     }
 
     private void requestThreadInfoSamples(
-            final SampleableTask task,
+            final Collection<SampleableTask> tasks,
             final int numSamples,
             final Duration delayBetweenSamples,
             final int maxStackTraceDepth,
             final List<ThreadInfoSample> currentTraces,
             final CompletableFuture<List<ThreadInfoSample>> resultFuture) {
 
-        final long threadId = task.getExecutingThread().getId();
-        final Optional<ThreadInfoSample> threadInfoSample =
-                JvmUtils.createThreadInfoSample(threadId, maxStackTraceDepth);
+        final Collection<Long> threadIds =
+                tasks.stream()
+                        .map(t -> t.getExecutingThread().getId())
+                        .collect(Collectors.toList());
 
-        if (threadInfoSample.isPresent()) {
-            currentTraces.add(threadInfoSample.get());
+        final Collection<ThreadInfoSample> threadInfoSample =
+                JvmUtils.createThreadInfoSample(threadIds, maxStackTraceDepth);
+
+        if (!threadInfoSample.isEmpty()) {
+            currentTraces.addAll(threadInfoSample);
         } else if (!currentTraces.isEmpty()) {
+            // Requested tasks are not running anymore, completing with whatever was collected by
+            // now.
             resultFuture.complete(currentTraces);
         } else {
+            final String ids =
+                    tasks.stream()
+                            .map(SampleableTask::getExecutionId)
+                            .map(e -> e == null ? "unknown" : e.toString())
+                            .collect(Collectors.joining(", ", "[", "]"));
             resultFuture.completeExceptionally(
                     new IllegalStateException(
                             String.format(
-                                    "Cannot sample task %s. The task is not running.",
-                                    task.getExecutionId())));
+                                    "Cannot sample tasks %s. The tasks are not running.", ids)));
         }
 
         if (numSamples > 1) {
             scheduledExecutor.schedule(
                     () ->
                             requestThreadInfoSamples(
-                                    task,
+                                    tasks,
                                     numSamples - 1,
                                     delayBetweenSamples,
                                     maxStackTraceDepth,

@@ -52,9 +52,11 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -323,12 +325,13 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
             List<ThreadInfoSample> threadInfoSamples) {
         Instant endTime = startTime.plus(timeGap);
 
-        final Map<ExecutionAttemptID, List<ThreadInfoSample>> threadInfoRatiosByTask =
+        final Map<Set<ExecutionAttemptID>, List<ThreadInfoSample>> threadInfoRatiosByTask =
                 new HashMap<>();
 
         for (ExecutionVertex vertex : TASK_VERTICES) {
-            threadInfoRatiosByTask.put(
-                    vertex.getCurrentExecutionAttempt().getAttemptId(), threadInfoSamples);
+            Set<ExecutionAttemptID> attemptIds = new HashSet<>();
+            attemptIds.add(vertex.getCurrentExecutionAttempt().getAttemptId());
+            threadInfoRatiosByTask.put(attemptIds, threadInfoSamples);
         }
 
         return new JobVertexThreadInfoStats(
@@ -378,7 +381,8 @@ public class JobVertexThreadInfoTrackerTest extends TestLogger {
 
         @Override
         public CompletableFuture<JobVertexThreadInfoStats> triggerThreadInfoRequest(
-                Map<ExecutionAttemptID, CompletableFuture<TaskExecutorThreadInfoGateway>> ignored1,
+                Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
+                        executionsWithGateways,
                 int ignored2,
                 Duration ignored3,
                 int ignored4) {

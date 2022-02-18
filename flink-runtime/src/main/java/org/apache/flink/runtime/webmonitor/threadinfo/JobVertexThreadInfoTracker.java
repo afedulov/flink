@@ -204,38 +204,69 @@ public class JobVertexThreadInfoTracker<T extends Statistics> implements JobVert
         }
     }
 
-    private Map<ExecutionAttemptID, CompletableFuture<TaskExecutorThreadInfoGateway>>
+    private Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
             matchExecutionsWithGateways(
                     AccessExecutionVertex[] executionVertices,
                     ResourceManagerGateway resourceManagerGateway) {
 
-        Map<ExecutionAttemptID, CompletableFuture<TaskExecutorThreadInfoGateway>>
+        // Group executions by their TaskManagerLocation to be able to issue one sampling
+        // request per TaskManager for all relevant tasks at once
+        final Map<TaskManagerLocation, Set<ExecutionAttemptID>> executionsByLocation =
+                groupExecutionsByLocation(executionVertices);
+
+        return mapExecutionsToGateways(resourceManagerGateway, executionsByLocation);
+    }
+
+    private Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
+            mapExecutionsToGateways(
+                    ResourceManagerGateway resourceManagerGateway,
+                    Map<TaskManagerLocation, Set<ExecutionAttemptID>> verticesByLocation) {
+
+        final Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
                 executionsWithGateways = new HashMap<>();
 
-        for (AccessExecutionVertex executionVertex : executionVertices) {
-            TaskManagerLocation tmLocation = executionVertex.getCurrentAssignedResourceLocation();
+        for (Map.Entry<TaskManagerLocation, Set<ExecutionAttemptID>> entry :
+                verticesByLocation.entrySet()) {
+            TaskManagerLocation tmLocation = entry.getKey();
+            Set<ExecutionAttemptID> attemptIds = entry.getValue();
 
-            if (tmLocation != null) {
-                CompletableFuture<TaskExecutorThreadInfoGateway> taskExecutorGatewayFuture =
-                        resourceManagerGateway.requestTaskExecutorThreadInfoGateway(
-                                tmLocation.getResourceID(), rpcTimeout);
+            CompletableFuture<TaskExecutorThreadInfoGateway> taskExecutorGatewayFuture =
+                    resourceManagerGateway.requestTaskExecutorThreadInfoGateway(
+                            tmLocation.getResourceID(), rpcTimeout);
 
-                if (executionVertex.getExecutionState() == ExecutionState.RUNNING) {
-                    executionsWithGateways.put(
-                            executionVertex.getCurrentExecutionAttempt().getAttemptId(),
-                            taskExecutorGatewayFuture);
-                } else {
-                    LOG.trace(
-                            "{} not running, but {}; not sampling",
-                            executionVertex.getTaskNameWithSubtaskIndex(),
-                            executionVertex.getExecutionState());
-                }
-            } else {
-                LOG.trace("ExecutionVertex {} is currently not assigned", executionVertex);
-            }
+            executionsWithGateways.put(attemptIds, taskExecutorGatewayFuture);
         }
-
         return executionsWithGateways;
+    }
+
+    private Map<TaskManagerLocation, Set<ExecutionAttemptID>> groupExecutionsByLocation(
+            AccessExecutionVertex[] executionVertices) {
+
+        final Map<TaskManagerLocation, Set<ExecutionAttemptID>> executionAttemptsByLocation =
+                new HashMap<>();
+
+        for (AccessExecutionVertex executionVertex : executionVertices) {
+            if (executionVertex.getExecutionState() != ExecutionState.RUNNING) {
+                LOG.trace(
+                        "{} not running, but {}; not sampling",
+                        executionVertex.getTaskNameWithSubtaskIndex(),
+                        executionVertex.getExecutionState());
+                continue;
+            }
+            TaskManagerLocation tmLocation = executionVertex.getCurrentAssignedResourceLocation();
+            if (tmLocation == null) {
+                LOG.trace("ExecutionVertex {} is currently not assigned", executionVertex);
+                continue;
+            }
+            Set<ExecutionAttemptID> groupedAttemptIds =
+                    executionAttemptsByLocation.getOrDefault(tmLocation, new HashSet<>());
+
+            ExecutionAttemptID attemptId =
+                    executionVertex.getCurrentExecutionAttempt().getAttemptId();
+            groupedAttemptIds.add(attemptId);
+            executionAttemptsByLocation.put(tmLocation, groupedAttemptIds);
+        }
+        return executionAttemptsByLocation;
     }
 
     @VisibleForTesting

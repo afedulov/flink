@@ -18,10 +18,15 @@
 
 package org.apache.flink.runtime.messages;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
 import java.lang.management.ThreadInfo;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Optional;
 
 /**
@@ -29,6 +34,8 @@ import java.util.Optional;
  * java.lang.management.ThreadInfo}.
  */
 public class ThreadInfoSample implements Serializable {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ThreadInfoSample.class);
 
     private final Thread.State threadState;
     private final StackTraceElement[] stackTrace;
@@ -52,6 +59,27 @@ public class ThreadInfoSample implements Serializable {
         } else {
             return Optional.empty();
         }
+    }
+
+    /**
+     * Constructs a collection of {@link ThreadInfoSample}s from a {@link ThreadInfo} array.
+     *
+     * @param threadInfos {@link ThreadInfo} array where the data will be copied from.
+     * @return a Collection of the corresponding {@link ThreadInfoSample}s
+     */
+    public static Collection<ThreadInfoSample> from(ThreadInfo[] threadInfos) {
+        Collection<ThreadInfoSample> result = new ArrayList<>();
+        for (ThreadInfo threadInfo : threadInfos) {
+            if (threadInfo == null) {
+                LOG.warn("Missing thread info.");
+            } else {
+                ThreadInfoSample threadInfoSample =
+                        new ThreadInfoSample(
+                                threadInfo.getThreadState(), threadInfo.getStackTrace());
+                result.add(threadInfoSample);
+            }
+        }
+        return result;
     }
 
     public Thread.State getThreadState() {

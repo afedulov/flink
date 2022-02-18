@@ -56,6 +56,22 @@ public final class JvmUtils {
         return ThreadInfoSample.from(threadMxBean.getThreadInfo(threadId, maxStackTraceDepth));
     }
 
+    /**
+     * Creates a {@link ThreadInfoSample} for a specific thread. Contains thread traces if
+     * maxStackTraceDepth > 0.
+     *
+     * @param threadIds The IDs of the threads to create the thread dump for.
+     * @param maxStackTraceDepth The maximum number of entries in the stack trace to be collected.
+     * @return The thread information for the requested thread IDs.
+     */
+    public static Collection<ThreadInfoSample> createThreadInfoSample(
+            Collection<Long> threadIds, int maxStackTraceDepth) {
+        ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
+        long[] threadIdsArray = threadIds.stream().mapToLong(l -> l).toArray();
+        return ThreadInfoSample.from(
+                threadMxBean.getThreadInfo(threadIdsArray, maxStackTraceDepth));
+    }
+
     /** Private default constructor to avoid instantiation. */
     private JvmUtils() {}
 }

@@ -32,7 +32,9 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 
@@ -76,12 +78,14 @@ public class ThreadInfoSampleServiceTest extends TestLogger {
     /** Tests successful thread info samples request. */
     @Test(timeout = 10000L)
     public void testSampleTaskThreadInfo() throws Exception {
+        Set<SampleableTask> tasks = new HashSet<>();
+        tasks.add(new TestTask());
+        tasks.add(new TestTask());
+        Thread.sleep(2000);
         final List<ThreadInfoSample> threadInfoSamples =
-                threadInfoSampleService
-                        .requestThreadInfoSamples(new TestTask(), requestParams)
-                        .get();
+                threadInfoSampleService.requestThreadInfoSamples(tasks, requestParams).get();
 
-        assertThat(threadInfoSamples, hasSize(NUMBER_OF_SAMPLES));
+        assertThat(threadInfoSamples, hasSize(NUMBER_OF_SAMPLES * 2));
 
         for (ThreadInfoSample sample : threadInfoSamples) {
             StackTraceElement[] traces = sample.getStackTrace();
@@ -93,20 +97,20 @@ public class ThreadInfoSampleServiceTest extends TestLogger {
     /** Tests that stack traces are truncated when exceeding the configured depth. */
     @Test(timeout = 10000L)
     public void testTruncateStackTraceIfLimitIsSpecified() throws Exception {
+        Set<SampleableTask> tasks = new HashSet<>();
+        tasks.add(new TestTask());
         final List<ThreadInfoSample> threadInfoSamples1 =
-                threadInfoSampleService
-                        .requestThreadInfoSamples(new TestTask(), requestParams)
-                        .get();
+                threadInfoSampleService.requestThreadInfoSamples(tasks, requestParams).get();
 
         final List<ThreadInfoSample> threadInfoSamples2 =
                 threadInfoSampleService
                         .requestThreadInfoSamples(
-                                new TestTask(),
+                                tasks,
                                 new ThreadInfoSamplesRequest(
                                         1,
                                         NUMBER_OF_SAMPLES,
                                         DELAY_BETWEEN_SAMPLES,
-                                        MAX_STACK_TRACK_DEPTH - 5))
+                                        MAX_STACK_TRACK_DEPTH - 6))
                         .get();
 
         for (ThreadInfoSample sample : threadInfoSamples1) {
@@ -117,7 +121,7 @@ public class ThreadInfoSampleServiceTest extends TestLogger {
         }
 
         for (ThreadInfoSample sample : threadInfoSamples2) {
-            assertThat(sample.getStackTrace(), is(arrayWithSize(MAX_STACK_TRACK_DEPTH - 5)));
+            assertThat(sample.getStackTrace(), is(arrayWithSize(MAX_STACK_TRACK_DEPTH - 6)));
         }
     }
 
@@ -125,8 +129,10 @@ public class ThreadInfoSampleServiceTest extends TestLogger {
     @Test
     public void testThrowExceptionIfNumSamplesIsNegative() {
         try {
+            Set<SampleableTask> tasks = new HashSet<>();
+            tasks.add(new TestTask());
             threadInfoSampleService.requestThreadInfoSamples(
-                    new TestTask(),
+                    tasks,
                     new ThreadInfoSamplesRequest(
                             1, -1, DELAY_BETWEEN_SAMPLES, MAX_STACK_TRACK_DEPTH));
             fail("Expected exception not thrown");
@@ -138,9 +144,10 @@ public class ThreadInfoSampleServiceTest extends TestLogger {
     /** Test that sampling a non-running task throws an exception. */
     @Test
     public void testShouldThrowExceptionIfTaskIsNotRunningBeforeSampling() {
+        Set<SampleableTask> tasks = new HashSet<>();
+        tasks.add(new NotRunningTask());
         final CompletableFuture<List<ThreadInfoSample>> sampleFuture =
-                threadInfoSampleService.requestThreadInfoSamples(
-                        new NotRunningTask(), requestParams);
+                threadInfoSampleService.requestThreadInfoSamples(tasks, requestParams);
         assertThat(
                 sampleFuture,
                 FlinkMatchers.futureWillCompleteExceptionally(
@@ -150,10 +157,25 @@ public class ThreadInfoSampleServiceTest extends TestLogger {
     private static class TestTask implements SampleableTask {
 
         private final ExecutionAttemptID executionAttemptID = new ExecutionAttemptID();
+        private final Thread thread;
+
+        public TestTask() {
+            thread =
+                    new Thread(
+                            () -> {
+                                try {
+                                    Thread.sleep(10000);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            });
+            thread.setDaemon(true);
+            thread.start();
+        }
 
         @Override
         public Thread getExecutingThread() {
-            return Thread.currentThread();
+            return thread;
         }
 
         @Override
@@ -162,14 +184,12 @@ public class ThreadInfoSampleServiceTest extends TestLogger {
         }
     }
 
-    private static class NotRunningTask extends TestTask {
+    private static class NotRunningTask implements SampleableTask {
 
-        @Override
         public Thread getExecutingThread() {
             return new Thread();
         }
 
-        @Override
         public ExecutionAttemptID getExecutionId() {
             return null;
         }

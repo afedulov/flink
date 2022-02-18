@@ -38,8 +38,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -99,7 +101,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
     /** Tests successful thread info stats request. */
     @Test
     public void testSuccessfulThreadInfoRequest() throws Exception {
-        Map<ExecutionAttemptID, CompletableFuture<TaskExecutorThreadInfoGateway>>
+        Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
                 executionWithGateways =
                         createMockSubtaskWithGateways(
                                 CompletionType.SUCCESSFULLY, CompletionType.SUCCESSFULLY);
@@ -116,7 +118,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
         // verify the request result
         assertEquals(0, threadInfoStats.getRequestId());
 
-        Map<ExecutionAttemptID, List<ThreadInfoSample>> samplesBySubtask =
+        Map<Set<ExecutionAttemptID>, List<ThreadInfoSample>> samplesBySubtask =
                 threadInfoStats.getSamplesBySubtask();
 
         for (List<ThreadInfoSample> result : samplesBySubtask.values()) {
@@ -127,7 +129,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
     /** Tests that failed thread info request to one of the tasks fails the future. */
     @Test
     public void testThreadInfoRequestWithException() throws Exception {
-        Map<ExecutionAttemptID, CompletableFuture<TaskExecutorThreadInfoGateway>>
+        Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
                 executionWithGateways =
                         createMockSubtaskWithGateways(
                                 CompletionType.SUCCESSFULLY, CompletionType.EXCEPTIONALLY);
@@ -150,7 +152,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
     /** Tests that thread info stats request times out if not finished in time. */
     @Test
     public void testThreadInfoRequestTimeout() throws Exception {
-        Map<ExecutionAttemptID, CompletableFuture<TaskExecutorThreadInfoGateway>>
+        Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
                 executionWithGateways =
                         createMockSubtaskWithGateways(
                                 CompletionType.SUCCESSFULLY, CompletionType.TIMEOUT);
@@ -177,7 +179,7 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
     /** Tests that shutdown fails all pending requests and future request triggers. */
     @Test
     public void testShutDown() throws Exception {
-        Map<ExecutionAttemptID, CompletableFuture<TaskExecutorThreadInfoGateway>>
+        Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
                 executionWithGateways =
                         createMockSubtaskWithGateways(
                                 CompletionType.SUCCESSFULLY, CompletionType.TIMEOUT);
@@ -260,12 +262,15 @@ public class ThreadInfoRequestCoordinatorTest extends TestLogger {
         return CompletableFuture.completedFuture(executorGateway);
     }
 
-    private static Map<ExecutionAttemptID, CompletableFuture<TaskExecutorThreadInfoGateway>>
+    private static Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
             createMockSubtaskWithGateways(CompletionType... completionTypes) {
-        final Map<ExecutionAttemptID, CompletableFuture<TaskExecutorThreadInfoGateway>> result =
-                new HashMap<>();
+        final Map<Set<ExecutionAttemptID>, CompletableFuture<TaskExecutorThreadInfoGateway>>
+                result = new HashMap<>();
         for (CompletionType completionType : completionTypes) {
-            result.put(new ExecutionAttemptID(), createMockTaskManagerGateway(completionType));
+            Set<ExecutionAttemptID> attemptIds = new HashSet<>();
+            attemptIds.add(new ExecutionAttemptID());
+            attemptIds.add(new ExecutionAttemptID());
+            result.put(attemptIds, createMockTaskManagerGateway(completionType));
         }
         return result;
     }
