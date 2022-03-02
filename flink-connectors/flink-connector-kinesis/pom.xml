@@ -350,7 +350,7 @@ under the License.
 								</relocation>
 								<relocation>
 									<pattern>org.apache.flink.connector.base</pattern>
-									<shadedPattern>org.apache.flink.kinesis.shaded.org.apache.flink.connector.base</shadedPattern>
+									<shadedPattern>org.apache.flink.connector.kinesis.shaded.org.apache.flink.connector.base</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>com.google.protobuf</pattern>
