@@ -40,12 +40,6 @@ under the License.
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-connector-kafka</artifactId>
 			<version>${project.version}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>org.apache.flink</groupId>
-					<artifactId>flink-connector-base</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 	</dependencies>
 
@@ -64,7 +58,6 @@ under the License.
 						<configuration>
 							<artifactSet>
 								<includes>
-									<include>org.apache.flink:flink-connector-base</include>
 									<include>org.apache.flink:flink-connector-kafka</include>
 									<include>org.apache.kafka:*</include>
 								</includes>
@@ -87,10 +80,6 @@ under the License.
 								<relocation>
 									<pattern>org.apache.kafka</pattern>
 									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.kafka</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>org.apache.flink.connector.base</pattern>
-									<shadedPattern>org.apache.flink.connector.kafka.sql.shaded.org.apache.flink.connector.base</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>
