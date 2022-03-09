@@ -200,7 +200,7 @@ check_one_per_package_file_connector_base() {
   echo "Checking that flink-connector-base is included only once:"
   echo "__________________________________________________________________________"
 
-  CONNECTOR_JARS=$(find flink-connectors -type f -name '*.jar' | grep -v original | grep -v '\-test');
+  CONNECTOR_JARS=$(find flink-connectors -type f -name '*.jar' | grep -vE "original|connector-hive" | grep -v '\-test');
   EXIT_CODE=0
 
   for i in $CONNECTOR_JARS;
