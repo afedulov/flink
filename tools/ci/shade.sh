@@ -189,7 +189,7 @@ check_relocated() {
     read foo
 	if [ $foo -ne 0 ]
 	then
-		echo "ERROR - CHECK FAILED: found $1 classses that where not relocated!"
+		echo "ERROR - CHECK FAILED: found $1 classes that where not relocated!"
 		exit 1
 	else
 		echo "OK"
