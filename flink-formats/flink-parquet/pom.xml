@@ -334,7 +334,7 @@ under the License.
 							<relocations>
 								<relocation>
 									<pattern>org.apache.flink.connector.base</pattern>
-									<shadedPattern>org.apache.flink.connector.kinesis.shaded.org.apache.flink.connector.base</shadedPattern>
+									<shadedPattern>org.apache.flink.format.parquet.shaded.org.apache.flink.connector.base</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>
