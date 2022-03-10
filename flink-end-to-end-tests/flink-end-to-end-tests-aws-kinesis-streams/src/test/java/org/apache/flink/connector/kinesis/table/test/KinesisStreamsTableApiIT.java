@@ -37,6 +37,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.rnorth.ducttape.ratelimits.RateLimiter;
@@ -69,6 +70,7 @@ import java.util.function.Function;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /** End-to-end test for Kinesis Streams Table API Sink using Kinesalite. */
+@Ignore
 public class KinesisStreamsTableApiIT {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KinesisStreamsTableApiIT.class);
