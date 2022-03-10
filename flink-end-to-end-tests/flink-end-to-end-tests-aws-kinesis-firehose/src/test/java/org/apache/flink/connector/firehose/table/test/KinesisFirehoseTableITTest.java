@@ -35,6 +35,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.slf4j.Logger;
@@ -69,6 +70,7 @@ import static org.apache.flink.connector.firehose.sink.testutils.KinesisFirehose
 import static org.apache.flink.connector.firehose.sink.testutils.KinesisFirehoseTestUtils.createFirehoseClient;
 
 /** End to End test for Kinesis Firehose Table sink API. */
+@Ignore
 public class KinesisFirehoseTableITTest extends TestLogger {
 
     private static final Logger LOG = LoggerFactory.getLogger(KinesisFirehoseTableITTest.class);
