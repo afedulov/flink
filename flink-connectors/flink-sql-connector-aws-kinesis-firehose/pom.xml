@@ -36,12 +36,6 @@
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-connector-aws-kinesis-firehose</artifactId>
 			<version>${project.version}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>org.apache.flink</groupId>
-					<artifactId>flink-connector-base</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 	</dependencies>
 
@@ -60,7 +54,6 @@
 						<configuration>
 							<artifactSet>
 								<includes>
-									<include>org.apache.flink:flink-connector-base</include>
 									<include>org.apache.flink:flink-connector-aws-base</include>
 									<include>org.apache.flink:flink-connector-aws-kinesis-firehose</include>
 									<include>software.amazon.awssdk:*</include>
