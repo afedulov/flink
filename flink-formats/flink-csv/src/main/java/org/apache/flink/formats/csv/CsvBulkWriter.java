@@ -30,7 +30,10 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.Csv
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** A simple {@link BulkWriter} implementation based on Jackson CSV transformations. */
@@ -40,73 +43,69 @@ class CsvBulkWriter<T, R, C> implements BulkWriter<T> {
     private final Converter<T, R, C> converter;
     @Nullable private final C converterContext;
     private final ObjectWriter csvWriter;
+    private final String charset;
+    private final OutputStreamWriter writer;
 
     CsvBulkWriter(
             CsvMapper mapper,
             CsvSchema schema,
             Converter<T, R, C> converter,
             @Nullable C converterContext,
-            FSDataOutputStream stream) {
-        checkNotNull(mapper);
-        checkNotNull(schema);
+            FSDataOutputStream stream,
+            String charset) {
 
-        this.converter = checkNotNull(converter);
         this.stream = checkNotNull(stream);
+        this.converter = checkNotNull(converter);
         this.converterContext = converterContext;
-        this.csvWriter = mapper.writer(schema);
+        this.csvWriter = mapper.writer(checkNotNull(schema));
+        checkArgument(Charset.isSupported(charset), "Unknown charset");
+        this.charset = checkNotNull(charset);
+        this.writer = new OutputStreamWriter(stream, Charset.forName(charset));
 
         // Prevent Jackson's writeValue() method calls from closing the stream.
         mapper.getFactory().disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);
     }
 
-    /**
-     * Builds a writer with Jackson schema and a type converter.
-     *
-     * @param mapper The specialized mapper for producing CSV.
-     * @param schema The schema that defined the mapping properties.
-     * @param converter The type converter that converts incoming elements of type {@code <T>} into
-     *     elements of type JsonNode.
-     * @param stream The output stream.
-     * @param <T> The type of the elements accepted by this writer.
-     * @param <C> The type of the converter context.
-     * @param <R> The type of the elements produced by this writer.
-     */
-    static <T, R, C> CsvBulkWriter<T, R, C> forSchema(
-            CsvMapper mapper,
-            CsvSchema schema,
-            Converter<T, R, C> converter,
-            @Nullable C converterContext,
-            FSDataOutputStream stream) {
-        return new CsvBulkWriter<>(mapper, schema, converter, converterContext, stream);
-    }
-
-    /**
-     * Builds a writer based on a POJO class definition.
-     *
-     * @param pojoClass The class of the POJO.
-     * @param stream The output stream.
-     * @param <T> The type of the elements accepted by this writer.
-     */
-    static <T> CsvBulkWriter<T, T, Void> forPojo(Class<T> pojoClass, FSDataOutputStream stream) {
-        final Converter<T, T, Void> converter = (value, context) -> value;
-        final CsvMapper csvMapper = new CsvMapper();
-        final CsvSchema schema = csvMapper.schemaFor(pojoClass).withoutQuoteChar();
-        return new CsvBulkWriter<>(csvMapper, schema, converter, null, stream);
-    }
-
     @Override
     public void addElement(T element) throws IOException {
         final R r = converter.convert(element, converterContext);
-        csvWriter.writeValue(stream, r);
+        csvWriter.writeValue(writer, r);
     }
 
     @Override
     public void flush() throws IOException {
-        stream.flush();
+        writer.flush();
     }
 
     @Override
     public void finish() throws IOException {
+        writer.flush();
         stream.sync();
+    }
+
+    static class Factory<T> implements BulkWriter.Factory<T> {
+        private final CsvMapper mapper;
+        private final CsvSchema schema;
+        private final Converter<T, Object, Object> converter;
+        private final Object converterContext;
+        private final String charset;
+
+        <R, C> Factory(
+                CsvMapper mapper,
+                CsvSchema schema,
+                Converter<T, R, C> converter,
+                C converterContext,
+                String charset) {
+            this.mapper = mapper;
+            this.schema = schema;
+            this.converter = (Converter<T, Object, Object>) converter;
+            this.converterContext = converterContext;
+            this.charset = charset;
+        }
+
+        @Override
+        public BulkWriter<T> create(FSDataOutputStream out) throws IOException {
+            return new CsvBulkWriter<>(mapper, schema, converter, converterContext, out, charset);
+        }
     }
 }

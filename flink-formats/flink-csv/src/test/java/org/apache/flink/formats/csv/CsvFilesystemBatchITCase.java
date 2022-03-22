@@ -25,9 +25,14 @@ import org.apache.flink.util.FileUtils;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 import java.io.File;
 import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -58,7 +63,15 @@ public class CsvFilesystemBatchITCase {
      * Enriched IT cases that including testParseError and testEscapeChar for CsvRowDataFilesystem
      * in batch mode.
      */
+    @RunWith(Parameterized.class)
     public static class EnrichedCsvFilesystemBatchITCase extends BatchFileSystemITCaseBase {
+
+        @Parameter public Charset charset;
+
+        @Parameters(name = "charset = {0}")
+        public static Charset[] charsets() {
+            return new Charset[] {StandardCharsets.UTF_8, StandardCharsets.ISO_8859_1};
+        }
 
         @Override
         public boolean supportsReadingMetadata() {
@@ -80,8 +93,10 @@ public class CsvFilesystemBatchITCase {
             new File(path).mkdirs();
             File file = new File(path, "test_file");
             file.createNewFile();
-            FileUtils.writeFileUtf8(
-                    file, "x5,5,1,1\n" + "x5,5,2,2,2\n" + "x5,5,3,3,3,3\n" + "x5,5,1,1");
+            FileUtils.writeFile(
+                    file,
+                    "x5,5,1,1\n" + "x5,5,2,2,2\n" + "x5,5,3,3,3,3\n" + "x5,5,1,1",
+                    charset.name());
 
             check(
                     "select * from nonPartitionedTable",
@@ -94,8 +109,10 @@ public class CsvFilesystemBatchITCase {
             new File(path).mkdirs();
             File file = new File(path, "test_file");
             file.createNewFile();
-            FileUtils.writeFileUtf8(
-                    file, "x5,5,1,1\n" + "x5,5,2,2,2\n" + "x5,5,1,1\n" + "x5,5,3,3,3,3\n");
+            FileUtils.writeFile(
+                    file,
+                    "x5,5,1,1\n" + "x5,5,2,2,2\n" + "x5,5,1,1\n" + "x5,5,3,3,3,3\n",
+                    charset.name());
 
             check(
                     "select * from nonPartitionedTable",
@@ -108,7 +125,7 @@ public class CsvFilesystemBatchITCase {
             new File(path).mkdirs();
             File file = new File(path, "test_file");
             file.createNewFile();
-            FileUtils.writeFileUtf8(file, "x5,\t\n5,1,1\n" + "x5,\t5,2,2");
+            FileUtils.writeFile(file, "x5,\t\n5,1,1\n" + "x5,\t5,2,2", charset.name());
 
             check(
                     "select * from nonPartitionedTable",

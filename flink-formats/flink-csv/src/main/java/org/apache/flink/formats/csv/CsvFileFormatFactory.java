@@ -30,6 +30,7 @@ import org.apache.flink.connector.file.table.factories.BulkReaderFormatFactory;
 import org.apache.flink.connector.file.table.factories.BulkWriterFormatFactory;
 import org.apache.flink.connector.file.table.format.BulkDecodingFormat;
 import org.apache.flink.formats.common.Converter;
+import org.apache.flink.formats.csv.Csv.UntypedCsv;
 import org.apache.flink.formats.csv.RowDataToCsvConverters.RowDataToCsvConverter;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.Projection;
@@ -47,28 +48,22 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.Obje
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.CsvSchema;
 
-import org.apache.commons.lang3.StringEscapeUtils;
-
 import java.util.Collections;
 import java.util.Set;
 
-import static org.apache.flink.formats.csv.CsvFormatOptions.ALLOW_COMMENTS;
-import static org.apache.flink.formats.csv.CsvFormatOptions.ARRAY_ELEMENT_DELIMITER;
-import static org.apache.flink.formats.csv.CsvFormatOptions.DISABLE_QUOTE_CHARACTER;
-import static org.apache.flink.formats.csv.CsvFormatOptions.ESCAPE_CHARACTER;
-import static org.apache.flink.formats.csv.CsvFormatOptions.FIELD_DELIMITER;
-import static org.apache.flink.formats.csv.CsvFormatOptions.IGNORE_PARSE_ERRORS;
-import static org.apache.flink.formats.csv.CsvFormatOptions.NULL_LITERAL;
-import static org.apache.flink.formats.csv.CsvFormatOptions.QUOTE_CHARACTER;
+import static org.apache.flink.configuration.configurable.WithCharset.CHARSET;
+import static org.apache.flink.formats.csv.Csv.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** CSV format factory for file system. */
 @Internal
 public class CsvFileFormatFactory implements BulkReaderFormatFactory, BulkWriterFormatFactory {
 
+    Csv<?, ?> csv = new Csv<>();
+
     @Override
     public String factoryIdentifier() {
-        return CsvCommons.IDENTIFIER;
+        return csv.getName();
     }
 
     @Override
@@ -78,12 +73,12 @@ public class CsvFileFormatFactory implements BulkReaderFormatFactory, BulkWriter
 
     @Override
     public Set<ConfigOption<?>> optionalOptions() {
-        return CsvCommons.optionalOptions();
+        return new Csv<>().optionalOptions();
     }
 
     @Override
     public Set<ConfigOption<?>> forwardOptions() {
-        return CsvCommons.forwardOptions();
+        return new Csv<>().forwardOptions();
     }
 
     @Override
@@ -128,7 +123,8 @@ public class CsvFileFormatFactory implements BulkReaderFormatFactory, BulkWriter
                             JsonNode.class,
                             converter,
                             context.createTypeInformation(projectedDataType),
-                            ignoreParseErrors);
+                            ignoreParseErrors,
+                            formatOptions.get(CHARSET));
             return new StreamFormatAdapter<>(csvReaderFormat);
         }
 
@@ -147,6 +143,9 @@ public class CsvFileFormatFactory implements BulkReaderFormatFactory, BulkWriter
                     DynamicTableSink.Context context, DataType physicalDataType) {
 
                 final RowType rowType = (RowType) physicalDataType.getLogicalType();
+                UntypedCsv<?> csv =
+                        Csv.forSchema(CsvRowSchemaConverter.convert(rowType))
+                                .withOptions(formatOptions);
                 final CsvSchema schema = buildCsvSchema(rowType, formatOptions);
 
                 final RowDataToCsvConverter converter =
@@ -160,7 +159,13 @@ public class CsvFileFormatFactory implements BulkReaderFormatFactory, BulkWriter
                                 mapper, container);
 
                 return out ->
-                        CsvBulkWriter.forSchema(mapper, schema, converter, converterContext, out);
+                        new CsvBulkWriter<>(
+                                mapper,
+                                schema,
+                                converter,
+                                converterContext,
+                                out,
+                                formatOptions.get(CHARSET));
             }
 
             @Override
@@ -168,35 +173,5 @@ public class CsvFileFormatFactory implements BulkReaderFormatFactory, BulkWriter
                 return ChangelogMode.insertOnly();
             }
         };
-    }
-
-    private static CsvSchema buildCsvSchema(RowType rowType, ReadableConfig options) {
-        final CsvSchema csvSchema = CsvRowSchemaConverter.convert(rowType);
-        final CsvSchema.Builder csvBuilder = csvSchema.rebuild();
-        // format properties
-        options.getOptional(FIELD_DELIMITER)
-                .map(s -> StringEscapeUtils.unescapeJava(s).charAt(0))
-                .ifPresent(csvBuilder::setColumnSeparator);
-
-        if (options.get(DISABLE_QUOTE_CHARACTER)) {
-            csvBuilder.disableQuoteChar();
-        } else {
-            options.getOptional(QUOTE_CHARACTER)
-                    .map(s -> s.charAt(0))
-                    .ifPresent(csvBuilder::setQuoteChar);
-        }
-
-        options.getOptional(ALLOW_COMMENTS).ifPresent(csvBuilder::setAllowComments);
-
-        options.getOptional(ARRAY_ELEMENT_DELIMITER)
-                .ifPresent(csvBuilder::setArrayElementSeparator);
-
-        options.getOptional(ESCAPE_CHARACTER)
-                .map(s -> s.charAt(0))
-                .ifPresent(csvBuilder::setEscapeChar);
-
-        options.getOptional(NULL_LITERAL).ifPresent(csvBuilder::setNullValue);
-
-        return csvBuilder.build();
     }
 }

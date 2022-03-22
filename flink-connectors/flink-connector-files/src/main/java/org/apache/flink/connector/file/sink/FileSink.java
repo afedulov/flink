@@ -29,6 +29,7 @@ import org.apache.flink.api.connector.sink2.StatefulSink;
 import org.apache.flink.api.connector.sink2.StatefulSink.WithCompatibleState;
 import org.apache.flink.api.connector.sink2.TwoPhaseCommittingSink;
 import org.apache.flink.api.java.typeutils.EitherTypeInfo;
+import org.apache.flink.connector.file.FileFormat;
 import org.apache.flink.connector.file.sink.committer.FileCommitter;
 import org.apache.flink.connector.file.sink.compactor.FileCompactStrategy;
 import org.apache.flink.connector.file.sink.compactor.FileCompactor;
@@ -185,6 +186,16 @@ public class FileSink<IN>
     public Collection<String> getCompatibleWriterStateNames() {
         // StreamingFileSink
         return Collections.singleton("bucket-states");
+    }
+
+    public static <IN> DefaultRowFormatBuilder<IN> forFormat(
+            final Path basePath, final FileFormat.StreamWritable<IN, ?> format) {
+        return forRowFormat(basePath, format.asEncoder());
+    }
+
+    public static <IN> DefaultBulkFormatBuilder<IN> forFormat(
+            final Path basePath, final FileFormat.BulkWritable<IN, ?> format) {
+        return forBulkFormat(basePath, format.asWriter());
     }
 
     public static <IN> DefaultRowFormatBuilder<IN> forRowFormat(
@@ -479,6 +490,7 @@ public class FileSink<IN>
     /** Builder for the vanilla {@link FileSink} using a row format. */
     public static final class DefaultRowFormatBuilder<IN>
             extends RowFormatBuilder<IN, DefaultRowFormatBuilder<IN>> {
+
         private static final long serialVersionUID = -8503344257202146718L;
 
         private DefaultRowFormatBuilder(

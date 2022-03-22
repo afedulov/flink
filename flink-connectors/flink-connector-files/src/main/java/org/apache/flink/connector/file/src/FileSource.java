@@ -19,6 +19,9 @@
 package org.apache.flink.connector.file.src;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.connector.file.FileFormat;
+import org.apache.flink.connector.file.FileFormat.BulkReadable;
+import org.apache.flink.connector.file.FileFormat.StreamReadable;
 import org.apache.flink.connector.file.src.assigners.FileSplitAssigner;
 import org.apache.flink.connector.file.src.assigners.LocalityAwareSplitAssigner;
 import org.apache.flink.connector.file.src.enumerate.BlockSplittingRecursiveEnumerator;
@@ -175,6 +178,18 @@ public final class FileSource<T> extends AbstractFileSource<T, FileSourceSplit> 
         checkArgument(paths.length > 0, "paths must not be empty");
 
         return new FileSourceBuilder<>(paths, bulkFormat);
+    }
+
+    /** Builds a new {@code FileSource} using a {@link FileFormat}. */
+    public static <T> FileSourceBuilder<T> forFormat(
+            final StreamReadable<T, ?> format, final Path... paths) {
+        return forRecordStreamFormat(format.asStreamFormat(), paths);
+    }
+
+    /** Builds a new {@code FileSource} using a {@link FileFormat}. */
+    public static <T> FileSourceBuilder<T> forFormat(
+            final BulkReadable<T, ?> format, final Path... paths) {
+        return forBulkFileFormat(format.asBulkFormat(), paths);
     }
 
     /**

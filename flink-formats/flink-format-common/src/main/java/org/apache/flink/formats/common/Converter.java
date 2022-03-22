@@ -31,6 +31,8 @@ import java.io.Serializable;
  */
 @PublicEvolving
 public interface Converter<From, To, C> extends Serializable {
+    Converter<Object, Object, Object> NO_CONVERTER = (value, context) -> value;
+
     /**
      * Converts elements of type {@code From} into elements of type {@code To}.
      *
@@ -39,4 +41,9 @@ public interface Converter<From, To, C> extends Serializable {
      * @return The element in the target type.
      */
     To convert(From source, C context);
+
+    @SuppressWarnings("unchecked")
+    static <T> Converter<T, T, Object> none() {
+        return (Converter<T, T, Object>) NO_CONVERTER;
+    }
 }

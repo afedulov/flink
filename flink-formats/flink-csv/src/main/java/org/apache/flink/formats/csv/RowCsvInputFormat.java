@@ -31,7 +31,10 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.Csv
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.CsvSchema;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Serializable;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 
@@ -61,6 +64,8 @@ public class RowCsvInputFormat extends AbstractCsvInputFormat<Row> {
     private final String[] selectedFieldNames;
     private final boolean ignoreParseErrors;
 
+    private final String charset;
+
     /** Runtime instance that performs the actual work. */
     private transient RuntimeConverter runtimeConverter;
 
@@ -73,10 +78,13 @@ public class RowCsvInputFormat extends AbstractCsvInputFormat<Row> {
             TypeInformation[] fieldTypes,
             CsvSchema csvSchema,
             int[] selectedFields,
-            boolean ignoreParseErrors) {
+            boolean ignoreParseErrors,
+            String charset) {
         super(filePaths, csvSchema);
 
         this.fieldTypes = checkNotNull(fieldTypes);
+        checkArgument(Charset.isSupported(charset), "Unknown charset");
+        this.charset = checkNotNull(charset);
         checkArgument(fieldTypes.length == csvSchema.size());
         this.ignoreParseErrors = ignoreParseErrors;
         this.selectedFieldNames =
@@ -93,7 +101,7 @@ public class RowCsvInputFormat extends AbstractCsvInputFormat<Row> {
                 new CsvMapper()
                         .readerFor(JsonNode.class)
                         .with(csvSchema)
-                        .readValues(csvInputStream);
+                        .readValues(new InputStreamReader(csvInputStream, charset));
     }
 
     private void prepareConverter() {
@@ -153,6 +161,7 @@ public class RowCsvInputFormat extends AbstractCsvInputFormat<Row> {
         private CsvSchema csvSchema;
         private boolean ignoreParseErrors;
         private int[] selectedFields;
+        private String charset = StandardCharsets.UTF_8.name();
 
         /**
          * Creates a row CSV input format for the given {@link TypeInformation} and file paths with
@@ -213,6 +222,15 @@ public class RowCsvInputFormat extends AbstractCsvInputFormat<Row> {
             return this;
         }
 
+        public Builder setCharset(Charset charset) {
+            return setCharset(charset.name());
+        }
+
+        public Builder setCharset(String charset) {
+            this.charset = checkNotNull(charset);
+            return this;
+        }
+
         public RowCsvInputFormat build() {
             if (selectedFields == null) {
                 selectedFields = new int[fieldTypes.length];
@@ -222,7 +240,7 @@ public class RowCsvInputFormat extends AbstractCsvInputFormat<Row> {
             }
 
             return new RowCsvInputFormat(
-                    filePaths, fieldTypes, csvSchema, selectedFields, ignoreParseErrors);
+                    filePaths, fieldTypes, csvSchema, selectedFields, ignoreParseErrors, charset);
         }
     }
 }
