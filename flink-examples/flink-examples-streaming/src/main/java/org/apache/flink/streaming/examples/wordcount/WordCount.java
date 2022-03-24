@@ -21,6 +21,7 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.serialization.SimpleStringEncoder;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.connector.file.sink.FileSink;
 import org.apache.flink.connector.file.src.FileSource;
@@ -33,6 +34,8 @@ import org.apache.flink.streaming.examples.wordcount.util.WordCountData;
 import org.apache.flink.util.Collector;
 
 import java.time.Duration;
+
+import static org.apache.flink.configuration.RestOptions.ENABLE_FLAMEGRAPH;
 
 /**
  * Implements the "WordCount" program that computes a simple word occurrence histogram over text
@@ -74,7 +77,13 @@ public class WordCount {
 
         // Create the execution environment. This is the main entrypoint
         // to building a Flink application.
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        //        final StreamExecutionEnvironment env =
+        // StreamExecutionEnvironment.getExecutionEnvironment();
+        Configuration flinkConfig = new Configuration();
+        flinkConfig.setBoolean(ENABLE_FLAMEGRAPH.key(), true);
+
+        final StreamExecutionEnvironment env =
+                StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(flinkConfig);
 
         // Apache Flink’s unified approach to stream and batch processing means that a DataStream
         // application executed over bounded input will produce the same final results regardless
