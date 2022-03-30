@@ -21,6 +21,8 @@ package org.apache.flink.formats.csv;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.table.connector.Projection;
+import org.apache.flink.table.connector.format.ProjectableDecodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.GenericRowData;
@@ -35,6 +37,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -199,10 +202,8 @@ public class CsvFormatFactoryTest extends TestLogger {
         final Map<String, String> options =
                 getModifiedOptions(opts -> opts.put("csv.field-delimiter", "\t"));
 
-        final DynamicTableSource actualSource = createTableSource(SCHEMA, options);
-        assert actualSource instanceof TestDynamicTableFactory.DynamicTableSourceMock;
         TestDynamicTableFactory.DynamicTableSourceMock sourceMock =
-                (TestDynamicTableFactory.DynamicTableSourceMock) actualSource;
+                createDynamicTableSourceMock(options);
 
         DeserializationSchema<RowData> deserializationSchema =
                 sourceMock.valueFormat.createRuntimeDecoder(
@@ -225,6 +226,24 @@ public class CsvFormatFactoryTest extends TestLogger {
                 getModifiedOptions(opts -> opts.put("csv.ignore-parse-errors", "abc"));
 
         createTableSink(SCHEMA, options);
+    }
+
+    @Test
+    public void testProjectionPushdown() throws IOException {
+        final Map<String, String> options = getAllOptions();
+
+        final Projection projection =
+                Projection.fromFieldNames(PHYSICAL_DATA_TYPE, Arrays.asList("a", "b"));
+
+        final int[][] projectionMatrix = projection.toNestedIndexes();
+        DeserializationSchema<RowData> actualDeser =
+                createDeserializationSchema(options, projectionMatrix);
+
+        String data = "a1;2;false";
+        RowData deserialized = actualDeser.deserialize(data.getBytes());
+        GenericRowData expected = GenericRowData.of(fromString("a1"), 2);
+
+        assertEquals(deserialized, expected);
     }
 
     // ------------------------------------------------------------------------
@@ -262,13 +281,30 @@ public class CsvFormatFactoryTest extends TestLogger {
 
     private static DeserializationSchema<RowData> createDeserializationSchema(
             Map<String, String> options) {
-        final DynamicTableSource actualSource = createTableSource(SCHEMA, options);
-        assert actualSource instanceof TestDynamicTableFactory.DynamicTableSourceMock;
         TestDynamicTableFactory.DynamicTableSourceMock sourceMock =
-                (TestDynamicTableFactory.DynamicTableSourceMock) actualSource;
+                createDynamicTableSourceMock(options);
 
         return sourceMock.valueFormat.createRuntimeDecoder(
                 ScanRuntimeProviderContext.INSTANCE, PHYSICAL_DATA_TYPE);
+    }
+
+    private static DeserializationSchema<RowData> createDeserializationSchema(
+            Map<String, String> options, int[][] projections) {
+        TestDynamicTableFactory.DynamicTableSourceMock sourceMock =
+                createDynamicTableSourceMock(options);
+
+        ProjectableDecodingFormat<DeserializationSchema<RowData>> valueFormat =
+                (ProjectableDecodingFormat<DeserializationSchema<RowData>>) sourceMock.valueFormat;
+
+        return valueFormat.createRuntimeDecoder(
+                ScanRuntimeProviderContext.INSTANCE, PHYSICAL_DATA_TYPE, projections);
+    }
+
+    private static TestDynamicTableFactory.DynamicTableSourceMock createDynamicTableSourceMock(
+            Map<String, String> options) {
+        final DynamicTableSource actualSource = createTableSource(SCHEMA, options);
+        assert actualSource instanceof TestDynamicTableFactory.DynamicTableSourceMock;
+        return (TestDynamicTableFactory.DynamicTableSourceMock) actualSource;
     }
 
     private static SerializationSchema<RowData> createSerializationSchema(

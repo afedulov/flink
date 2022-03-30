@@ -65,13 +65,14 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
     private final boolean ignoreParseErrors;
 
     private CsvRowDataDeserializationSchema(
-            RowType rowType,
+            RowType rowResultType,
             TypeInformation<RowData> resultTypeInfo,
             CsvSchema csvSchema,
             boolean ignoreParseErrors) {
         this.resultTypeInfo = resultTypeInfo;
         this.runtimeConverter =
-                new CsvToRowDataConverters(ignoreParseErrors).createRowConverter(rowType, true);
+                new CsvToRowDataConverters(ignoreParseErrors)
+                        .createRowConverter(rowResultType, true);
         this.csvSchema = csvSchema;
         this.objectReader = new CsvMapper().readerFor(JsonNode.class).with(csvSchema);
         this.ignoreParseErrors = ignoreParseErrors;
@@ -81,7 +82,7 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
     @Internal
     public static class Builder {
 
-        private final RowType rowType;
+        private final RowType rowResultType;
         private final TypeInformation<RowData> resultTypeInfo;
         private CsvSchema csvSchema;
         private boolean ignoreParseErrors;
@@ -90,10 +91,25 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
          * Creates a CSV deserialization schema for the given {@link TypeInformation} with optional
          * parameters.
          */
-        public Builder(RowType rowType, TypeInformation<RowData> resultTypeInfo) {
-            Preconditions.checkNotNull(rowType, "RowType must not be null.");
+        public Builder(
+                RowType rowReadType,
+                RowType rowResultType,
+                TypeInformation<RowData> resultTypeInfo) {
+            Preconditions.checkNotNull(rowReadType, "RowType must not be null.");
+            Preconditions.checkNotNull(rowResultType, "RowType must not be null.");
             Preconditions.checkNotNull(resultTypeInfo, "Result type information must not be null.");
-            this.rowType = rowType;
+            this.rowResultType = rowResultType;
+            this.resultTypeInfo = resultTypeInfo;
+            this.csvSchema = CsvRowSchemaConverter.convert(rowReadType);
+        }
+
+        /**
+         * Creates a CSV deserialization schema for the given {@link TypeInformation} with optional
+         * parameters.
+         */
+        public Builder(RowType rowType, TypeInformation<RowData> resultTypeInfo) {
+            Preconditions.checkNotNull(resultTypeInfo, "Result type information must not be null.");
+            this.rowResultType = rowType;
             this.resultTypeInfo = resultTypeInfo;
             this.csvSchema = CsvRowSchemaConverter.convert(rowType);
         }
@@ -142,7 +158,7 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
 
         public CsvRowDataDeserializationSchema build() {
             return new CsvRowDataDeserializationSchema(
-                    rowType, resultTypeInfo, csvSchema, ignoreParseErrors);
+                    rowResultType, resultTypeInfo, csvSchema, ignoreParseErrors);
         }
     }
 
@@ -206,6 +222,6 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
                 csvSchema.getArrayElementSeparator(),
                 csvSchema.getQuoteChar(),
                 csvSchema.getEscapeChar(),
-                csvSchema.getNullValue());
+                Arrays.hashCode(csvSchema.getNullValue()));
     }
 }
