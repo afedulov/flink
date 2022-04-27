@@ -90,6 +90,12 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
         /**
          * Creates a CSV deserialization schema for the given {@link TypeInformation} with optional
          * parameters.
+         *
+         * @param rowReadType The {@link RowType} used for reading CSV rows.
+         * @param rowResultType The {@link RowType} of the produced results. It can be different
+         *     from the {@code rowReadType} if the underlying converter supports the discrepancy
+         *     (for instance for filtering/projection pushdown).
+         * @param resultTypeInfo The result type info.
          */
         public Builder(
                 RowType rowReadType,
