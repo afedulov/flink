@@ -23,6 +23,7 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
@@ -33,8 +34,13 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.Csv
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Deserialization schema from CSV to Flink Table & SQL internal data structures.
@@ -65,14 +71,12 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
     private final boolean ignoreParseErrors;
 
     private CsvRowDataDeserializationSchema(
-            RowType rowResultType,
             TypeInformation<RowData> resultTypeInfo,
             CsvSchema csvSchema,
+            CsvToRowDataConverters.CsvToRowDataConverter runtimeConverter,
             boolean ignoreParseErrors) {
         this.resultTypeInfo = resultTypeInfo;
-        this.runtimeConverter =
-                new CsvToRowDataConverters(ignoreParseErrors)
-                        .createRowConverter(rowResultType, true);
+        this.runtimeConverter = runtimeConverter;
         this.csvSchema = csvSchema;
         this.objectReader = new CsvMapper().readerFor(JsonNode.class).with(csvSchema);
         this.ignoreParseErrors = ignoreParseErrors;
@@ -106,7 +110,79 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
             Preconditions.checkNotNull(resultTypeInfo, "Result type information must not be null.");
             this.rowResultType = rowResultType;
             this.resultTypeInfo = resultTypeInfo;
-            this.csvSchema = CsvRowSchemaConverter.convert(rowReadType);
+            final RowType optimizedReadType = optimizeCsvRead(rowReadType, rowResultType);
+            this.csvSchema = CsvRowSchemaConverter.convert(optimizedReadType);
+        }
+
+        /**
+         * Optimizes CSV reads. If the field is skipped from the results, it does not make sense to
+         * parse it as a specific data type. For such fields, the VARCHAR data type is enforced.
+         * This causes the corresponding CSV column to be interpreted as a STRING and spares
+         * unnecessary parsing processing.
+         */
+        private RowType optimizeCsvRead(RowType rowReadType, RowType rowResultType) {
+            final List<String> rowReadTypeFields = rowReadType.getFieldNames();
+            final List<String> rowResultTypeFields = rowResultType.getFieldNames();
+
+            if (rowResultTypeFields.size() < rowReadTypeFields.size()) {
+                // Some fields are filtered from the results.
+                final List<RowType.RowField> fields = rowReadType.getFields();
+
+                final Collection<String> filteredFieldsNames =
+                        getFilteredFieldsNames(rowReadTypeFields, rowResultTypeFields);
+
+                final Set<Integer> filteredFieldsIndices =
+                        filteredFieldsNames.stream()
+                                .map(rowReadType::getFieldIndex)
+                                .collect(Collectors.toSet());
+
+                // This type corresponds to the CsvSchema.ColumnType.STRING in the converter
+                final VarCharType varCharType = new VarCharType();
+                final List<RowType.RowField> optimizedRowFields =
+                        fields.stream()
+                                .map(
+                                        field -> {
+                                            int fieldIndex =
+                                                    rowReadType.getFieldIndex(field.getName());
+                                            if (filteredFieldsIndices.contains(fieldIndex)) {
+                                                return new RowType.RowField(
+                                                        field.getName(),
+                                                        varCharType,
+                                                        field.getDescription().orElse(null));
+                                            } else {
+                                                return field;
+                                            }
+                                        })
+                                .collect(Collectors.toList());
+                return new RowType(rowReadType.isNullable(), optimizedRowFields);
+            } else {
+                return rowReadType;
+            }
+        }
+
+        /**
+         * Detects fields that need to be filtered from the produced rows (for instance, due to a
+         * projection pushdown).
+         */
+        private static Collection<String> getFilteredFieldsNames(
+                List<String> rowReadTypeFields, List<String> rowResultTypeFields) {
+
+            final Collection<String> diff = new ArrayList<>();
+
+            int i = 0, j = 0;
+            while (i < rowReadTypeFields.size()) {
+                final String rowReadFieldName = rowReadTypeFields.get(i);
+                final String rowResultFieldName = rowResultTypeFields.get(j);
+                if (rowReadFieldName.equals(rowResultFieldName)) {
+                    i++;
+                    j++;
+                } else {
+                    // This field is filtered from the results
+                    diff.add(rowReadTypeFields.get(i));
+                    i++;
+                }
+            }
+            return diff;
         }
 
         /**
@@ -163,8 +239,11 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
         }
 
         public CsvRowDataDeserializationSchema build() {
+            CsvToRowDataConverters.CsvToRowDataConverter runtimeConverter =
+                    new CsvToRowDataConverters(ignoreParseErrors)
+                            .createRowConverter(rowResultType, true);
             return new CsvRowDataDeserializationSchema(
-                    rowResultType, resultTypeInfo, csvSchema, ignoreParseErrors);
+                    resultTypeInfo, csvSchema, runtimeConverter, ignoreParseErrors);
         }
     }
 

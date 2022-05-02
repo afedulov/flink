@@ -37,7 +37,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -233,7 +233,7 @@ public class CsvFormatFactoryTest extends TestLogger {
         final Map<String, String> options = getAllOptions();
 
         final Projection projection =
-                Projection.fromFieldNames(PHYSICAL_DATA_TYPE, Arrays.asList("a", "b"));
+                Projection.fromFieldNames(PHYSICAL_DATA_TYPE, Collections.singletonList("c"));
 
         final int[][] projectionMatrix = projection.toNestedIndexes();
         DeserializationSchema<RowData> actualDeser =
@@ -241,7 +241,7 @@ public class CsvFormatFactoryTest extends TestLogger {
 
         String data = "a1;2;false";
         RowData deserialized = actualDeser.deserialize(data.getBytes());
-        GenericRowData expected = GenericRowData.of(fromString("a1"), 2);
+        GenericRowData expected = GenericRowData.of(false);
 
         assertEquals(deserialized, expected);
     }
