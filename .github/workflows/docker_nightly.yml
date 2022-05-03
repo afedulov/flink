@@ -1,0 +1,41 @@
+name: "Nightly docker images"
+on:
+  # schedule:
+  #   - cron: '0 0 * * *' # Deploy every day
+  push:
+    branches:
+      - exp-docker-snapshot
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  publish-docker-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    # strategy:
+    #   max-parallel: 1
+    #   matrix:
+    #     branch:
+    #       - master
+    #       - release-1.15
+    #       - release-1.14
+    #       - release-1.13
+    container:
+      image: chesnay/flink-ci:java_8_11
+      options: --init
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+      - name: "Build Flink"
+        run: |
+          cd flink
+          mvn clean install -DskipTests -Dfast
+      - name: "Build image"
+        run: |
+          ./tools/ci/docker/docker-nightly.sh
+#      - name: "Publish image"
+#        run: |
+#          <insert logic from flink-kubernetes-operator"
