@@ -31,7 +31,6 @@ jobs:
         uses: actions/checkout@v2
       - name: "Build Flink"
         run: |
-          cd flink
           mvn clean install -DskipTests -Dfast
       - name: "Build image"
         run: |
