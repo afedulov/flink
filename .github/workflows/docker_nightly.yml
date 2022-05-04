@@ -29,15 +29,16 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
-      - name: "ls"
-        run: |
-          ls
       - name: "Build Flink"
         run: |
           mvn -B clean install -DskipTests -Dfast -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+      - name: "Docker login"
+        run: |
+          docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
       - name: "Build image"
         run: |
           ./tools/ci/docker/docker-build-nightly.sh
-#      - name: "Publish image"
-#        run: |
-#          <insert logic from flink-kubernetes-operator"
+      - name: "Publish image"
+        run: |
+          docker tag flink:1.16-SNAPSHOT ghcr.io/afedulov/flink:1.16-SNAPSHOT
+          docker push ghcr.io/afedulov/flink:1.16-SNAPSHOT

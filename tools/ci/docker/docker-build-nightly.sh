@@ -28,3 +28,4 @@ cp -r flink-dist/target/flink-${RELEASE_VERSION}-bin/flink-${RELEASE_VERSION}/* 
 
 cd "${DOCKER_DIR}"
 docker build -t flink:1.16-SNAPSHOT -f scala_2.12-java8-debian/Dockerfile .
+
