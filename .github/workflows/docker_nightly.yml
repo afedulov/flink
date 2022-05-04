@@ -29,6 +29,12 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
+      - name: "ls"
+        run: |
+          ls
+      - name: "ls tools"
+        run: |
+          ls tools/ci/docker
       - name: "Build Flink"
         run: |
           mvn -B clean install -DskipTests -Dfast -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
