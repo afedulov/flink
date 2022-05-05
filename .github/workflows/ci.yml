@@ -34,9 +34,9 @@ jobs:
     permissions:
       contents: read
       packages: write
-    container:
-      image: chesnay/flink-ci:java_8_11
-      options: --init
+    # container:
+    #   image: chesnay/flink-ci:java_8_11
+    #   options: --init
     steps:
       - uses: actions/checkout@v2
       - name: "Build images"
