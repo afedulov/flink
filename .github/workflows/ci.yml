@@ -50,7 +50,7 @@ jobs:
           source publish-snapshot/publish_lib.sh
           ./add-custom.sh -u "https://s3.amazonaws.com/flink-nightly/flink-1.16-SNAPSHOT-bin-scala_2.12.tgz" -j 8 -n 1.16-SNAPSHOT-scala_2.12-java8
           ./add-custom.sh -u "https://s3.amazonaws.com/flink-nightly/flink-1.16-SNAPSHOT-bin-scala_2.12.tgz" -j 11 -n 1.16-SNAPSHOT-scala_2.12-java11
-          publish_snapshot
+          publish_snapshots
       - name: "Docker login"
         run: |
           docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}

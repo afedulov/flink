@@ -4,7 +4,7 @@ on:
   #   - cron: '0 0 * * *' # Deploy every day
   push:
     branches:
-      - exp-docker-snapshot
+      - exp-docker-snapshot-DISABLED
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
