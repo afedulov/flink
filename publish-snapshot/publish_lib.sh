@@ -41,7 +41,7 @@ function build_image() {
 
 function publish_snapshots() {
     echo >&2 "==> Publish image"
-    publish "$(ls ./*/*SNAPSHOT*/Dockerfile | tail -n 1)" ""
+    publish "$(ls ./*/*/Dockerfile)" ""
 }
 
 
