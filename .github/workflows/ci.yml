@@ -39,12 +39,12 @@ jobs:
     #   options: --init
     steps:
       - uses: actions/checkout@v2
-      - name: "Build images"
-        run: |
-          ./add-custom.sh -u "https://s3.amazonaws.com/flink-nightly/flink-1.16-SNAPSHOT-bin-scala_2.12.tgz" -j 8 -n test-java8
-          ./add-custom.sh -u "https://s3.amazonaws.com/flink-nightly/flink-1.16-SNAPSHOT-bin-scala_2.12.tgz" -j 11 -n test-java11
-      - name: "Test images"
-        run: testing/run_travis_tests.sh
+      #      - name: "Build images"
+      #        run: |
+      #          ./add-custom.sh -u "https://s3.amazonaws.com/flink-nightly/flink-1.16-SNAPSHOT-bin-scala_2.12.tgz" -j 8 -n test-java8
+      #          ./add-custom.sh -u "https://s3.amazonaws.com/flink-nightly/flink-1.16-SNAPSHOT-bin-scala_2.12.tgz" -j 11 -n test-java11
+      #      - name: "Test images"
+      #        run: testing/run_travis_tests.sh
       - name: "Build snapshots"
         run: |
           . publish-snapshot/publish_lib.sh
