@@ -56,13 +56,21 @@ public class FlinkContainerTestEnvironment implements TestEnvironment, ClusterCo
 
     private final FlinkContainers flinkContainers;
     private final List<String> jarPaths = new ArrayList<>();
+    private String baseImage;
 
     public FlinkContainerTestEnvironment(
             int numTaskManagers, int numSlotsPerTaskManager, String... jarPaths) {
-        this(new Configuration(), numTaskManagers, numSlotsPerTaskManager, jarPaths);
+        this(null, new Configuration(), numTaskManagers, numSlotsPerTaskManager, jarPaths);
+    }
+
+    public static FlinkContainerTestEnvironment fromBaseImage(
+            String baseImage, int numTaskManagers, int numSlotsPerTaskManager, String... jarPaths) {
+        return new FlinkContainerTestEnvironment(
+                baseImage, new Configuration(), numTaskManagers, numSlotsPerTaskManager, jarPaths);
     }
 
     public FlinkContainerTestEnvironment(
+            String baseImage,
             Configuration clusterConfiguration,
             int numTaskManagers,
             int numSlotsPerTaskManager,
@@ -79,7 +87,8 @@ public class FlinkContainerTestEnvironment implements TestEnvironment, ClusterCo
                         .setNumTaskManagers(numTaskManagers)
                         .setConfiguration(config)
                         .setLogger(LOG)
-                        .enableZookeeperHA()
+                        .setBaseImage(baseImage)
+                        //                        .enableZookeeperHA()
                         .build();
         this.jarPaths.addAll(Arrays.asList(jarPaths));
     }

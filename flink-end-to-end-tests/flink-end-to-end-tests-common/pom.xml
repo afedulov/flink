@@ -70,6 +70,10 @@ under the License.
 			<artifactId>testcontainers</artifactId>
 		</dependency>
 		<dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+        </dependency>
+		<dependency>
 			<!-- To ensure that flink-dist is built beforehand -->
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-dist_${scala.binary.version}</artifactId>

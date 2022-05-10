@@ -22,10 +22,13 @@ import org.apache.flink.tests.util.parameters.ParameterProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -157,5 +160,32 @@ public class FileUtils {
         // 'target' directory
         return path.getFileName().toString().contains("flink-dist")
                 && path.getParent().getFileName().toString().equals("lib");
+    }
+
+    public static void downloadFile(String url, String fileName) {
+        try {
+            org.apache.commons.io.FileUtils.copyURLToFile(new URL(url), new File(fileName));
+        } catch (IOException e) {
+            LOG.error("Error while downloading file from {}.", url, e);
+            throw new RuntimeException("Error while downloading file from {}.", e);
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        String urlBase = "https://s3.amazonaws.com/flink-nightly/";
+        //        String flinkVersion = "flink-1.15-SNAPSHOT-bin-scala_2.11";
+        //        String fileNameExtension = ".tgz";
+        //        String fileName = flinkVersion + fileNameExtension;
+        String fileName = "flink-1.16-SNAPSHOT-bin-scala_2.12.tgz";
+        String url = urlBase + fileName;
+        String tmpdir = System.getProperty("java.io.tmpdir");
+        String sep = FileSystems.getDefault().getSeparator();
+        String filePath = tmpdir + sep + fileName;
+
+        downloadFile(url, filePath);
+        System.out.println(new File(filePath).getAbsolutePath());
+
+        //        String extractionFolder = tmpdir + sep + flinkVersion;
+        CompressionUtils.extractTarFile(filePath, tmpdir);
     }
 }

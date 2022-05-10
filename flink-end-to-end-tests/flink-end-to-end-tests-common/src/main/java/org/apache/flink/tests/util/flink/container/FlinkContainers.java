@@ -118,7 +118,7 @@ public class FlinkContainers implements BeforeAllCallback, AfterAllCallback {
     private static final Logger LOG = LoggerFactory.getLogger(FlinkContainers.class);
 
     // Default timeout of operations
-    public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
+    public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30000);
 
     private final GenericContainer<?> jobManager;
     private final List<GenericContainer<?>> taskManagers;

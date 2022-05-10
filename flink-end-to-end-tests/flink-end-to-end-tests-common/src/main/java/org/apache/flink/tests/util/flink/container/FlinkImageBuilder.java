@@ -51,8 +51,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class FlinkImageBuilder {
 
     private static final Logger LOG = LoggerFactory.getLogger(FlinkImageBuilder.class);
-    private static final String FLINK_BASE_IMAGE_NAME = "flink-dist-base";
-    private static final String DEFAULT_IMAGE_NAME = "flink-dist-configured";
+    private static String FLINK_BASE_IMAGE_NAME = "flink-dist-base";
+    private static final String DEFAULT_IMAGE_NAME = "flink-snapshot-configured";
     private static final Duration DEFAULT_TIMEOUT = Duration.ofMinutes(5);
     private static final String LOG4J_PROPERTIES_FILENAME = "log4j-console.properties";
 
@@ -67,6 +67,7 @@ public class FlinkImageBuilder {
     private Configuration conf;
     private Duration timeout = DEFAULT_TIMEOUT;
     private String startupCommand;
+    private String baseImage;
 
     /**
      * Sets temporary path for holding temp files when building the image.
@@ -149,7 +150,7 @@ public class FlinkImageBuilder {
     /** Use this image for building a JobManager. */
     public FlinkImageBuilder asJobManager() {
         checkStartupCommandNotSet();
-        this.startupCommand = "flink/bin/jobmanager.sh start-foreground && tail -f /dev/null";
+        this.startupCommand = "bin/jobmanager.sh start-foreground && tail -f /dev/null";
         this.imageNameSuffix = "jobmanager";
         return this;
     }
@@ -157,7 +158,7 @@ public class FlinkImageBuilder {
     /** Use this image for building a TaskManager. */
     public FlinkImageBuilder asTaskManager() {
         checkStartupCommandNotSet();
-        this.startupCommand = "flink/bin/taskmanager.sh start-foreground && tail -f /dev/null";
+        this.startupCommand = "bin/taskmanager.sh start-foreground && tail -f /dev/null";
         this.imageNameSuffix = "taskmanager";
         return this;
     }
@@ -170,21 +171,32 @@ public class FlinkImageBuilder {
         return this;
     }
 
+    public FlinkImageBuilder setBaseImage(String baseImage) {
+        this.baseImage = baseImage;
+        return this;
+    }
+
     /** Build the image. */
     public ImageFromDockerfile build() throws ImageBuildException {
         sanityCheck();
         final String finalImageName = imageName + "-" + imageNameSuffix;
         try {
-            // Build base image first
-            buildBaseImage(flinkDist);
+            if (baseImage != null) {
+                FLINK_BASE_IMAGE_NAME = baseImage;
+            } else {
+                // Build base image first
+                buildBaseImage(flinkDist);
+            }
+
             final Path flinkConfFile = createTemporaryFlinkConfFile(tempDirectory);
             final Path log4jPropertiesFile = createTemporaryLog4jPropertiesFile(tempDirectory);
             // Copy flink-conf.yaml into image
             filesToCopy.put(
                     flinkConfFile,
-                    Paths.get("flink", "conf", GlobalConfiguration.FLINK_CONF_FILENAME));
+                    Paths.get("/opt/flink", "conf", GlobalConfiguration.FLINK_CONF_FILENAME));
             filesToCopy.put(
-                    log4jPropertiesFile, Paths.get("flink", "conf", LOG4J_PROPERTIES_FILENAME));
+                    log4jPropertiesFile,
+                    Paths.get("/opt/flink", "conf", LOG4J_PROPERTIES_FILENAME));
 
             final ImageFromDockerfile image =
                     new ImageFromDockerfile(finalImageName)
@@ -196,6 +208,19 @@ public class FlinkImageBuilder {
                                         filesToCopy.forEach(
                                                 (from, to) ->
                                                         builder.copy(to.toString(), to.toString()));
+                                        builder.user("0");
+                                        builder.run(
+                                                "sed -i 's/jobmanager.rpc.address:.*/jobmanager.rpc.address: jobmanager/g' conf/flink-conf.yaml");
+                                        builder.run(
+                                                "mkdir",
+                                                "-p",
+                                                FlinkContainersBuilder.CHECKPOINT_PATH.toString());
+                                        builder.run(
+                                                "chown",
+                                                "-R",
+                                                "1000",
+                                                FlinkContainersBuilder.CHECKPOINT_PATH.toString());
+                                        builder.user("1000");
                                         builder.cmd(startupCommand);
                                     });
             filesToCopy.forEach((from, to) -> image.withFileFromPath(to.toString(), from));

@@ -59,9 +59,9 @@ public class FlinkContainersBuilder {
 
     // Directories for storing states
     // Path in the JM container for storing checkpoints and savepoints
-    public static final Path CHECKPOINT_PATH = Paths.get("/flink/checkpoint");
+    public static final Path CHECKPOINT_PATH = Paths.get("/opt/flink/checkpoint");
     // Path in the JM container for persisting HA metadata
-    public static final Path HA_STORAGE_PATH = Paths.get("/flink/recovery");
+    public static final Path HA_STORAGE_PATH = Paths.get("/opt/flink/recovery");
 
     private final List<GenericContainer<?>> dependentContainers = new ArrayList<>();
     private final Configuration conf = new Configuration();
@@ -72,6 +72,7 @@ public class FlinkContainersBuilder {
     private Network network = Network.newNetwork();
     private Logger logger;
     private boolean enableZookeeperHA = false;
+    private String baseImage;
 
     /** Sets number of TaskManagers. */
     public FlinkContainersBuilder setNumTaskManagers(int numTaskManagers) {
@@ -149,6 +150,11 @@ public class FlinkContainersBuilder {
         return this;
     }
 
+    public FlinkContainersBuilder setBaseImage(String baseImage) {
+        this.baseImage = baseImage;
+        return this;
+    }
+
     /** Builds {@link FlinkContainers}. */
     public FlinkContainers build() {
         // Setup Zookeeper HA
@@ -163,11 +169,14 @@ public class FlinkContainersBuilder {
         this.conf.set(
                 CheckpointingOptions.CHECKPOINTS_DIRECTORY,
                 CHECKPOINT_PATH.toAbsolutePath().toUri().toString());
-        this.conf.set(RestOptions.BIND_ADDRESS, "0.0.0.0");
 
-        this.conf.set(JobManagerOptions.BIND_HOST, "0.0.0.0");
+        this.conf.set(RestOptions.BIND_ADDRESS, "0.0.0.0");
         this.conf.set(TaskManagerOptions.BIND_HOST, "0.0.0.0");
+        this.conf.set(JobManagerOptions.BIND_HOST, "0.0.0.0");
+        this.conf.setString("OVERRIDE", "NEW");
         this.conf.removeConfig(TaskManagerOptions.HOST);
+
+        this.conf.setString(JobManagerOptions.ADDRESS.key(), JOB_MANAGER_HOSTNAME);
 
         // Create temporary directory for building Flink image
         final Path imageBuildingTempDir;
@@ -209,6 +218,8 @@ public class FlinkContainersBuilder {
                             .setTempDirectory(tempDirectory)
                             .setConfiguration(jobManagerConf)
                             .setLogProperties(logProperties)
+                            // .setFlinkDistPath(Paths.get("/tmp/flink-1.16-SNAPSHOT"))
+                            .setBaseImage(baseImage)
                             .asJobManager()
                             .build();
         } catch (ImageBuildException e) {
@@ -227,6 +238,7 @@ public class FlinkContainersBuilder {
             taskManagerConf.addAll(this.conf);
             final String taskManagerHostName = TASK_MANAGER_HOSTNAME_PREFIX + i;
             taskManagerConf.set(TaskManagerOptions.HOST, taskManagerHostName);
+            taskManagerConf.setString(JobManagerOptions.ADDRESS.key(), JOB_MANAGER_HOSTNAME);
             // Build TaskManager container
             final ImageFromDockerfile taskManagerImage;
             try {
@@ -235,6 +247,8 @@ public class FlinkContainersBuilder {
                                 .setTempDirectory(tempDirectory)
                                 .setConfiguration(taskManagerConf)
                                 .setLogProperties(logProperties)
+                                // .setFlinkDistPath(Paths.get("/tmp/flink-1.16-SNAPSHOT"))
+                                .setBaseImage(baseImage)
                                 .asTaskManager()
                                 .build();
             } catch (ImageBuildException e) {
@@ -279,7 +293,7 @@ public class FlinkContainersBuilder {
         checkNotNull(this.conf, "Configuration should not be null for setting HA service");
         conf.set(HighAvailabilityOptions.HA_MODE, "zookeeper");
         conf.set(HighAvailabilityOptions.HA_ZOOKEEPER_QUORUM, ZOOKEEPER_HOSTNAME + ":" + "2181");
-        conf.set(HighAvailabilityOptions.HA_ZOOKEEPER_ROOT, "/flink");
+        conf.set(HighAvailabilityOptions.HA_ZOOKEEPER_ROOT, "/opt/flink");
         conf.set(HighAvailabilityOptions.HA_CLUSTER_ID, "flink-container-" + UUID.randomUUID());
         conf.set(HighAvailabilityOptions.HA_STORAGE_PATH, HA_STORAGE_PATH.toUri().toString());
     }

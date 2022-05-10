@@ -33,6 +33,17 @@ public class Elasticsearch7SinkE2ECase
 
     private static final Logger LOG = LoggerFactory.getLogger(Elasticsearch7SinkE2ECase.class);
 
+    //    @BeforeAll
+    //    public void initDist() {
+    //        String urlBase = "https://s3.amazonaws.com/flink-nightly/";
+    //        String fileName = "flink-1.15-SNAPSHOT-bin-scala_2.11.tgz";
+    //        String url = urlBase + fileName;
+    //        String tmpdir = System.getProperty("java.io.tmpdir");
+    //        String sep = FileSystems.getDefault().getSeparator();
+    //        String filePath = tmpdir + sep + fileName;
+    //        FileUtils.downloadFile(url, filePath);
+    //    }
+
     public Elasticsearch7SinkE2ECase() throws Exception {}
 
     String getElasticsearchContainerName() {

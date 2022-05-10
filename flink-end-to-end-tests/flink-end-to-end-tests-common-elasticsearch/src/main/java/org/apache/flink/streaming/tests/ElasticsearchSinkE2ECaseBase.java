@@ -56,7 +56,9 @@ public abstract class ElasticsearchSinkE2ECaseBase<T extends Comparable<T>>
 
     // Defines TestEnvironment
     @TestEnv
-    protected FlinkContainerTestEnvironment flink = new FlinkContainerTestEnvironment(1, 6);
+    protected FlinkContainerTestEnvironment flink =
+            FlinkContainerTestEnvironment.fromBaseImage(
+                    "ghcr.io/afedulov/flink-docker:1.16-snapshot-scala_2.12-java8-debian", 1, 6);
 
     // Defines ConnectorExternalSystem
     @TestExternalSystem

@@ -30,6 +30,7 @@ public class FlinkContainerWithPulsarEnvironment extends FlinkContainerTestEnvir
 
     public FlinkContainerWithPulsarEnvironment(int numTaskManagers, int numSlotsPerTaskManager) {
         super(
+                null,
                 flinkConfiguration(),
                 numTaskManagers,
                 numSlotsPerTaskManager,
