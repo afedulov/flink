@@ -51,7 +51,7 @@ public interface FileFormat<T, SELF extends FileFormat<T, SELF>> extends Format<
      * <p>This trait should not be used in conjunction with {@link BulkReadable}.
      */
     interface StreamReadable<T, SELF extends StreamReadable<T, SELF>>
-            extends WithTypeInformation<T, SELF>, FileFormat<T, SELF> {
+            extends WithTypeInformation<T>, FileFormat<T, SELF> {
 
         StreamFormat<T> asStreamFormat();
     }
@@ -65,7 +65,7 @@ public interface FileFormat<T, SELF extends FileFormat<T, SELF>> extends Format<
      * <p>This trait should not be used in conjunction with {@link StreamReadable}.
      */
     interface BulkReadable<T, SELF extends BulkReadable<T, SELF>>
-            extends WithTypeInformation<T, SELF>, FileFormat<T, SELF> {
+            extends WithTypeInformation<T>, FileFormat<T, SELF> {
 
         <SplitT extends FileSourceSplit> BulkFormat<T, SplitT> asBulkFormat();
     }

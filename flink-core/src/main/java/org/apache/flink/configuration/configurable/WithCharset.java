@@ -25,9 +25,7 @@ import org.apache.flink.configuration.Configurable;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-/**
- * A {@link Configurable} that allows users setting a {@link Charset}.
- */
+/** A {@link Configurable} that allows users setting a {@link Charset}. */
 public interface WithCharset<SELF extends Configurable<SELF>> extends Configurable<SELF> {
 
     ConfigOption<String> CHARSET =

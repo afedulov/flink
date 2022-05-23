@@ -189,12 +189,12 @@ public class FileSink<IN>
     }
 
     public static <IN> DefaultRowFormatBuilder<IN> forFormat(
-            final Path basePath, final FileFormat.StreamWritable<IN, ?> format) {
+            final Path basePath, final FileFormat.StreamWritable<IN> format) {
         return forRowFormat(basePath, format.asEncoder());
     }
 
     public static <IN> DefaultBulkFormatBuilder<IN> forFormat(
-            final Path basePath, final FileFormat.BulkWritable<IN, ?> format) {
+            final Path basePath, final FileFormat.BulkWritable<IN> format) {
         return forBulkFormat(basePath, format.asWriter());
     }
 
