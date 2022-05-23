@@ -270,7 +270,7 @@ public class Csv<T, SELF extends Csv<T, SELF>> extends AbstractConfigurable<SELF
                     typeInformation.getTypeClass(),
                     (value, context) -> value,
                     typeInformation,
-                    configuration.get(CsvFormatOptions.IGNORE_PARSE_ERRORS),
+                    configuration.get(IGNORE_PARSE_ERRORS),
                     configuration.get(CHARSET));
         }
     }

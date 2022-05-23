@@ -146,7 +146,7 @@ public class CsvFileFormatFactory implements BulkReaderFormatFactory, BulkWriter
                 UntypedCsv<?> csv =
                         Csv.forSchema(CsvRowSchemaConverter.convert(rowType))
                                 .withOptions(formatOptions);
-                final CsvSchema schema = buildCsvSchema(rowType, formatOptions);
+                final CsvSchema schema = csv.buildCsvSchema(rowType, formatOptions);
 
                 final RowDataToCsvConverter converter =
                         RowDataToCsvConverters.createRowConverter(rowType);
