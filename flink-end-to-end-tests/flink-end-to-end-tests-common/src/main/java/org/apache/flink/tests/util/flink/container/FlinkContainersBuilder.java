@@ -212,6 +212,9 @@ public class FlinkContainersBuilder {
             String tempDirPrefix, String containerPath, GenericContainer<?> container) {
         try {
             Path tempDirPath = Files.createTempDirectory(tempDirPrefix);
+            ProcessBuilder processBuilder = new ProcessBuilder();
+            processBuilder.command("sh", "-c", "chmod -R 777 " + tempDirPath.toAbsolutePath());
+            processBuilder.start();
             container.withFileSystemBind(tempDirPath.toAbsolutePath().toString(), containerPath);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to create temporary recovery directory", e);

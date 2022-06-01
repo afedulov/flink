@@ -226,7 +226,6 @@ public class FlinkImageBuilder {
                                         filesToCopy.forEach(
                                                 (from, to) ->
                                                         builder.copy(to.toString(), to.toString()));
-                                        builder.user("1000");
                                         builder.cmd(startupCommand);
                                     });
             filesToCopy.forEach((from, to) -> image.withFileFromPath(to.toString(), from));
