@@ -247,7 +247,7 @@ public class FlinkContainers implements BeforeAllCallback, AfterAllCallback {
 
         // Construct SQL client command
         commands.add("cat /tmp/script.sql | ");
-        commands.add("flink/bin/sql-client.sh");
+        commands.add("bin/sql-client.sh");
         for (String jar : job.getJars()) {
             commands.add("--jar");
             Path path = Paths.get(jar);
@@ -273,7 +273,7 @@ public class FlinkContainers implements BeforeAllCallback, AfterAllCallback {
      */
     public JobID submitJob(JobSubmission job) throws IOException, InterruptedException {
         final List<String> commands = new ArrayList<>();
-        commands.add("flink/bin/flink");
+        commands.add("bin/flink");
         commands.add("run");
 
         if (job.isDetached()) {
