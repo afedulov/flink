@@ -87,6 +87,8 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
     public static class Builder {
 
         private final RowType rowResultType;
+        private int[][] projections = new int[][] {};
+        private RowType rowReadType;
         private final TypeInformation<RowData> resultTypeInfo;
         private CsvSchema csvSchema;
         private boolean ignoreParseErrors;
@@ -104,14 +106,16 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
         public Builder(
                 RowType rowReadType,
                 RowType rowResultType,
+                int[][] projections,
                 TypeInformation<RowData> resultTypeInfo) {
             Preconditions.checkNotNull(rowReadType, "RowType must not be null.");
             Preconditions.checkNotNull(rowResultType, "RowType must not be null.");
             Preconditions.checkNotNull(resultTypeInfo, "Result type information must not be null.");
             this.rowResultType = rowResultType;
+            this.rowReadType = rowReadType;
             this.resultTypeInfo = resultTypeInfo;
-            final RowType optimizedReadType = optimizeCsvRead(rowReadType, rowResultType);
-            this.csvSchema = CsvRowSchemaConverter.convert(optimizedReadType);
+            this.projections = projections;
+            this.csvSchema = CsvRowSchemaConverter.convert(rowReadType);
         }
 
         /**
@@ -239,6 +243,22 @@ public final class CsvRowDataDeserializationSchema implements DeserializationSch
         }
 
         public CsvRowDataDeserializationSchema build() {
+            CsvSchema.Builder builder = csvSchema.rebuild();
+            int p = 0;
+            for (int[] projection : projections) {
+                int included = projection[0];
+                // Set all non-included columns to STRING type.
+                while (p < included) {
+                    builder.setColumnType(p, CsvSchema.ColumnType.STRING);
+                    p++;
+                }
+            }
+            p++; // Next column after the last included into projection.
+            int numColumns = csvSchema.size();
+            for (int i = p; i < numColumns; i++) {
+                builder.setColumnType(i, CsvSchema.ColumnType.STRING);
+            }
+
             CsvToRowDataConverters.CsvToRowDataConverter runtimeConverter =
                     new CsvToRowDataConverters(ignoreParseErrors)
                             .createRowConverter(rowResultType, true);

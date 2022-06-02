@@ -232,6 +232,9 @@ public class CsvFormatFactoryTest extends TestLogger {
     public void testProjectionPushdown() throws IOException {
         final Map<String, String> options = getAllOptions();
 
+        //        final List<String> types = Arrays.asList("b", "c");
+        //        Collections.singletonList("c")
+
         final Projection projection =
                 Projection.fromFieldNames(PHYSICAL_DATA_TYPE, Collections.singletonList("c"));
 

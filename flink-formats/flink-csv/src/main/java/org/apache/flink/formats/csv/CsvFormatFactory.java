@@ -84,7 +84,7 @@ public final class CsvFormatFactory
 
                 final CsvRowDataDeserializationSchema.Builder schemaBuilder =
                         new CsvRowDataDeserializationSchema.Builder(
-                                physicalRowType, projectedRowType, rowDataTypeInfo);
+                                physicalRowType, projectedRowType, projections, rowDataTypeInfo);
 
                 configureDeserializationSchema(formatOptions, schemaBuilder);
 
