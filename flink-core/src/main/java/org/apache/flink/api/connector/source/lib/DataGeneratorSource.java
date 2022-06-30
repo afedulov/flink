@@ -32,10 +32,14 @@ import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequ
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceEnumerator;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceReader;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceSplit;
-import org.apache.flink.api.connector.source.lib.util.NoOpRateLimiter;
 import org.apache.flink.api.connector.source.lib.util.RateLimiter;
+import org.apache.flink.api.connector.source.lib.util.SimpleRateLimiter;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
+import org.apache.flink.core.memory.DataInputDeserializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputSerializer;
+import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.NumberSequenceIterator;
 
@@ -43,11 +47,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -79,7 +86,7 @@ public class DataGeneratorSource<OUT>
     /** The end Generator in the sequence, inclusive. */
     private final NumberSequenceSource numberSource;
 
-    private RateLimiter rateLimiter = new NoOpRateLimiter();
+    private long maxPerSecond = -1;
 
     /**
      * Creates a new {@code DataGeneratorSource} that produces <code>count</code> records in
@@ -99,13 +106,13 @@ public class DataGeneratorSource<OUT>
     public DataGeneratorSource(
             MapFunction<Long, OUT> generatorFunction,
             long count,
-            RateLimiter rateLimiter,
+            long maxPerSecond,
             TypeInformation<OUT> typeInfo) {
-        //  TODO:      checkArgument(maxPerSecond > 0, "maxPerSeconds has to be a positive number");
+        checkArgument(maxPerSecond > 0, "maxPerSeconds has to be a positive number");
         this.typeInfo = checkNotNull(typeInfo);
         this.generatorFunction = checkNotNull(generatorFunction);
         this.numberSource = new NumberSequenceSource(0, count);
-        this.rateLimiter = rateLimiter;
+        this.maxPerSecond = maxPerSecond;
     }
 
     public long getCount() {
@@ -142,7 +149,7 @@ public class DataGeneratorSource<OUT>
                 numberSource.splitNumberRange(0, getCount(), parallelism);
 
         return new IteratorSourceEnumerator<>(
-                enumContext, wrapSplits(splits, generatorFunction, rateLimiter));
+                enumContext, wrapSplits(splits, generatorFunction, maxPerSecond, parallelism));
     }
 
     @Override
@@ -155,15 +162,13 @@ public class DataGeneratorSource<OUT>
 
     @Override
     public SimpleVersionedSerializer<GeneratorSequenceSplit<OUT>> getSplitSerializer() {
-        return new SplitSerializer<>(
-                numberSource.getSplitSerializer(), generatorFunction, rateLimiter);
+        return new SplitSerializer<>(generatorFunction, maxPerSecond);
     }
 
     @Override
     public SimpleVersionedSerializer<Collection<GeneratorSequenceSplit<OUT>>>
             getEnumeratorCheckpointSerializer() {
-        return new CheckpointSerializer<>(
-                numberSource.getEnumeratorCheckpointSerializer(), generatorFunction, rateLimiter);
+        return new CheckpointSerializer<>(generatorFunction, maxPerSecond);
     }
 
     // ------------------------------------------------------------------------
@@ -178,10 +183,11 @@ public class DataGeneratorSource<OUT>
         public GeneratorSequenceIterator(
                 NumberSequenceIterator numSeqIterator,
                 MapFunction<Long, T> generatorFunction,
-                RateLimiter rateLimiter) {
+                long maxPerSecond,
+                int parallelism) {
             this.generatorFunction = generatorFunction;
             this.numSeqIterator = numSeqIterator;
-            this.rateLimiter = rateLimiter;
+            this.rateLimiter = new SimpleRateLimiter(maxPerSecond, parallelism);
         }
 
         @Override
@@ -200,7 +206,6 @@ public class DataGeneratorSource<OUT>
         @Override
         public T next() {
             try {
-                LOG.error("NEXT!");
                 rateLimiter.acquire();
                 return generatorFunction.map(numSeqIterator.next());
             } catch (Exception e) {
@@ -220,20 +225,25 @@ public class DataGeneratorSource<OUT>
         public GeneratorSequenceSplit(
                 NumberSequenceSplit numberSequenceSplit,
                 MapFunction<Long, T> generatorFunction,
-                RateLimiter rateLimiter) {
+                long maxPerSecond,
+                int parallelism) {
             this.numberSequenceSplit = numberSequenceSplit;
             this.generatorFunction = generatorFunction;
-            this.rateLimiter = rateLimiter;
+            this.maxPerSecond = maxPerSecond;
+            this.parallelism = parallelism;
         }
 
         private final NumberSequenceSplit numberSequenceSplit;
-
         private final MapFunction<Long, T> generatorFunction;
-        private final RateLimiter rateLimiter;
+        private final long maxPerSecond;
+        private final int parallelism;
 
         public GeneratorSequenceIterator<T> getIterator() {
             return new GeneratorSequenceIterator<>(
-                    numberSequenceSplit.getIterator(), generatorFunction, rateLimiter);
+                    numberSequenceSplit.getIterator(),
+                    generatorFunction,
+                    maxPerSecond,
+                    parallelism);
         }
 
         @Override
@@ -248,7 +258,8 @@ public class DataGeneratorSource<OUT>
                     (NumberSequenceSplit)
                             numberSequenceSplit.getUpdatedSplitForIterator(iterator.numSeqIterator),
                     generatorFunction,
-                    rateLimiter);
+                    maxPerSecond,
+                    parallelism);
         }
 
         @Override
@@ -264,86 +275,144 @@ public class DataGeneratorSource<OUT>
     private static final class SplitSerializer<T>
             implements SimpleVersionedSerializer<GeneratorSequenceSplit<T>> {
 
-        private final SimpleVersionedSerializer<NumberSequenceSplit> numberSplitSerializer;
-        private final MapFunction<Long, T> generatorFunction;
-        private final RateLimiter rateLimiter;
+        private static final int CURRENT_VERSION = 1;
 
-        private SplitSerializer(
-                SimpleVersionedSerializer<NumberSequenceSplit> numberSplitSerializer,
-                MapFunction<Long, T> generatorFunction,
-                RateLimiter rateLimiter) {
-            this.numberSplitSerializer = numberSplitSerializer;
+        private final MapFunction<Long, T> generatorFunction;
+        private final long maxPerSecond;
+
+        private SplitSerializer(MapFunction<Long, T> generatorFunction, long maxPerSecond) {
             this.generatorFunction = generatorFunction;
-            this.rateLimiter = rateLimiter;
+            this.maxPerSecond = maxPerSecond;
         }
 
         @Override
         public int getVersion() {
-            return numberSplitSerializer.getVersion();
+            return CURRENT_VERSION;
         }
 
         @Override
         public byte[] serialize(GeneratorSequenceSplit<T> split) throws IOException {
-            return numberSplitSerializer.serialize(split.numberSequenceSplit);
+            checkArgument(
+                    split.getClass() == GeneratorSequenceSplit.class,
+                    "cannot serialize subclasses");
+
+            // We will serialize 2 longs (16 bytes) plus the UTF representation of the string (2 +
+            // length)
+            final DataOutputSerializer out =
+                    new DataOutputSerializer(split.splitId().length() + 18);
+            serializeV1(out, split);
+            return out.getCopyOfBuffer();
         }
 
         @Override
         public GeneratorSequenceSplit<T> deserialize(int version, byte[] serialized)
                 throws IOException {
+            if (version != CURRENT_VERSION) {
+                throw new IOException("Unrecognized version: " + version);
+            }
+            final DataInputDeserializer in = new DataInputDeserializer(serialized);
+            return deserializeV1(in, generatorFunction, maxPerSecond);
+        }
+
+        static <T> void serializeV1(DataOutputView out, GeneratorSequenceSplit<T> split)
+                throws IOException {
+            serializeNumberSequenceSplit(out, split.numberSequenceSplit);
+            out.writeInt(split.parallelism);
+        }
+
+        static void serializeNumberSequenceSplit(
+                DataOutputView out, NumberSequenceSplit numberSequenceSplit) throws IOException {
+            out.writeUTF(numberSequenceSplit.splitId());
+            out.writeLong(numberSequenceSplit.from());
+            out.writeLong(numberSequenceSplit.to());
+        }
+
+        static <T> GeneratorSequenceSplit<T> deserializeV1(
+                DataInputView in, MapFunction<Long, T> generatorFunction, long maxPerSecond)
+                throws IOException {
+            NumberSequenceSplit numberSequenceSplit = deserializeNumberSequenceSplit(in);
+            int parallelism = in.readInt();
             return new GeneratorSequenceSplit<>(
-                    numberSplitSerializer.deserialize(version, serialized),
-                    generatorFunction,
-                    rateLimiter);
+                    numberSequenceSplit, generatorFunction, maxPerSecond, parallelism);
+        }
+
+        private static NumberSequenceSplit deserializeNumberSequenceSplit(DataInputView in)
+                throws IOException {
+            return new NumberSequenceSplit(in.readUTF(), in.readLong(), in.readLong());
         }
     }
 
     private static final class CheckpointSerializer<T>
             implements SimpleVersionedSerializer<Collection<GeneratorSequenceSplit<T>>> {
 
-        private final SimpleVersionedSerializer<Collection<NumberSequenceSplit>>
-                numberCheckpointSerializer;
-        private final MapFunction<Long, T> generatorFunction;
-        private final RateLimiter throttler;
-
-        public CheckpointSerializer(
-                SimpleVersionedSerializer<Collection<NumberSequenceSplit>>
-                        numberCheckpointSerializer,
-                MapFunction<Long, T> generatorFunction,
-                RateLimiter throttler) {
-            this.numberCheckpointSerializer = numberCheckpointSerializer;
-            this.generatorFunction = generatorFunction;
-            this.throttler = throttler;
-        }
+        private static final int CURRENT_VERSION = 1;
 
         @Override
         public int getVersion() {
-            return numberCheckpointSerializer.getVersion();
+            return CURRENT_VERSION;
+        }
+
+        private final MapFunction<Long, T> generatorFunction;
+        private final long maxPerSecond;
+
+        public CheckpointSerializer(MapFunction<Long, T> generatorFunction, long maxPerSecond) {
+            this.generatorFunction = generatorFunction;
+            this.maxPerSecond = maxPerSecond;
         }
 
         @Override
         public byte[] serialize(Collection<GeneratorSequenceSplit<T>> checkpoint)
                 throws IOException {
-            return numberCheckpointSerializer.serialize(
-                    checkpoint.stream()
-                            .map(split -> split.numberSequenceSplit)
-                            .collect(Collectors.toList()));
+            // Each split needs 2 longs (16 bytes) plus the UTG representation of the string (2 +
+            // length).
+            // Assuming at most 4 digit split IDs, 22 bytes per split avoids any intermediate array
+            // resizing.
+            // Plus four bytes for the length field.
+            // Plus four bytes for the parallelism.
+            final DataOutputSerializer out =
+                    new DataOutputSerializer(checkpoint.size() * 22 + 4 + 4);
+            out.writeInt(checkpoint.size());
+            for (GeneratorSequenceSplit<T> split : checkpoint) {
+                DataGeneratorSource.SplitSerializer.serializeNumberSequenceSplit(
+                        out, split.numberSequenceSplit);
+            }
+
+            final Optional<GeneratorSequenceSplit<T>> aSplit = checkpoint.stream().findFirst();
+            if (aSplit.isPresent()) {
+                int parallelism = aSplit.get().parallelism;
+                out.writeInt(parallelism);
+            }
+
+            return out.getCopyOfBuffer();
         }
 
         @Override
         public Collection<GeneratorSequenceSplit<T>> deserialize(int version, byte[] serialized)
                 throws IOException {
-            Collection<NumberSequenceSplit> numberSequenceSplits =
-                    numberCheckpointSerializer.deserialize(version, serialized);
-            return wrapSplits(numberSequenceSplits, generatorFunction, throttler);
+            if (version != CURRENT_VERSION) {
+                throw new IOException("Unrecognized version: " + version);
+            }
+            final DataInputDeserializer in = new DataInputDeserializer(serialized);
+            final int num = in.readInt();
+            final List<NumberSequenceSplit> result = new ArrayList<>(num);
+            for (int remaining = num; remaining > 0; remaining--) {
+                result.add(SplitSerializer.deserializeNumberSequenceSplit(in));
+            }
+            final int parallelism = in.readInt();
+            return wrapSplits(result, generatorFunction, maxPerSecond, parallelism);
         }
     }
 
     private static <T> List<GeneratorSequenceSplit<T>> wrapSplits(
             Collection<NumberSequenceSplit> numberSequenceSplits,
             MapFunction<Long, T> generatorFunction,
-            RateLimiter throttler) {
+            long maxPerSecond,
+            int parallelism) {
         return numberSequenceSplits.stream()
-                .map(split -> new GeneratorSequenceSplit<>(split, generatorFunction, throttler))
+                .map(
+                        split ->
+                                new GeneratorSequenceSplit<>(
+                                        split, generatorFunction, maxPerSecond, parallelism))
                 .collect(Collectors.toList());
     }
 }
