@@ -23,6 +23,8 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.lib.DataGeneratorSource;
+import org.apache.flink.api.connector.source.lib.util.RateLimiter;
+import org.apache.flink.api.connector.source.lib.util.SimpleRateLimiter;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -37,8 +39,9 @@ public class GeneratorSourceCheck {
     public static void main(String[] args) throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        int parallelism = 2;
         env.setRuntimeMode(RuntimeExecutionMode.STREAMING);
-        env.setParallelism(2);
+        env.setParallelism(parallelism);
 
         //        MapFunction<Long, String> generator = value -> ">>> " + value;
         //        DataGeneratorSource<String> source = new DataGeneratorSource<>(generator, 10,
@@ -48,7 +51,9 @@ public class GeneratorSourceCheck {
         //        watermarked.print();
 
         MapFunction<Long, String> generator = index -> ">>> " + index;
-        DataGeneratorSource<String> source = new DataGeneratorSource<>(generator, 10, Types.STRING);
+        RateLimiter throttler = new SimpleRateLimiter(1, parallelism);
+        DataGeneratorSource<String> source =
+                new DataGeneratorSource<>(generator, 100, throttler, Types.STRING);
         DataStreamSource<String> watermarked =
                 env.fromSource(
                         source,
@@ -56,7 +61,7 @@ public class GeneratorSourceCheck {
                         "watermarked");
         watermarked.print();
 
-        env.fromSequence(1, 10).print();
+        //        env.fromSequence(1, 10).print();
 
         // DataStreamSource<String> ds = env.fromGenerator(generator, 10, Types.STRING);
         // ds.print();

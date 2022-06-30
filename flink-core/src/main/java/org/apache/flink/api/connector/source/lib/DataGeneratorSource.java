@@ -32,10 +32,15 @@ import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequ
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceEnumerator;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceReader;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceSplit;
+import org.apache.flink.api.connector.source.lib.util.NoOpRateLimiter;
+import org.apache.flink.api.connector.source.lib.util.RateLimiter;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.NumberSequenceIterator;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -63,14 +68,18 @@ public class DataGeneratorSource<OUT>
                         OUT, GeneratorSequenceSplit<OUT>, Collection<GeneratorSequenceSplit<OUT>>>,
                 ResultTypeQueryable<OUT> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(DataGeneratorSource.class);
+
     private static final long serialVersionUID = 1L;
 
     private final TypeInformation<OUT> typeInfo;
 
-    public final MapFunction<Long, OUT> generatorFunction;
+    private final MapFunction<Long, OUT> generatorFunction;
 
     /** The end Generator in the sequence, inclusive. */
     private final NumberSequenceSource numberSource;
+
+    private RateLimiter rateLimiter = new NoOpRateLimiter();
 
     /**
      * Creates a new {@code DataGeneratorSource} that produces <code>count</code> records in
@@ -85,6 +94,18 @@ public class DataGeneratorSource<OUT>
         this.typeInfo = checkNotNull(typeInfo);
         this.generatorFunction = checkNotNull(generatorFunction);
         this.numberSource = new NumberSequenceSource(0, count);
+    }
+
+    public DataGeneratorSource(
+            MapFunction<Long, OUT> generatorFunction,
+            long count,
+            RateLimiter rateLimiter,
+            TypeInformation<OUT> typeInfo) {
+        //  TODO:      checkArgument(maxPerSecond > 0, "maxPerSeconds has to be a positive number");
+        this.typeInfo = checkNotNull(typeInfo);
+        this.generatorFunction = checkNotNull(generatorFunction);
+        this.numberSource = new NumberSequenceSource(0, count);
+        this.rateLimiter = rateLimiter;
     }
 
     public long getCount() {
@@ -116,9 +137,12 @@ public class DataGeneratorSource<OUT>
             createEnumerator(
                     final SplitEnumeratorContext<GeneratorSequenceSplit<OUT>> enumContext) {
 
+        final int parallelism = enumContext.currentParallelism();
         final List<NumberSequenceSplit> splits =
-                numberSource.splitNumberRange(0, getCount(), enumContext.currentParallelism());
-        return new IteratorSourceEnumerator<>(enumContext, wrapSplits(splits, generatorFunction));
+                numberSource.splitNumberRange(0, getCount(), parallelism);
+
+        return new IteratorSourceEnumerator<>(
+                enumContext, wrapSplits(splits, generatorFunction, rateLimiter));
     }
 
     @Override
@@ -131,14 +155,15 @@ public class DataGeneratorSource<OUT>
 
     @Override
     public SimpleVersionedSerializer<GeneratorSequenceSplit<OUT>> getSplitSerializer() {
-        return new SplitSerializer<>(numberSource.getSplitSerializer(), generatorFunction);
+        return new SplitSerializer<>(
+                numberSource.getSplitSerializer(), generatorFunction, rateLimiter);
     }
 
     @Override
     public SimpleVersionedSerializer<Collection<GeneratorSequenceSplit<OUT>>>
             getEnumeratorCheckpointSerializer() {
         return new CheckpointSerializer<>(
-                numberSource.getEnumeratorCheckpointSerializer(), generatorFunction);
+                numberSource.getEnumeratorCheckpointSerializer(), generatorFunction, rateLimiter);
     }
 
     // ------------------------------------------------------------------------
@@ -148,11 +173,15 @@ public class DataGeneratorSource<OUT>
 
         private final MapFunction<Long, T> generatorFunction;
         private final NumberSequenceIterator numSeqIterator;
+        private final RateLimiter rateLimiter;
 
         public GeneratorSequenceIterator(
-                NumberSequenceIterator numSeqIterator, MapFunction<Long, T> generatorFunction) {
+                NumberSequenceIterator numSeqIterator,
+                MapFunction<Long, T> generatorFunction,
+                RateLimiter rateLimiter) {
             this.generatorFunction = generatorFunction;
             this.numSeqIterator = numSeqIterator;
+            this.rateLimiter = rateLimiter;
         }
 
         @Override
@@ -171,6 +200,8 @@ public class DataGeneratorSource<OUT>
         @Override
         public T next() {
             try {
+                LOG.error("NEXT!");
+                rateLimiter.acquire();
                 return generatorFunction.map(numSeqIterator.next());
             } catch (Exception e) {
                 throw new FlinkRuntimeException(
@@ -187,18 +218,22 @@ public class DataGeneratorSource<OUT>
             implements IteratorSourceSplit<T, GeneratorSequenceIterator<T>> {
 
         public GeneratorSequenceSplit(
-                NumberSequenceSplit numberSequenceSplit, MapFunction<Long, T> generatorFunction) {
+                NumberSequenceSplit numberSequenceSplit,
+                MapFunction<Long, T> generatorFunction,
+                RateLimiter rateLimiter) {
             this.numberSequenceSplit = numberSequenceSplit;
             this.generatorFunction = generatorFunction;
+            this.rateLimiter = rateLimiter;
         }
 
         private final NumberSequenceSplit numberSequenceSplit;
 
         private final MapFunction<Long, T> generatorFunction;
+        private final RateLimiter rateLimiter;
 
         public GeneratorSequenceIterator<T> getIterator() {
             return new GeneratorSequenceIterator<>(
-                    numberSequenceSplit.getIterator(), generatorFunction);
+                    numberSequenceSplit.getIterator(), generatorFunction, rateLimiter);
         }
 
         @Override
@@ -212,7 +247,8 @@ public class DataGeneratorSource<OUT>
             return new GeneratorSequenceSplit<>(
                     (NumberSequenceSplit)
                             numberSequenceSplit.getUpdatedSplitForIterator(iterator.numSeqIterator),
-                    generatorFunction);
+                    generatorFunction,
+                    rateLimiter);
         }
 
         @Override
@@ -230,12 +266,15 @@ public class DataGeneratorSource<OUT>
 
         private final SimpleVersionedSerializer<NumberSequenceSplit> numberSplitSerializer;
         private final MapFunction<Long, T> generatorFunction;
+        private final RateLimiter rateLimiter;
 
         private SplitSerializer(
                 SimpleVersionedSerializer<NumberSequenceSplit> numberSplitSerializer,
-                MapFunction<Long, T> generatorFunction) {
+                MapFunction<Long, T> generatorFunction,
+                RateLimiter rateLimiter) {
             this.numberSplitSerializer = numberSplitSerializer;
             this.generatorFunction = generatorFunction;
+            this.rateLimiter = rateLimiter;
         }
 
         @Override
@@ -252,7 +291,9 @@ public class DataGeneratorSource<OUT>
         public GeneratorSequenceSplit<T> deserialize(int version, byte[] serialized)
                 throws IOException {
             return new GeneratorSequenceSplit<>(
-                    numberSplitSerializer.deserialize(version, serialized), generatorFunction);
+                    numberSplitSerializer.deserialize(version, serialized),
+                    generatorFunction,
+                    rateLimiter);
         }
     }
 
@@ -262,13 +303,16 @@ public class DataGeneratorSource<OUT>
         private final SimpleVersionedSerializer<Collection<NumberSequenceSplit>>
                 numberCheckpointSerializer;
         private final MapFunction<Long, T> generatorFunction;
+        private final RateLimiter throttler;
 
         public CheckpointSerializer(
                 SimpleVersionedSerializer<Collection<NumberSequenceSplit>>
                         numberCheckpointSerializer,
-                MapFunction<Long, T> generatorFunction) {
+                MapFunction<Long, T> generatorFunction,
+                RateLimiter throttler) {
             this.numberCheckpointSerializer = numberCheckpointSerializer;
             this.generatorFunction = generatorFunction;
+            this.throttler = throttler;
         }
 
         @Override
@@ -290,15 +334,16 @@ public class DataGeneratorSource<OUT>
                 throws IOException {
             Collection<NumberSequenceSplit> numberSequenceSplits =
                     numberCheckpointSerializer.deserialize(version, serialized);
-            return wrapSplits(numberSequenceSplits, generatorFunction);
+            return wrapSplits(numberSequenceSplits, generatorFunction, throttler);
         }
     }
 
     private static <T> List<GeneratorSequenceSplit<T>> wrapSplits(
             Collection<NumberSequenceSplit> numberSequenceSplits,
-            MapFunction<Long, T> generatorFunction) {
+            MapFunction<Long, T> generatorFunction,
+            RateLimiter throttler) {
         return numberSequenceSplits.stream()
-                .map(split -> new GeneratorSequenceSplit<>(split, generatorFunction))
+                .map(split -> new GeneratorSequenceSplit<>(split, generatorFunction, throttler))
                 .collect(Collectors.toList());
     }
 }
