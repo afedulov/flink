@@ -20,6 +20,9 @@ package org.apache.flink.api.connector.source.lib;
 
 import org.apache.flink.annotation.Public;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.io.ratelimiting.GuavaRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.NoOpRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.RateLimiter;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
@@ -32,8 +35,6 @@ import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequ
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceEnumerator;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceReader;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceSplit;
-import org.apache.flink.api.connector.source.lib.util.RateLimiter;
-import org.apache.flink.api.connector.source.lib.util.SimpleRateLimiter;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
@@ -178,7 +179,7 @@ public class DataGeneratorSource<OUT>
 
         private final MapFunction<Long, T> generatorFunction;
         private final NumberSequenceIterator numSeqIterator;
-        private final RateLimiter rateLimiter;
+        private RateLimiter rateLimiter = new NoOpRateLimiter();
 
         public GeneratorSequenceIterator(
                 NumberSequenceIterator numSeqIterator,
@@ -187,7 +188,9 @@ public class DataGeneratorSource<OUT>
                 int parallelism) {
             this.generatorFunction = generatorFunction;
             this.numSeqIterator = numSeqIterator;
-            this.rateLimiter = new SimpleRateLimiter(maxPerSecond, parallelism);
+            if (maxPerSecond > 0) {
+                this.rateLimiter = new GuavaRateLimiter(maxPerSecond, parallelism);
+            }
         }
 
         @Override

@@ -16,18 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.connector.source.lib.util;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+package org.apache.flink.api.common.io.ratelimiting;
 
 public class NoOpRateLimiter implements RateLimiter {
 
-    private static final Logger LOG = LoggerFactory.getLogger(NoOpRateLimiter.class);
-
     @Override
     public int acquire() throws InterruptedException {
-        LOG.error("!!!THROTTLE!");
         return 0;
     }
 }
