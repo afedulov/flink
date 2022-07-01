@@ -16,20 +16,15 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.connector.source.lib.util;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+package org.apache.flink.api.common.io.ratelimiting;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** Utility to throttle a thread to a given number of executions (records) per second. */
-public final class SimpleRateLimiter implements RateLimiter {
+public final class BucketingRateLimiter implements RateLimiter {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SimpleRateLimiter.class);
-
-    private long maxPerBucket;
-    private long nanosInBucket;
+    private final long maxPerBucket;
+    private final long nanosInBucket;
 
     private long endOfCurrentBucketNanos;
     private int inCurrentBucket;
@@ -37,11 +32,11 @@ public final class SimpleRateLimiter implements RateLimiter {
     private static final int DEFAULT_BUCKETS_PER_SECOND = 10;
     private static final long NANOS_IN_ONE_SECOND = 1_000_000_000L;
 
-    public SimpleRateLimiter(long maxPerSecond, int numParallelExecutors) {
+    public BucketingRateLimiter(long maxPerSecond, int numParallelExecutors) {
         this(maxPerSecond, numParallelExecutors, DEFAULT_BUCKETS_PER_SECOND);
     }
 
-    public SimpleRateLimiter(long maxPerSecond, int numParallelExecutors, int bucketsPerSecond) {
+    public BucketingRateLimiter(long maxPerSecond, int numParallelExecutors, int bucketsPerSecond) {
         checkArgument(maxPerSecond > 0, "maxPerSecond must be a positive number");
         checkArgument(numParallelExecutors > 0, "numParallelExecutors must be greater than 0");
 
@@ -56,7 +51,6 @@ public final class SimpleRateLimiter implements RateLimiter {
 
     // TODO: JavaDoc, returns number of seconds idling on this call.
     public int acquire() throws InterruptedException {
-        LOG.error("THROTTLE!");
         if (++inCurrentBucket != maxPerBucket) {
             return 0;
         }

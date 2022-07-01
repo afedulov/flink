@@ -21,10 +21,10 @@ package org.apache.flink.streaming.examples.wordcount;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.io.ratelimiting.BucketingRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.RateLimiter;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.lib.DataGeneratorSource;
-import org.apache.flink.api.connector.source.lib.util.RateLimiter;
-import org.apache.flink.api.connector.source.lib.util.SimpleRateLimiter;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -51,9 +51,11 @@ public class GeneratorSourceCheck {
         //        watermarked.print();
 
         MapFunction<Long, String> generator = index -> ">>> " + index;
-        RateLimiter throttler = new SimpleRateLimiter(1, parallelism);
+        RateLimiter rateLimiter = new BucketingRateLimiter(1, parallelism);
+        //        DataGeneratorSource<String> source =
+        //                new DataGeneratorSource<>(generator, 100, rateLimiter, Types.STRING);
         DataGeneratorSource<String> source =
-                new DataGeneratorSource<>(generator, 100, throttler, Types.STRING);
+                new DataGeneratorSource<>(generator, 10, 2, Types.STRING);
         DataStreamSource<String> watermarked =
                 env.fromSource(
                         source,
