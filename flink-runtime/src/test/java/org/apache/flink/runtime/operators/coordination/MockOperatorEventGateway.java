@@ -18,8 +18,11 @@ limitations under the License.
 
 package org.apache.flink.runtime.operators.coordination;
 
+import org.apache.flink.util.SerializedValue;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /** A mock {@link OperatorEventGateway} for unit tests. */
 public class MockOperatorEventGateway implements OperatorEventGateway {
@@ -29,6 +32,12 @@ public class MockOperatorEventGateway implements OperatorEventGateway {
     @Override
     public void sendEventToCoordinator(OperatorEvent event) {
         eventsSent.add(event);
+    }
+
+    @Override
+    public CompletableFuture<CoordinationResponse> sendRequestToCoordinator(
+            SerializedValue<CoordinationRequest> request) {
+        return null;
     }
 
     public List<OperatorEvent> getEventsSent() {

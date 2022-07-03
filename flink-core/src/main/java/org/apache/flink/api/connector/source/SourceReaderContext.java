@@ -63,4 +63,7 @@ public interface SourceReaderContext {
      * @see UserCodeClassLoader
      */
     UserCodeClassLoader getUserCodeClassLoader();
+
+    // TODO: add javadoc
+    int currentParallelism();
 }

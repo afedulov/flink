@@ -22,6 +22,9 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterOperatorEventGateway;
+import org.apache.flink.util.SerializedValue;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * The gateway through which an Operator can send an {@link OperatorEvent} to the {@link
@@ -46,4 +49,8 @@ public interface OperatorEventGateway {
      * OperatorCoordinator#handleEventFromOperator(int, OperatorEvent)} method.
      */
     void sendEventToCoordinator(OperatorEvent event);
+
+    /** Sends a request from current operator to the coordinator and returns the response. */
+    CompletableFuture<CoordinationResponse> sendRequestToCoordinator(
+            SerializedValue<CoordinationRequest> request);
 }

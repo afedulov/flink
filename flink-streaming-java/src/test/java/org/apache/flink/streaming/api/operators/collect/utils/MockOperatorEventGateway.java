@@ -17,10 +17,14 @@
 
 package org.apache.flink.streaming.api.operators.collect.utils;
 
+import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
+import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEventGateway;
+import org.apache.flink.util.SerializedValue;
 
 import java.util.LinkedList;
+import java.util.concurrent.CompletableFuture;
 
 /** An {@link OperatorEventGateway} for testing purpose. */
 public class MockOperatorEventGateway implements OperatorEventGateway {
@@ -34,6 +38,12 @@ public class MockOperatorEventGateway implements OperatorEventGateway {
     @Override
     public void sendEventToCoordinator(OperatorEvent event) {
         events.add(event);
+    }
+
+    @Override
+    public CompletableFuture<CoordinationResponse> sendRequestToCoordinator(
+            SerializedValue<CoordinationRequest> request) {
+        return null;
     }
 
     public OperatorEvent getNextEvent() {

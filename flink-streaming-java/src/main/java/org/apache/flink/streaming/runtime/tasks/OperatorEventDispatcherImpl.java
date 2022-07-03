@@ -21,6 +21,8 @@ package org.apache.flink.streaming.runtime.tasks;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
+import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
+import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEventDispatcher;
 import org.apache.flink.runtime.operators.coordination.OperatorEventGateway;
@@ -32,6 +34,7 @@ import org.apache.flink.util.SerializedValue;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -113,6 +116,12 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
             }
 
             toCoordinator.sendOperatorEventToCoordinator(operatorId, serializedEvent);
+        }
+
+        @Override
+        public CompletableFuture<CoordinationResponse> sendRequestToCoordinator(
+                SerializedValue<CoordinationRequest> request) {
+            return toCoordinator.sendRequestToCoordinator(operatorId, request);
         }
     }
 }

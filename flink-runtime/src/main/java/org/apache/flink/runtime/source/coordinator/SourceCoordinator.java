@@ -30,6 +30,9 @@ import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
+import org.apache.flink.runtime.operators.coordination.CoordinationRequestHandler;
+import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
 import org.apache.flink.runtime.operators.coordination.CoordinatorStore;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
@@ -38,6 +41,8 @@ import org.apache.flink.runtime.source.event.ReportedWatermarkEvent;
 import org.apache.flink.runtime.source.event.RequestSplitEvent;
 import org.apache.flink.runtime.source.event.SourceEventWrapper;
 import org.apache.flink.runtime.source.event.WatermarkAlignmentEvent;
+import org.apache.flink.runtime.source.request.IntegerResponse;
+import org.apache.flink.runtime.source.request.ParallelismCoordinationRequest;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.TemporaryClassLoaderContext;
@@ -85,7 +90,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 @Internal
 public class SourceCoordinator<SplitT extends SourceSplit, EnumChkT>
-        implements OperatorCoordinator {
+        implements OperatorCoordinator, CoordinationRequestHandler {
     private static final Logger LOG = LoggerFactory.getLogger(SourceCoordinator.class);
 
     private final WatermarkAggregator<Integer> combinedWatermark = new WatermarkAggregator<>();
@@ -521,6 +526,19 @@ public class SourceCoordinator<SplitT extends SourceSplit, EnumChkT>
         if (!started) {
             throw new IllegalStateException("The coordinator has not started yet.");
         }
+    }
+
+    @Override
+    public CompletableFuture<CoordinationResponse> handleCoordinationRequest(
+            CoordinationRequest request) {
+        ensureStarted();
+        CompletableFuture<CoordinationResponse> responseFuture = new CompletableFuture<>();
+        // TODO: non-blocking call instead?
+        if (request instanceof ParallelismCoordinationRequest) {
+            int parallelism = context.currentParallelism();
+            responseFuture.complete(new IntegerResponse(parallelism));
+        }
+        return responseFuture;
     }
 
     private static class WatermarkAggregator<T> {
