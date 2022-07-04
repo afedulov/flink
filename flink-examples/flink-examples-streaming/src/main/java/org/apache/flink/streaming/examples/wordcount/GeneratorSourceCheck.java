@@ -24,7 +24,7 @@ import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.io.ratelimiting.BucketingRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.RateLimiter;
 import org.apache.flink.api.common.typeinfo.Types;
-import org.apache.flink.api.connector.source.lib.DataGeneratorSource;
+import org.apache.flink.api.connector.source.lib.DataGeneratorSourceV2;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -54,8 +54,13 @@ public class GeneratorSourceCheck {
         RateLimiter rateLimiter = new BucketingRateLimiter(1, parallelism);
         //        DataGeneratorSource<String> source =
         //                new DataGeneratorSource<>(generator, 100, rateLimiter, Types.STRING);
-        DataGeneratorSource<String> source =
-                new DataGeneratorSource<>(generator, 10, 2, Types.STRING);
+
+        //        DataGeneratorSource<String> source =
+        //                new DataGeneratorSource<>(generator, 10, 2, Types.STRING);
+
+        DataGeneratorSourceV2<String> source =
+                new DataGeneratorSourceV2<>(generator, 1000, 100, Types.STRING);
+
         DataStreamSource<String> watermarked =
                 env.fromSource(
                         source,

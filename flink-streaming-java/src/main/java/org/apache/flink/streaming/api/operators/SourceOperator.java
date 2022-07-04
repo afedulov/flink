@@ -21,6 +21,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.eventtime.WatermarkAlignmentParams;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.typeutils.base.array.BytePrimitiveArraySerializer;
@@ -230,6 +231,7 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
         }
 
         final int subtaskIndex = getRuntimeContext().getIndexOfThisSubtask();
+        final RuntimeContext runtimeContext = getRuntimeContext();
 
         final SourceReaderContext context =
                 new SourceReaderContext() {
@@ -280,6 +282,16 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                                                 releaseHookName, releaseHook);
                             }
                         };
+                    }
+
+                    @Override
+                    public int currentParallelism() {
+                        return getRuntimeContext().getNumberOfParallelSubtasks();
+                    }
+
+                    @Override
+                    public RuntimeContext getRuntimeContext() {
+                        return runtimeContext;
                     }
                 };
 

@@ -19,6 +19,7 @@
 package org.apache.flink.api.connector.source.lib;
 
 import org.apache.flink.api.common.eventtime.Watermark;
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SourceOutput;
@@ -147,6 +148,11 @@ public class NumberSequenceSourceTest {
         @Override
         public int currentParallelism() {
             return 1;
+        }
+
+        @Override
+        public RuntimeContext getRuntimeContext() {
+            return null;
         }
     }
 
