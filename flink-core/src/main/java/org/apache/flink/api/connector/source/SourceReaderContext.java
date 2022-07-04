@@ -28,9 +28,7 @@ import org.apache.flink.util.UserCodeClassLoader;
 @Public
 public interface SourceReaderContext {
 
-    /**
-     * @return The metric group this source belongs to.
-     */
+    /** @return The metric group this source belongs to. */
     SourceReaderMetricGroup metricGroup();
 
     /** Gets the configuration with which Flink was started. */
@@ -42,9 +40,7 @@ public interface SourceReaderContext {
      */
     String getLocalHostName();
 
-    /**
-     * @return The index of this subtask.
-     */
+    /** @return The index of this subtask. */
     int getIndexOfSubtask();
 
     /**
@@ -72,6 +68,11 @@ public interface SourceReaderContext {
     // TODO: add JavaDoc
     int currentParallelism();
 
-    // TODO: add JavaDoc
+    /**
+     * Gets the context that contains information about the readers runtime, such as the parallelism
+     * of the source.
+     *
+     * @return The runtime context of the source reader.
+     */
     RuntimeContext getRuntimeContext();
 }

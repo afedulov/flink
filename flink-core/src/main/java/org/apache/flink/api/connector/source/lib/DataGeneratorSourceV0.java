@@ -20,8 +20,6 @@ package org.apache.flink.api.connector.source.lib;
 
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.api.common.io.ratelimiting.GuavaRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.RateLimiter;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
@@ -31,8 +29,8 @@ import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequenceSplit;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceEnumerator;
+import org.apache.flink.api.connector.source.lib.util.IteratorSourceReader;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceSplit;
-import org.apache.flink.api.connector.source.lib.util.RateLimitedIteratorSourceReader;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -44,7 +42,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -60,11 +57,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * because, despite the fact that the produced stream is bounded, the end bound is pretty far away.
  */
 @Experimental
-public class DataGeneratorSourceV2<OUT>
+public class DataGeneratorSourceV0<OUT>
         implements Source<
                         OUT,
-                        DataGeneratorSourceV2.GeneratorSequenceSplit<OUT>,
-                        Collection<DataGeneratorSourceV2.GeneratorSequenceSplit<OUT>>>,
+                        DataGeneratorSourceV0.GeneratorSequenceSplit<OUT>,
+                        Collection<DataGeneratorSourceV0.GeneratorSequenceSplit<OUT>>>,
                 ResultTypeQueryable<OUT> {
 
     private static final long serialVersionUID = 1L;
@@ -76,8 +73,6 @@ public class DataGeneratorSourceV2<OUT>
     /** The end Generator in the sequence, inclusive. */
     private final NumberSequenceSource numberSource;
 
-    private long maxPerSecond = -1;
-
     /**
      * Creates a new {@code DataGeneratorSource} that produces <code>count</code> records in
      * parallel.
@@ -86,23 +81,11 @@ public class DataGeneratorSourceV2<OUT>
      * @param generatorFunction the generator function
      * @param count The count
      */
-    public DataGeneratorSourceV2(
+    public DataGeneratorSourceV0(
             MapFunction<Long, OUT> generatorFunction, long count, TypeInformation<OUT> typeInfo) {
         this.typeInfo = checkNotNull(typeInfo);
         this.generatorFunction = checkNotNull(generatorFunction);
         this.numberSource = new NumberSequenceSource(0, count);
-    }
-
-    public DataGeneratorSourceV2(
-            MapFunction<Long, OUT> generatorFunction,
-            long count,
-            long maxPerSecond,
-            TypeInformation<OUT> typeInfo) {
-        checkArgument(maxPerSecond > 0, "maxPerSeconds has to be a positive number");
-        this.typeInfo = checkNotNull(typeInfo);
-        this.generatorFunction = checkNotNull(generatorFunction);
-        this.numberSource = new NumberSequenceSource(0, count);
-        this.maxPerSecond = maxPerSecond;
     }
 
     public long getCount() {
@@ -126,9 +109,7 @@ public class DataGeneratorSourceV2<OUT>
     @Override
     public SourceReader<OUT, GeneratorSequenceSplit<OUT>> createReader(
             SourceReaderContext readerContext) {
-        RateLimiter rateLimiter =
-                new GuavaRateLimiter(maxPerSecond, readerContext.currentParallelism());
-        return new RateLimitedIteratorSourceReader<>(readerContext, rateLimiter);
+        return new IteratorSourceReader<>(readerContext);
     }
 
     @Override

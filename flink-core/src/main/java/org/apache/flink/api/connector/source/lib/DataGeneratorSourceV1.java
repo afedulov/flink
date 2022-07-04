@@ -18,7 +18,7 @@
 
 package org.apache.flink.api.connector.source.lib;
 
-import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.io.ratelimiting.GuavaRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.NoOpRateLimiter;
@@ -30,7 +30,7 @@ import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
-import org.apache.flink.api.connector.source.lib.DataGeneratorSource.GeneratorSequenceSplit;
+import org.apache.flink.api.connector.source.lib.DataGeneratorSourceV1.GeneratorSequenceSplit;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequenceSplit;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceEnumerator;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceReader;
@@ -70,13 +70,13 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * long integer values), user may want to consider executing the application in a streaming manner,
  * because, despite the fact that the produced stream is bounded, the end bound is pretty far away.
  */
-@Public
-public class DataGeneratorSource<OUT>
+@Experimental
+public class DataGeneratorSourceV1<OUT>
         implements Source<
                         OUT, GeneratorSequenceSplit<OUT>, Collection<GeneratorSequenceSplit<OUT>>>,
                 ResultTypeQueryable<OUT> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DataGeneratorSource.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DataGeneratorSourceV1.class);
 
     private static final long serialVersionUID = 1L;
 
@@ -97,14 +97,14 @@ public class DataGeneratorSource<OUT>
      * @param generatorFunction the generator function
      * @param count The count
      */
-    public DataGeneratorSource(
+    public DataGeneratorSourceV1(
             MapFunction<Long, OUT> generatorFunction, long count, TypeInformation<OUT> typeInfo) {
         this.typeInfo = checkNotNull(typeInfo);
         this.generatorFunction = checkNotNull(generatorFunction);
         this.numberSource = new NumberSequenceSource(0, count);
     }
 
-    public DataGeneratorSource(
+    public DataGeneratorSourceV1(
             MapFunction<Long, OUT> generatorFunction,
             long count,
             long maxPerSecond,
@@ -376,7 +376,7 @@ public class DataGeneratorSource<OUT>
                     new DataOutputSerializer(checkpoint.size() * 22 + 4 + 4);
             out.writeInt(checkpoint.size());
             for (GeneratorSequenceSplit<T> split : checkpoint) {
-                DataGeneratorSource.SplitSerializer.serializeNumberSequenceSplit(
+                DataGeneratorSourceV1.SplitSerializer.serializeNumberSequenceSplit(
                         out, split.numberSequenceSplit);
             }
 

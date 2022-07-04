@@ -18,81 +18,67 @@
 
 package org.apache.flink.api.connector.source.lib.util;
 
-import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.common.io.ratelimiting.RateLimiter;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReader;
-import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.api.connector.source.SourceSplit;
 import org.apache.flink.core.io.InputStatus;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/**
- * A {@link SourceReader} that returns the values of an iterator, supplied via an {@link
- * IteratorSourceSplit}.
- *
- * <p>The {@code IteratorSourceSplit} is also responsible for taking the current iterator and
- * turning it back into a split for checkpointing.
- *
- * @param <E> The type of events returned by the reader.
- * @param <IterT> The type of the iterator that produces the events. This type exists to make the
- *     conversion between iterator and {@code IteratorSourceSplit} type safe.
- * @param <SplitT> The concrete type of the {@code IteratorSourceSplit} that creates and converts
- *     the iterator that produces this reader's elements.
- */
-@Public
-public class RateLimitedIteratorSourceReaderNew<
-                E, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
+@Experimental
+public class RateLimitedSourceReader<E, SplitT extends SourceSplit>
         implements SourceReader<E, SplitT> {
 
-    private final IteratorSourceReader<E, IterT, SplitT> iteratorSourceReader;
+    private final SourceReader<E, SplitT> sourceReader;
     private final RateLimiter rateLimiter;
 
-    public RateLimitedIteratorSourceReaderNew(
-            SourceReaderContext readerContext, RateLimiter rateLimiter) {
-        checkNotNull(readerContext);
-        iteratorSourceReader = new IteratorSourceReader<>(readerContext);
+    public RateLimitedSourceReader(SourceReader<E, SplitT> sourceReader, RateLimiter rateLimiter) {
+        checkNotNull(sourceReader);
+        checkNotNull(rateLimiter);
+        this.sourceReader = sourceReader;
         this.rateLimiter = rateLimiter;
     }
 
     // ------------------------------------------------------------------------
+
     @Override
     public void start() {
-        iteratorSourceReader.start();
+        sourceReader.start();
     }
 
     @Override
-    public InputStatus pollNext(ReaderOutput<E> output) throws InterruptedException {
+    public InputStatus pollNext(ReaderOutput<E> output) throws Exception {
         rateLimiter.acquire();
-        return iteratorSourceReader.pollNext(output);
+        return sourceReader.pollNext(output);
     }
 
     @Override
     public CompletableFuture<Void> isAvailable() {
-        return iteratorSourceReader.isAvailable();
+        return sourceReader.isAvailable();
     }
 
     @Override
     public void addSplits(List<SplitT> splits) {
-        iteratorSourceReader.addSplits(splits);
+        sourceReader.addSplits(splits);
     }
 
     @Override
     public void notifyNoMoreSplits() {
-        iteratorSourceReader.notifyNoMoreSplits();
+        sourceReader.notifyNoMoreSplits();
     }
 
     @Override
     public List<SplitT> snapshotState(long checkpointId) {
-        return iteratorSourceReader.snapshotState(checkpointId);
+        return sourceReader.snapshotState(checkpointId);
     }
 
     @Override
     public void close() throws Exception {
-        iteratorSourceReader.close();
+        sourceReader.close();
     }
 }

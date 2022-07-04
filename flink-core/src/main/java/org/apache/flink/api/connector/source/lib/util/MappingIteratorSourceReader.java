@@ -18,43 +18,47 @@
 
 package org.apache.flink.api.connector.source.lib.util;
 
-import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.Experimental;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.connector.source.ReaderOutput;
-import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.core.io.InputStatus;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Iterator;
 
-/**
- * A {@link SourceReader} that returns the values of an iterator, supplied via an {@link
- * IteratorSourceSplit}.
- *
- * <p>The {@code IteratorSourceSplit} is also responsible for taking the current iterator and
- * turning it back into a split for checkpointing.
- *
- * @param <E> The type of events returned by the reader.
- * @param <IterT> The type of the iterator that produces the events. This type exists to make the
- *     conversion between iterator and {@code IteratorSourceSplit} type safe.
- * @param <SplitT> The concrete type of the {@code IteratorSourceSplit} that creates and converts
- *     the iterator that produces this reader's elements.
- */
-@Public
-public class IteratorSourceReader<
-                E, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
-        extends IteratorSourceReaderBase<E, E, IterT, SplitT> {
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
-    public IteratorSourceReader(SourceReaderContext context) {
+@Experimental
+public class MappingIteratorSourceReader<
+                E, O, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
+        extends IteratorSourceReaderBase<E, O, IterT, SplitT> {
+
+    private final MapFunction<E, O> generatorFunction;
+
+    public MappingIteratorSourceReader(
+            SourceReaderContext context, MapFunction<E, O> generatorFunction) {
         super(context);
+        this.generatorFunction = checkNotNull(generatorFunction);
     }
 
     // ------------------------------------------------------------------------
 
     @Override
-    public InputStatus pollNext(ReaderOutput<E> output) {
+    public InputStatus pollNext(ReaderOutput<O> output) {
         if (iterator != null) {
             if (iterator.hasNext()) {
-                output.collect(iterator.next());
+                E next = iterator.next();
+                try {
+                    O mapped = generatorFunction.map(next);
+                    output.collect(mapped);
+                } catch (Exception e) {
+                    String message =
+                            String.format(
+                                    "A user-provided generator function threw an exception on this input: %s",
+                                    next.toString());
+                    throw new FlinkRuntimeException(message);
+                }
                 return InputStatus.MORE_AVAILABLE;
             } else {
                 finishSplit();
