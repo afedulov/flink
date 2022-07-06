@@ -19,7 +19,6 @@
 package org.apache.flink.api.connector.source;
 
 import org.apache.flink.annotation.Public;
-import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.groups.SourceReaderMetricGroup;
 import org.apache.flink.util.UserCodeClassLoader;
@@ -65,14 +64,10 @@ public interface SourceReaderContext {
      */
     UserCodeClassLoader getUserCodeClassLoader();
 
-    // TODO: add JavaDoc
-    int currentParallelism();
-
     /**
-     * Gets the context that contains information about the readers runtime, such as the parallelism
-     * of the source.
+     * Get the current parallelism of this Source.
      *
-     * @return The runtime context of the source reader.
+     * @return the parallelism of the Source.
      */
-    RuntimeContext getRuntimeContext();
+    int currentParallelism();
 }

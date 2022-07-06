@@ -18,7 +18,6 @@
 
 package org.apache.flink.connector.testutils.source.reader;
 
-import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.configuration.Configuration;
@@ -90,11 +89,6 @@ public class TestingReaderContext implements SourceReaderContext {
     @Override
     public int currentParallelism() {
         return 1;
-    }
-
-    @Override
-    public RuntimeContext getRuntimeContext() {
-        return null;
     }
 
     // ------------------------------------------------------------------------

@@ -136,7 +136,7 @@ public class DataGeneratorSourceV3<OUT>
     public SourceReader<OUT, NumberSequenceSplit> createReader(SourceReaderContext readerContext)
             throws Exception {
         if (maxPerSecond > 0) {
-            int parallelism = readerContext.getRuntimeContext().getNumberOfParallelSubtasks();
+            int parallelism = readerContext.currentParallelism();
             RateLimiter rateLimiter = new GuavaRateLimiter(maxPerSecond, parallelism);
             return new RateLimitedSourceReader<>(
                     new MappingIteratorSourceReader<>(readerContext, generatorFunction),

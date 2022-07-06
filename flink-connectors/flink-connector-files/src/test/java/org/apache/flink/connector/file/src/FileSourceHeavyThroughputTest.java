@@ -19,7 +19,6 @@
 package org.apache.flink.connector.file.src;
 
 import org.apache.flink.api.common.eventtime.Watermark;
-import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.ReaderOutput;
@@ -230,11 +229,6 @@ class FileSourceHeavyThroughputTest {
         @Override
         public int currentParallelism() {
             return 1;
-        }
-
-        @Override
-        public RuntimeContext getRuntimeContext() {
-            return null;
         }
     }
 
