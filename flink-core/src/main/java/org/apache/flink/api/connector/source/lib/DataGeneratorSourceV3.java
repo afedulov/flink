@@ -43,15 +43,15 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
- * A data source that produces generators N data points in parallel. This source is useful for
- * testing and for cases that just need a stream of N events of any kind.
+ * A data source that produces N data points in parallel. This source is useful for testing and for
+ * cases that just need a stream of N events of any kind.
  *
  * <p>The source splits the sequence into as many parallel sub-sequences as there are parallel
  * source readers. Each sub-sequence will be produced in order. Consequently, if the parallelism is
  * limited to one, this will produce one sequence in order.
  *
  * <p>This source is always bounded. For very long sequences (for example over the entire domain of
- * long integer values), user may want to consider executing the application in a streaming manner,
+ * long integer values), user may want to consider executing the application in a s treaming manner,
  * because, despite the fact that the produced stream is bounded, the end bound is pretty far away.
  */
 @Experimental
@@ -66,16 +66,14 @@ public class DataGeneratorSourceV3<OUT>
 
     private final TypeInformation<OUT> typeInfo;
 
-    public final MapFunction<Long, OUT> generatorFunction;
+    private final MapFunction<Long, OUT> generatorFunction;
 
-    /** The end Generator in the sequence, inclusive. */
     private final NumberSequenceSource numberSource;
 
     private long maxPerSecond = -1;
 
     /**
-     * Creates a new {@code DataGeneratorSource} that produces <code>count</code> records in
-     * parallel.
+     * Creates a new {@code DataGeneratorSource} that produces {@code count} records in parallel.
      *
      * @param generatorFunction The generator function that receives index numbers and translates
      *     them into events of the output type.
@@ -90,8 +88,7 @@ public class DataGeneratorSourceV3<OUT>
     }
 
     /**
-     * Creates a new {@code DataGeneratorSource} that produces <code>count</code> records in
-     * parallel.
+     * Creates a new {@code DataGeneratorSource} that produces {@code count} records in parallel.
      *
      * @param generatorFunction The generator function that receives index numbers and translates
      *     them into events of the output type.
@@ -114,7 +111,9 @@ public class DataGeneratorSourceV3<OUT>
         this.maxPerSecond = sourceRatePerSecond;
     }
 
+    /** @return The number of records produced by this source. */
     public long getCount() {
+
         return numberSource.getTo();
     }
 
