@@ -16,22 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.common.io.ratelimiting;
+package org.apache.flink.api.connector.source.lib;
 
-import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.RateLimiter;
+import org.apache.flink.api.connector.source.SourceReader;
+import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.api.connector.source.SourceSplit;
 
-/** An implementation of {@link RateLimiter} based on Guava's RateLimiter. */
-public class GuavaRateLimiter implements org.apache.flink.api.common.io.ratelimiting.RateLimiter {
+import java.io.Serializable;
 
-    private final RateLimiter rateLimiter;
-
-    public GuavaRateLimiter(long maxPerSecond, int numParallelExecutors) {
-        final float maxPerSecondPerSubtask = (float) maxPerSecond / numParallelExecutors;
-        this.rateLimiter = RateLimiter.create(maxPerSecondPerSubtask);
-    }
-
-    @Override
-    public int acquire() {
-        return (int) (1000 * rateLimiter.acquire());
-    }
+public interface SourceReaderFactory<OUT, SplitT extends SourceSplit> extends Serializable {
+    SourceReader<OUT, SplitT> newSourceReader(SourceReaderContext readerContext);
 }

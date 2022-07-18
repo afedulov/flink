@@ -19,9 +19,6 @@
 package org.apache.flink.api.connector.source.lib;
 
 import org.apache.flink.annotation.Experimental;
-import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.api.common.io.ratelimiting.GuavaRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.RateLimiter;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
@@ -30,16 +27,13 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequenceSplit;
-import org.apache.flink.api.connector.source.lib.util.GeneratingIteratorSourceReader;
 import org.apache.flink.api.connector.source.lib.util.IteratorSourceEnumerator;
-import org.apache.flink.api.connector.source.lib.util.RateLimitedSourceReader;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.util.Collection;
 import java.util.List;
 
-import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -55,65 +49,46 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * because, despite the fact that the produced stream is bounded, the end bound is pretty far away.
  */
 @Experimental
-public class DataGeneratorSourceV3<OUT>
-        implements Source<
-                        OUT,
-                        NumberSequenceSource.NumberSequenceSplit,
-                        Collection<NumberSequenceSource.NumberSequenceSplit>>,
+public class DataGeneratorSourceV4<OUT>
+        implements Source<OUT, NumberSequenceSplit, Collection<NumberSequenceSplit>>,
                 ResultTypeQueryable<OUT> {
 
     private static final long serialVersionUID = 1L;
 
+    private final SourceReaderFactory<OUT, NumberSequenceSplit> sourceReaderFactory;
     private final TypeInformation<OUT> typeInfo;
-
-    private final MapFunction<Long, OUT> generatorFunction;
 
     private final NumberSequenceSource numberSource;
 
-    private long maxPerSecond = -1;
-
-    /**
-     * Creates a new {@code DataGeneratorSource} that produces {@code count} records in parallel.
-     *
-     * @param generatorFunction The generator function that receives index numbers and translates
-     *     them into events of the output type.
-     * @param count The number of events to be produced.
-     * @param typeInfo The type information of the returned events.
-     */
-    public DataGeneratorSourceV3(
-            MapFunction<Long, OUT> generatorFunction, long count, TypeInformation<OUT> typeInfo) {
+    public DataGeneratorSourceV4(
+            SourceReaderFactory<OUT, NumberSequenceSplit> sourceReaderFactory,
+            long count,
+            TypeInformation<OUT> typeInfo) {
+        this.sourceReaderFactory = checkNotNull(sourceReaderFactory);
         this.typeInfo = checkNotNull(typeInfo);
-        this.generatorFunction = checkNotNull(generatorFunction);
         this.numberSource = new NumberSequenceSource(0, count);
     }
 
-    /**
-     * Creates a new {@code DataGeneratorSource} that produces {@code count} records in parallel.
-     *
-     * @param generatorFunction The generator function that receives index numbers and translates
-     *     them into events of the output type.
-     * @param count The number of events to be produced.
-     * @param sourceRatePerSecond The maximum number of events per seconds that this generator aims
-     *     to produce. This is a target number for the whole source and the individual parallel
-     *     source instances automatically adjust their rate taking based on the {@code
-     *     sourceRatePerSecond} and the source parallelism.
-     * @param typeInfo The type information of the returned events.
-     */
-    public DataGeneratorSourceV3(
-            MapFunction<Long, OUT> generatorFunction,
+    public DataGeneratorSourceV4(
+            GeneratorFunction<Long, OUT> generatorFunction,
             long count,
             long sourceRatePerSecond,
             TypeInformation<OUT> typeInfo) {
-        checkArgument(sourceRatePerSecond > 0, "maxPerSeconds has to be a positive number");
-        this.typeInfo = checkNotNull(typeInfo);
-        this.generatorFunction = checkNotNull(generatorFunction);
-        this.numberSource = new NumberSequenceSource(0, count);
-        this.maxPerSecond = sourceRatePerSecond;
+        this(
+                new GeneratorSourceReaderFactory<>(generatorFunction, sourceRatePerSecond),
+                count,
+                typeInfo);
+    }
+
+    public DataGeneratorSourceV4(
+            GeneratorFunction<Long, OUT> generatorFunction,
+            long count,
+            TypeInformation<OUT> typeInfo) {
+        this(generatorFunction, count, -1, typeInfo);
     }
 
     /** @return The number of records produced by this source. */
     public long getCount() {
-
         return numberSource.getTo();
     }
 
@@ -134,15 +109,7 @@ public class DataGeneratorSourceV3<OUT>
     @Override
     public SourceReader<OUT, NumberSequenceSplit> createReader(SourceReaderContext readerContext)
             throws Exception {
-        if (maxPerSecond > 0) {
-            int parallelism = readerContext.currentParallelism();
-            RateLimiter rateLimiter = new GuavaRateLimiter(maxPerSecond, parallelism);
-            return new RateLimitedSourceReader<>(
-                    new GeneratingIteratorSourceReader<>(readerContext, generatorFunction),
-                    rateLimiter);
-        } else {
-            return new GeneratingIteratorSourceReader<>(readerContext, generatorFunction);
-        }
+        return sourceReaderFactory.newSourceReader(readerContext);
     }
 
     @Override

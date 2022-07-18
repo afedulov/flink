@@ -22,7 +22,10 @@ import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.Types;
-import org.apache.flink.api.connector.source.lib.DataGeneratorSourceV3;
+import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.api.connector.source.lib.DataGeneratorSourceV4;
+import org.apache.flink.api.connector.source.lib.GeneratorFunction;
+import org.apache.flink.metrics.groups.SourceReaderMetricGroup;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -59,8 +62,34 @@ public class GeneratorSourcePOC {
         */
 
         /* V3 */
-        DataGeneratorSourceV3<String> source =
-                new DataGeneratorSourceV3<>(generator, 1000, 2, Types.STRING);
+        /*
+               DataGeneratorSourceV3<String> source =
+                       new DataGeneratorSourceV3<>(generator, 1000, 2, Types.STRING);
+        */
+
+        GeneratorFunction<Long, String> generatorFunction =
+                new GeneratorFunction<Long, String>() {
+
+                    transient SourceReaderMetricGroup sourceReaderMetricGroup;
+
+                    @Override
+                    public void open(SourceReaderContext readerContext) {
+                        sourceReaderMetricGroup = readerContext.metricGroup();
+                    }
+
+                    @Override
+                    public String map(Long value) {
+                        return "Generated: >> "
+                                + value.toString()
+                                + "; local metric group: "
+                                + sourceReaderMetricGroup.hashCode();
+                    }
+                };
+
+        GeneratorFunction<Long, String> generatorFunctionStateless = index -> ">>> " + index;
+
+        DataGeneratorSourceV4<String> source =
+                new DataGeneratorSourceV4<>(generatorFunction, 1000, 2, Types.STRING);
 
         DataStreamSource<String> watermarked =
                 env.fromSource(
