@@ -16,22 +16,23 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.common.io.ratelimiting;
+package org.apache.flink.api.connector.source.lib;
 
-import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.RateLimiter;
+import org.apache.flink.annotation.Experimental;
+import org.apache.flink.api.common.functions.Function;
+import org.apache.flink.api.connector.source.SourceReaderContext;
 
-/** An implementation of {@link RateLimiter} based on Guava's RateLimiter. */
-public class GuavaRateLimiter implements org.apache.flink.api.common.io.ratelimiting.RateLimiter {
+@Experimental
+public interface GeneratorFunction<T, O> extends Function {
 
-    private final RateLimiter rateLimiter;
+    /**
+     * Initialization method for the function. It is called once before the actual working process
+     * methods.
+     */
+    default void open(SourceReaderContext readerContext) throws Exception {}
 
-    public GuavaRateLimiter(long maxPerSecond, int numParallelExecutors) {
-        final float maxPerSecondPerSubtask = (float) maxPerSecond / numParallelExecutors;
-        this.rateLimiter = RateLimiter.create(maxPerSecondPerSubtask);
-    }
+    /** Tear-down method for the function. */
+    default void close() throws Exception {}
 
-    @Override
-    public int acquire() {
-        return (int) (1000 * rateLimiter.acquire());
-    }
+    O map(T value) throws Exception;
 }

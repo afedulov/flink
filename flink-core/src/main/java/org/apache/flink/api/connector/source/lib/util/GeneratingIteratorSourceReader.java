@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.api.connector.source.lib.GeneratorFunction;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -30,14 +31,22 @@ import java.util.Iterator;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 @Experimental
-public class MappingIteratorSourceReader<
+public class GeneratingIteratorSourceReader<
                 E, O, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
         extends IteratorSourceReaderBase<E, O, IterT, SplitT> {
 
-    private final MapFunction<E, O> generatorFunction;
+    private final GeneratorFunction<E, O> generatorFunction;
 
-    public MappingIteratorSourceReader(
+    // TODO: [tmp] kept for compatibility with V3. To remove if V4 is accepted.
+    public GeneratingIteratorSourceReader(
             SourceReaderContext context, MapFunction<E, O> generatorFunction) {
+        super(context);
+        checkNotNull(generatorFunction);
+        this.generatorFunction = generatorFunction::map;
+    }
+
+    public GeneratingIteratorSourceReader(
+            SourceReaderContext context, GeneratorFunction<E, O> generatorFunction) {
         super(context);
         this.generatorFunction = checkNotNull(generatorFunction);
     }
@@ -65,5 +74,21 @@ public class MappingIteratorSourceReader<
             }
         }
         return tryMoveToNextSplit();
+    }
+
+    @Override
+    public void close() throws Exception {
+        super.close();
+        generatorFunction.close();
+    }
+
+    @Override
+    public void start() {
+        super.start();
+        try {
+            generatorFunction.open(context);
+        } catch (Exception e) {
+            throw new FlinkRuntimeException("Failed to open the GeneratorFunction", e);
+        }
     }
 }
