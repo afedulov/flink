@@ -23,6 +23,7 @@ import org.apache.flink.connector.upserttest.sink.UpsertTestFileUtil;
 import org.apache.flink.test.util.SQLJobSubmission;
 import org.apache.flink.tests.util.TestUtils;
 import org.apache.flink.util.DockerImageVersions;
+
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -42,6 +43,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,6 +51,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -123,6 +126,13 @@ public class SqlClientITCase {
                         "    AS UserCountTable(user_id, user_name)",
                         "  GROUP BY user_id, user_name);");
         executeSql(sqlLines);
+        sqlLines =
+                Arrays.asList(
+                        "SET 'execution.runtime-mode' = 'streaming';",
+                        "SET 'sql-client.execution.result-mode' = 'tableau';",
+                        "SELECT * FROM UpsertSinkTable");
+
+        executeSql(sqlLines);
 
         /*
         | user_id | user_name | user_count |
@@ -136,38 +146,121 @@ public class SqlClientITCase {
     }
 
     @Test
-    void testAppendNoKey() throws Exception {
-        String outputFilepath = "/tmp/records-append.out";
+    void testUpsertFromKafka() throws Exception {
+        String outputFilepath = "/tmp/records-upsert.out";
+
+        String[] messages =
+                new String[] {
+                    "{\"timestamp\": \"2018-03-12T08:00:00Z\", \"user\": \"Alice\" }",
+                    "{\"timestamp\": \"2018-03-12T09:00:00Z\", \"user\": \"Bob\" }",
+                    "{\"timestamp\": \"2018-03-12T09:20:00Z\", \"user\": \"Steve\" }"
+                };
+        sendMessages("test-json", messages);
 
         List<String> sqlLines =
                 Arrays.asList(
                         "SET 'execution.runtime-mode' = 'batch';",
                         "",
+                        "CREATE FUNCTION RegReplace AS 'org.apache.flink.table.toolbox.StringRegexReplaceFunction';",
+                        "",
+                        "CREATE TABLE JsonSourceTable (",
+                        "    `timestamp` TIMESTAMP_LTZ(3),",
+                        "    `user` STRING,",
+                        "    `rowtime` AS `timestamp`,",
+                        "    WATERMARK FOR `rowtime` AS `rowtime` - INTERVAL '2' SECOND",
+                        ") WITH (",
+                        "    'connector' = 'kafka',",
+                        "    'topic' = 'test-json',",
+                        "    'properties.bootstrap.servers' = '"
+                                + KAFKA.getBootstrapServers()
+                                + "',",
+                        "    'scan.startup.mode' = 'earliest-offset',",
+                        "    'format' = 'json',",
+                        "    'json.timestamp-format.standard' = 'ISO-8601'",
+                        ");",
+                        "",
                         "CREATE TABLE AppendSinkTable (",
-                        "    user_id INT,",
-                        "    user_name STRING,",
-                        "    user_count BIGINT",
+                        "    user_name STRING",
                         "  ) WITH (",
                         "    'connector' = 'upsert-files',",
                         "    'key.format' = 'json',",
                         "    'value.format' = 'json',",
                         "    'output-filepath' = '" + outputFilepath + "'",
-                        "  );",
-                        "",
-                        "INSERT INTO AppendSinkTable",
-                        "  SELECT *",
-                        "  FROM (",
-                        "    VALUES",
-                        "      (1, 'Bob', CAST(0 AS BIGINT)),",
-                        "      (22, 'Tom', CAST(0 AS BIGINT)),",
-                        "      (42, 'Kim', CAST(0 AS BIGINT)),",
-                        "      (42, 'Kim', CAST(0 AS BIGINT)),",
-                        "      (42, 'Kim', CAST(0 AS BIGINT)),",
-                        "      (1, 'Bob', CAST(0 AS BIGINT)))",
-                        "    AS UserCountTable(user_id, user_name, user_count);");
+                        "  );");
+
         executeSql(sqlLines);
 
-        verifyNumberOfResultRecords(outputFilepath, 6);
+        sqlLines =
+                Arrays.asList(
+                        "INSERT INTO AppendSinkTable",
+                        "    SELECT \\`user\\` as `user_name`",
+                        "    FROM JsonSourceTable");
+        executeSql(sqlLines);
+
+        verifyNumberOfResultRecords(outputFilepath, 3);
+    }
+
+    @Test
+    void testUpsertFromKafkaPassthrough() throws Exception {
+
+        //        flink.getJobManager()
+        //                .copyFileToContainer(MountableFile.forHostPath(sqlConnectorKafkaJar),
+        // "/opt/flink");
+
+        flink.getTaskManagers()
+                .forEach(
+                        c ->
+                                c.copyFileToContainer(
+                                        MountableFile.forHostPath(sqlConnectorKafkaJar),
+                                        "/tmp/kafka-sql.jar"));
+
+        String outputFilepath = "/tmp/records-upsert.out";
+
+        String[] messages =
+                new String[] {
+                    "{\"user_name\": \"Alice\" }",
+                    "{\"user_name\": \"Bob\" }",
+                    "{\"user_name\": \"Steve\" }"
+                };
+        sendMessages("test-json", messages);
+
+        List<String> sqlLines =
+                Arrays.asList(
+                        //                        "SET 'execution.runtime-mode' = 'batch';",
+                        //                        "SET 'sql-client.verbose' = 'true'",
+                        //                        "",
+                        "CREATE TABLE JsonSourceTable (",
+                        "    user_name STRING",
+                        " ) WITH (",
+                        "    'connector' = 'kafka',",
+                        "    'topic' = 'test-json',",
+                        "    'properties.bootstrap.servers' = '"
+                                + formatKafkaBootstrapServers()
+                                + "',",
+                        "    'scan.startup.mode' = 'earliest-offset',",
+                        "    'format' = 'json'",
+                        ");",
+                        "",
+                        "CREATE TABLE AppendSinkTable (",
+                        "    user_name STRING,",
+                        "    PRIMARY KEY (user_name) NOT ENFORCED",
+                        "  ) WITH (",
+                        "    'connector' = 'upsert-files',",
+                        "    'key.format' = 'json',",
+                        "    'value.format' = 'json',",
+                        "    'output-filepath' = '" + outputFilepath + "'",
+                        "  );");
+        executeSql(sqlLines);
+        //        flink.submitJob();
+
+        sqlLines =
+                Arrays.asList(
+                        "INSERT INTO AppendSinkTable",
+                        "    SELECT `user_name`",
+                        "    FROM JsonSourceTable");
+        executeSql(sqlLines);
+
+        verifyNumberOfResultRecords(outputFilepath, 3);
     }
 
     @Test
@@ -203,7 +296,8 @@ public class SqlClientITCase {
                         "    'connector' = 'kafka',",
                         "    'topic' = 'test-json',",
                         "    'properties.bootstrap.servers' = '"
-                                + KAFKA.getBootstrapServers()
+                                //                                + formatKafkaBootstrapServers()
+                                + "bla:1234"
                                 + "',",
                         "    'scan.startup.mode' = 'earliest-offset',",
                         "    'format' = 'json',",
@@ -273,5 +367,14 @@ public class SqlClientITCase {
                 new SQLJobSubmission.SQLJobSubmissionBuilder(sqlLines)
                         .addJars(sqlConnectorUpsertTestJar, sqlConnectorKafkaJar, sqlToolBoxJar)
                         .build());
+    }
+
+    private static String formatKafkaBootstrapServers() {
+        return String.join(
+                ",",
+                KAFKA.getBootstrapServers(),
+                KAFKA.getNetworkAliases().stream()
+                        .map(host -> String.join(":", host, Integer.toString(9092)))
+                        .collect(Collectors.joining(",")));
     }
 }
