@@ -18,13 +18,18 @@
 
 package org.apache.flink.api.connector.source.lib.util;
 
-import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.Experimental;
+import org.apache.flink.api.common.io.ratelimiting.RateLimiter;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.core.io.InputStatus;
 
 import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * A {@link SourceReader} that returns the values of an iterator, supplied via an {@link
@@ -39,27 +44,56 @@ import java.util.Iterator;
  * @param <SplitT> The concrete type of the {@code IteratorSourceSplit} that creates and converts
  *     the iterator that produces this reader's elements.
  */
-@Public
-public class IteratorSourceReader<
+@Experimental
+public class RateLimitedIteratorSourceReader<
                 E, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
-        extends IteratorSourceReaderBase<E, E, IterT, SplitT> {
+        implements SourceReader<E, SplitT> {
 
-    public IteratorSourceReader(SourceReaderContext context) {
-        super(context);
+    private final IteratorSourceReader<E, IterT, SplitT> iteratorSourceReader;
+    private final RateLimiter rateLimiter;
+
+    public RateLimitedIteratorSourceReader(
+            SourceReaderContext readerContext, RateLimiter rateLimiter) {
+        checkNotNull(readerContext);
+        iteratorSourceReader = new IteratorSourceReader<>(readerContext);
+        this.rateLimiter = rateLimiter;
     }
 
     // ------------------------------------------------------------------------
 
     @Override
-    public InputStatus pollNext(ReaderOutput<E> output) {
-        if (iterator != null) {
-            if (iterator.hasNext()) {
-                output.collect(iterator.next());
-                return InputStatus.MORE_AVAILABLE;
-            } else {
-                finishSplit();
-            }
-        }
-        return tryMoveToNextSplit();
+    public void start() {
+        iteratorSourceReader.start();
+    }
+
+    @Override
+    public InputStatus pollNext(ReaderOutput<E> output) throws InterruptedException {
+        rateLimiter.acquire();
+        return iteratorSourceReader.pollNext(output);
+    }
+
+    @Override
+    public CompletableFuture<Void> isAvailable() {
+        return iteratorSourceReader.isAvailable();
+    }
+
+    @Override
+    public void addSplits(List<SplitT> splits) {
+        iteratorSourceReader.addSplits(splits);
+    }
+
+    @Override
+    public void notifyNoMoreSplits() {
+        iteratorSourceReader.notifyNoMoreSplits();
+    }
+
+    @Override
+    public List<SplitT> snapshotState(long checkpointId) {
+        return iteratorSourceReader.snapshotState(checkpointId);
+    }
+
+    @Override
+    public void close() throws Exception {
+        iteratorSourceReader.close();
     }
 }
