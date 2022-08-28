@@ -1,0 +1,3 @@
+org.apache.flink:flink-table-planner_2.12:jar:1.15-SNAPSHOT
+\- org.apache.flink:flink-connector-files:jar:1.15-SNAPSHOT:test
+   \- org.apache.flink:flink-connector-base:jar:1.15-SNAPSHOT:test

@@ -1,0 +1,4 @@
+org.apache.flink:flink-sql-client-test:jar:1.15-SNAPSHOT
+\- org.apache.flink:flink-sql-connector-kafka:jar:1.15-SNAPSHOT:provided
+   \- org.apache.flink:flink-connector-kafka:jar:1.15-SNAPSHOT:provided
+      \- org.apache.flink:flink-connector-base:jar:1.15-SNAPSHOT:provided
