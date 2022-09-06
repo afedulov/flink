@@ -74,8 +74,8 @@ public class GeneratingIteratorSourceReader<
 
     @Override
     public void close() throws Exception {
-        super.close();
         generatorFunction.close();
+        super.close();
     }
 
     @Override
