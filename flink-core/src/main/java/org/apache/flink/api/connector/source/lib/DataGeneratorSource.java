@@ -29,13 +29,11 @@ import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequenceSplit;
 import org.apache.flink.api.connector.source.lib.util.GeneratorSourceReaderFactory;
-import org.apache.flink.api.connector.source.lib.util.IteratorSourceEnumerator;
 import org.apache.flink.api.java.ClosureCleaner;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.util.Collection;
-import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -187,15 +185,13 @@ public class DataGeneratorSource<OUT>
     public SplitEnumerator<NumberSequenceSplit, Collection<NumberSequenceSplit>> restoreEnumerator(
             SplitEnumeratorContext<NumberSequenceSplit> enumContext,
             Collection<NumberSequenceSplit> checkpoint) {
-        return new IteratorSourceEnumerator<>(enumContext, checkpoint);
+        return numberSource.restoreEnumerator(enumContext, checkpoint);
     }
 
     @Override
     public SplitEnumerator<NumberSequenceSplit, Collection<NumberSequenceSplit>> createEnumerator(
             final SplitEnumeratorContext<NumberSequenceSplit> enumContext) {
-        final List<NumberSequenceSplit> splits =
-                numberSource.splitNumberRange(0, getCount(), enumContext.currentParallelism());
-        return new IteratorSourceEnumerator<>(enumContext, splits);
+        return numberSource.createEnumerator(enumContext);
     }
 
     @Override
