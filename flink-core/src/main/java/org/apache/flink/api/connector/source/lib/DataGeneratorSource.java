@@ -157,11 +157,6 @@ public class DataGeneratorSource<OUT>
         this.numberSource = new NumberSequenceSource(0, count - 1);
     }
 
-    /** @return The number of records produced by this source. */
-    public long getCount() {
-        return numberSource.getTo();
-    }
-
     // ------------------------------------------------------------------------
     //  source methods
     // ------------------------------------------------------------------------
