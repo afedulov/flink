@@ -247,7 +247,7 @@ public class NumberSequenceSource
         }
     }
 
-    static final class CheckpointSerializer
+    private static final class CheckpointSerializer
             implements SimpleVersionedSerializer<Collection<NumberSequenceSplit>> {
 
         private static final int CURRENT_VERSION = 1;
