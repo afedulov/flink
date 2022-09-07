@@ -64,6 +64,11 @@ public class GeneratingIteratorSourceReader<
                                     next.toString());
                     throw new FlinkRuntimeException(message, e);
                 }
+                // We always emit MORE_AVAILABLE here, even though we do not strictly know whether
+                // more is available. If nothing more is available, the next invocation will find
+                // this out and return the correct status.
+                // That means we emit the occasional 'false positive' for availability, but this
+                // saves us doing checks for every record. Ultimately, this is cheaper.
                 return InputStatus.MORE_AVAILABLE;
             } else {
                 finishSplit();
