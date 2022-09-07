@@ -20,9 +20,9 @@ package org.apache.flink.api.connector.source.lib.util;
 
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.api.connector.source.SourceReaderFactory;
 import org.apache.flink.api.connector.source.lib.GeneratorFunction;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource;
-import org.apache.flink.api.connector.source.lib.SourceReaderFactory;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 

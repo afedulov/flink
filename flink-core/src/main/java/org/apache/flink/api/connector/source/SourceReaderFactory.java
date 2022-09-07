@@ -16,11 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.connector.source.lib;
-
-import org.apache.flink.api.connector.source.SourceReader;
-import org.apache.flink.api.connector.source.SourceReaderContext;
-import org.apache.flink.api.connector.source.SourceSplit;
+package org.apache.flink.api.connector.source;
 
 import java.io.Serializable;
 

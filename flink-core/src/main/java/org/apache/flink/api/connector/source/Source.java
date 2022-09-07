@@ -19,7 +19,6 @@
 package org.apache.flink.api.connector.source;
 
 import org.apache.flink.annotation.Public;
-import org.apache.flink.api.connector.source.lib.SourceReaderFactory;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 /**
