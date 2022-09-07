@@ -154,6 +154,8 @@ public class DataGeneratorSource<OUT>
             long count,
             TypeInformation<OUT> typeInfo) {
         this.sourceReaderFactory = checkNotNull(sourceReaderFactory);
+        ClosureCleaner.clean(
+                sourceReaderFactory, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
         this.typeInfo = checkNotNull(typeInfo);
         this.numberSource = new NumberSequenceSource(0, count - 1);
     }
