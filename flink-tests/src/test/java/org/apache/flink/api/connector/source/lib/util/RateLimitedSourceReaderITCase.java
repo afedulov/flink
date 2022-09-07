@@ -106,7 +106,7 @@ public class RateLimitedSourceReaderITCase extends TestLogger {
         private static final List<MockRateLimiter> rateLimiters = new ArrayList<>();
 
         @Override
-        public SourceReader<OUT, NumberSequenceSource.NumberSequenceSplit> newSourceReader(
+        public SourceReader<OUT, NumberSequenceSource.NumberSequenceSplit> createReader(
                 SourceReaderContext readerContext) {
             MockRateLimiter rateLimiter = new MockRateLimiter();
             rateLimiters.add(rateLimiter);

@@ -148,7 +148,8 @@ public class DataGeneratorSourceTest {
                         from, to, sequence.size(), sequence));
     }
 
-    private static SourceReader<Long, NumberSequenceSource.NumberSequenceSplit> createReader() {
+    private static SourceReader<Long, NumberSequenceSource.NumberSequenceSplit> createReader()
+            throws Exception {
         // the arguments passed in the source constructor matter only to the enumerator
         GeneratorFunction<Long, Long> generatorFunctionStateless = index -> index;
         DataGeneratorSource<Long> dataGeneratorSource =

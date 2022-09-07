@@ -172,8 +172,9 @@ public class DataGeneratorSource<OUT>
     }
 
     @Override
-    public SourceReader<OUT, NumberSequenceSplit> createReader(SourceReaderContext readerContext) {
-        return sourceReaderFactory.newSourceReader(readerContext);
+    public SourceReader<OUT, NumberSequenceSplit> createReader(SourceReaderContext readerContext)
+            throws Exception {
+        return sourceReaderFactory.createReader(readerContext);
     }
 
     @Override

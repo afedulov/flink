@@ -27,9 +27,17 @@ import java.io.Serializable;
 /**
  * A factory for creating source reader instances.
  *
- * @param <OUT> The type of the output elements.
+ * @param <T> The type of the output elements.
  */
-public interface SourceReaderFactory<OUT, SplitT extends SourceSplit> extends Serializable {
-    /** Instantiates a new {@code SourceReader} using the provided context. */
-    SourceReader<OUT, SplitT> newSourceReader(SourceReaderContext readerContext);
+public interface SourceReaderFactory<T, SplitT extends SourceSplit> extends Serializable {
+    /**
+     * Creates a new reader to read data from the splits it gets assigned. The reader starts fresh
+     * and does not have any state to resume.
+     *
+     * @param readerContext The {@link SourceReaderContext context} for the source reader.
+     * @return A new SourceReader.
+     * @throws Exception The implementor is free to forward all exceptions directly. Exceptions
+     *     thrown from this method cause task failure/recovery.
+     */
+    SourceReader<T, SplitT> createReader(SourceReaderContext readerContext) throws Exception;
 }

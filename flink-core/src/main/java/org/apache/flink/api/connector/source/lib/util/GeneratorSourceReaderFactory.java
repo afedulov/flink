@@ -54,7 +54,7 @@ public class GeneratorSourceReaderFactory<OUT>
     }
 
     @Override
-    public SourceReader<OUT, NumberSequenceSource.NumberSequenceSplit> newSourceReader(
+    public SourceReader<OUT, NumberSequenceSource.NumberSequenceSplit> createReader(
             SourceReaderContext readerContext) {
         if (sourceRatePerSecond > 0) {
             int parallelism = readerContext.currentParallelism();
