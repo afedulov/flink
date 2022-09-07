@@ -18,12 +18,21 @@
 
 package org.apache.flink.api.connector.source.lib.util;
 
+import org.apache.flink.util.concurrent.ExecutorThreadFactory;
+
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.RateLimiter;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /** An implementation of {@link RateLimiter} based on Guava's RateLimiter. */
 public class GuavaRateLimiter
         implements org.apache.flink.api.connector.source.lib.util.RateLimiter {
 
+    private final Executor limiter =
+            Executors.newSingleThreadExecutor(new ExecutorThreadFactory("flink-rate-limiter"));
     private final RateLimiter rateLimiter;
 
     public GuavaRateLimiter(double maxPerSecond, int numParallelExecutors) {
@@ -32,7 +41,7 @@ public class GuavaRateLimiter
     }
 
     @Override
-    public int acquire() {
-        return (int) (1000 * rateLimiter.acquire());
+    public CompletionStage<Void> acquire() {
+        return CompletableFuture.runAsync(rateLimiter::acquire, limiter);
     }
 }

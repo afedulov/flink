@@ -19,16 +19,11 @@
 package org.apache.flink.api.connector.source.lib.util;
 
 import java.io.Serializable;
+import java.util.concurrent.CompletionStage;
 
 /** The interface to rate limit execution of methods. */
 interface RateLimiter extends Serializable {
 
-    /**
-     * Acquire method is a blocking call that is intended to be used in places where it is required
-     * to limit the rate at which results are produced or other functions are called.
-     *
-     * @return The number of milliseconds this call blocked its caller.
-     * @throws InterruptedException The interrupted exception.
-     */
-    int acquire() throws InterruptedException;
+    /** Returns a future that is completed once another event would not exceed the rate limit. */
+    CompletionStage<Void> acquire();
 }

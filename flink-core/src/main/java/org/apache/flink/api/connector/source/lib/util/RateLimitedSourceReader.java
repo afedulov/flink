@@ -36,6 +36,7 @@ public class RateLimitedSourceReader<E, SplitT extends SourceSplit>
 
     private final SourceReader<E, SplitT> sourceReader;
     private final RateLimiter rateLimiter;
+    private CompletableFuture<Void> availabilityFuture = null;
 
     /**
      * Instantiates a new rate-limited source reader.
@@ -59,13 +60,27 @@ public class RateLimitedSourceReader<E, SplitT extends SourceSplit>
 
     @Override
     public InputStatus pollNext(ReaderOutput<E> output) throws Exception {
-        rateLimiter.acquire();
-        return sourceReader.pollNext(output);
+        // reset future because the next record may hit the rate limit
+        availabilityFuture = null;
+        final InputStatus inputStatus = sourceReader.pollNext(output);
+        if (inputStatus == InputStatus.MORE_AVAILABLE) {
+            // force another go through isAvailable() to evaluate rate-limiting
+            return InputStatus.NOTHING_AVAILABLE;
+        } else {
+            return inputStatus;
+        }
     }
 
     @Override
     public CompletableFuture<Void> isAvailable() {
-        return sourceReader.isAvailable();
+        if (availabilityFuture == null) {
+            availabilityFuture =
+                    rateLimiter
+                            .acquire()
+                            .toCompletableFuture()
+                            .thenCombine(sourceReader.isAvailable(), (l, r) -> null);
+        }
+        return availabilityFuture;
     }
 
     @Override

@@ -38,6 +38,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -125,9 +126,9 @@ public class RateLimitedSourceReaderITCase extends TestLogger {
         int callCount;
 
         @Override
-        public int acquire() {
+        public CompletableFuture<Void> acquire() {
             callCount++;
-            return 0;
+            return CompletableFuture.completedFuture(null);
         }
 
         public int getCallCount() {
