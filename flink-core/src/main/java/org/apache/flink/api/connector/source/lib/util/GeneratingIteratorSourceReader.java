@@ -19,10 +19,8 @@
 package org.apache.flink.api.connector.source.lib.util;
 
 import org.apache.flink.annotation.Experimental;
-import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.datagen.GeneratorFunction;
-import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Iterator;
@@ -50,31 +48,16 @@ public class GeneratingIteratorSourceReader<
     // ------------------------------------------------------------------------
 
     @Override
-    public InputStatus pollNext(ReaderOutput<O> output) {
-        if (iterator != null) {
-            if (iterator.hasNext()) {
-                E next = iterator.next();
-                try {
-                    O mapped = generatorFunction.map(next);
-                    output.collect(mapped);
-                } catch (Exception e) {
-                    String message =
-                            String.format(
-                                    "A user-provided generator function threw an exception on this input: %s",
-                                    next.toString());
-                    throw new FlinkRuntimeException(message, e);
-                }
-                // We always emit MORE_AVAILABLE here, even though we do not strictly know whether
-                // more is available. If nothing more is available, the next invocation will find
-                // this out and return the correct status.
-                // That means we emit the occasional 'false positive' for availability, but this
-                // saves us doing checks for every record. Ultimately, this is cheaper.
-                return InputStatus.MORE_AVAILABLE;
-            } else {
-                finishSplit();
-            }
+    protected O convert(E value) {
+        try {
+            return generatorFunction.map(value);
+        } catch (Exception e) {
+            String message =
+                    String.format(
+                            "A user-provided generator function threw an exception on this input: %s",
+                            value.toString());
+            throw new FlinkRuntimeException(message, e);
         }
-        return tryMoveToNextSplit();
     }
 
     @Override
@@ -84,8 +67,7 @@ public class GeneratingIteratorSourceReader<
     }
 
     @Override
-    public void start() {
-        super.start();
+    public void start(SourceReaderContext context) {
         try {
             generatorFunction.open(context);
         } catch (Exception e) {

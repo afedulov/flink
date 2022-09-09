@@ -19,6 +19,7 @@
 package org.apache.flink.api.connector.source.lib.util;
 
 import org.apache.flink.annotation.Public;
+import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.core.io.InputStatus;
@@ -54,27 +55,27 @@ abstract class IteratorSourceReaderBase<
         implements SourceReader<O, SplitT> {
 
     /** The context for this reader, to communicate with the enumerator. */
-    protected final SourceReaderContext context;
+    private final SourceReaderContext context;
 
     /** The availability future. This reader is available as soon as a split is assigned. */
-    protected CompletableFuture<Void> availability;
+    private CompletableFuture<Void> availability;
 
     /**
      * The iterator producing data. Non-null after a split has been assigned. This field is null or
      * non-null always together with the {@link #currentSplit} field.
      */
-    @Nullable protected IterT iterator;
+    @Nullable private IterT iterator;
 
     /**
      * The split whose data we return. Non-null after a split has been assigned. This field is null
      * or non-null always together with the {@link #iterator} field.
      */
-    @Nullable protected SplitT currentSplit;
+    @Nullable private SplitT currentSplit;
 
     /** The remaining splits that were assigned but not yet processed. */
-    protected final Queue<SplitT> remainingSplits;
+    private final Queue<SplitT> remainingSplits;
 
-    protected boolean noMoreSplits;
+    private boolean noMoreSplits;
 
     public IteratorSourceReaderBase(SourceReaderContext context) {
         this.context = checkNotNull(context);
@@ -85,14 +86,32 @@ abstract class IteratorSourceReaderBase<
     // ------------------------------------------------------------------------
 
     @Override
-    public void start() {
+    public final void start() {
         // request a split if we don't have one
         if (remainingSplits.isEmpty()) {
             context.sendSplitRequest();
         }
+        start(context);
     }
 
-    protected void finishSplit() {
+    protected abstract void start(SourceReaderContext context);
+
+    @Override
+    public InputStatus pollNext(ReaderOutput<O> output) {
+        if (iterator != null) {
+            if (iterator.hasNext()) {
+                output.collect(convert(iterator.next()));
+                return InputStatus.MORE_AVAILABLE;
+            } else {
+                finishSplit();
+            }
+        }
+        return tryMoveToNextSplit();
+    }
+
+    protected abstract O convert(E value);
+
+    private void finishSplit() {
         iterator = null;
         currentSplit = null;
 
@@ -104,7 +123,7 @@ abstract class IteratorSourceReaderBase<
         }
     }
 
-    protected InputStatus tryMoveToNextSplit() {
+    private InputStatus tryMoveToNextSplit() {
         currentSplit = remainingSplits.poll();
         if (currentSplit != null) {
             iterator = currentSplit.getIterator();

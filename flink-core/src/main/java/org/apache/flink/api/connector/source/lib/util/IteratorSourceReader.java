@@ -19,10 +19,8 @@
 package org.apache.flink.api.connector.source.lib.util;
 
 import org.apache.flink.annotation.Public;
-import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
-import org.apache.flink.core.io.InputStatus;
 
 import java.util.Iterator;
 
@@ -48,18 +46,13 @@ public class IteratorSourceReader<
         super(context);
     }
 
+    @Override
+    protected void start(SourceReaderContext context) {}
+
     // ------------------------------------------------------------------------
 
     @Override
-    public InputStatus pollNext(ReaderOutput<E> output) {
-        if (iterator != null) {
-            if (iterator.hasNext()) {
-                output.collect(iterator.next());
-                return InputStatus.MORE_AVAILABLE;
-            } else {
-                finishSplit();
-            }
-        }
-        return tryMoveToNextSplit();
+    protected E convert(E value) {
+        return value;
     }
 }
