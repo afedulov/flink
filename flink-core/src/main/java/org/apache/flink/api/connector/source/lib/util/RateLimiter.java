@@ -22,8 +22,14 @@ import java.io.Serializable;
 import java.util.concurrent.CompletionStage;
 
 /** The interface to rate limit execution of methods. */
-interface RateLimiter extends Serializable {
+public interface RateLimiter extends Serializable {
 
     /** Returns a future that is completed once another event would not exceed the rate limit. */
     CompletionStage<Void> acquire();
+
+    /**
+     * Can be used to modify rate-limiter's behaviour from the outside. Makes it possible to
+     * implement rate limiters based on external events rather than on time.
+     */
+    default void notifyRelease() {}
 }
