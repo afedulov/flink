@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.connector.source.lib;
+package org.apache.flink.api.connector.source.datagen;
 
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.common.ExecutionConfig;
@@ -28,6 +28,7 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.SourceReaderFactory;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
+import org.apache.flink.api.connector.source.lib.NumberSequenceSource;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequenceSplit;
 import org.apache.flink.api.connector.source.lib.util.GeneratorSourceReaderFactory;
 import org.apache.flink.api.java.ClosureCleaner;

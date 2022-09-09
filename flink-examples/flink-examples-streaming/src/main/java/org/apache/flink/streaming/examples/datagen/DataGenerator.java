@@ -21,8 +21,8 @@ package org.apache.flink.streaming.examples.datagen;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.Types;
-import org.apache.flink.api.connector.source.lib.DataGeneratorSource;
-import org.apache.flink.api.connector.source.lib.GeneratorFunction;
+import org.apache.flink.api.connector.source.datagen.DataGeneratorSource;
+import org.apache.flink.api.connector.source.datagen.GeneratorFunction;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 

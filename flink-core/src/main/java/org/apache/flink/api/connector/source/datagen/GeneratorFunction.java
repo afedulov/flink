@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.connector.source.lib;
+package org.apache.flink.api.connector.source.datagen;
 
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.common.functions.Function;
