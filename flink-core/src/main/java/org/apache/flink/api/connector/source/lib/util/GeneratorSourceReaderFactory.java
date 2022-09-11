@@ -28,8 +28,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * A factory for instantiating source readers that produce elements by applying a user-supplied
- * {@link GeneratorFunction}. This implementation also implicitly supports throttling the data rate
- * by using a default rate limiter.
+ * {@link GeneratorFunction}.
  *
  * @param <OUT> The type of the output elements.
  */
@@ -43,14 +42,13 @@ public class GeneratorSourceReaderFactory<OUT>
      * Instantiates a new {@code GeneratorSourceReaderFactory}.
      *
      * @param generatorFunction The generator function.
-     * @param sourceRatePerSecond The target source rate per second. This parameter specifies the
-     *     overall source rate (across all source subtasks) and does not need to account for the
-     *     parallelism.
+     * @param maxSourceRatePerSecond The target source rate per second. This parameter specifies the
+     *     overall source rate (across all source subtasks).
      */
     public GeneratorSourceReaderFactory(
-            GeneratorFunction<Long, OUT> generatorFunction, double sourceRatePerSecond) {
+            GeneratorFunction<Long, OUT> generatorFunction, double maxSourceRatePerSecond) {
         this.generatorFunction = checkNotNull(generatorFunction);
-        this.sourceRatePerSecond = sourceRatePerSecond;
+        this.sourceRatePerSecond = maxSourceRatePerSecond;
     }
 
     @Override
