@@ -28,8 +28,11 @@ public interface RateLimiter extends Serializable {
     CompletionStage<Void> acquire();
 
     /**
-     * Can be used to modify rate-limiter's behaviour from the outside. Makes it possible to
-     * implement rate limiters based on external events rather than on time.
+     * Notifies this {@code RateLimiter} that the checkpoint with the given {@code checkpointId}
+     * completed and was committed. Makes it possible to implement rate limiters that control data
+     * emission per checkpoint cycle.
+     *
+     * @param checkpointId The ID of the checkpoint that has been completed.
      */
-    default void notifyRelease() {}
+    default void notifyCheckpointComplete(long checkpointId) {}
 }

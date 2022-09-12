@@ -105,6 +105,6 @@ public class RateLimitedSourceReader<E, SplitT extends SourceSplit>
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        rateLimiter.notifyRelease();
+        rateLimiter.notifyCheckpointComplete(checkpointId);
     }
 }
