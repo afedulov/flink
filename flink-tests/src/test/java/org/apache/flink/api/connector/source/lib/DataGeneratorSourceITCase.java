@@ -162,18 +162,6 @@ public class DataGeneratorSourceITCase extends TestLogger {
         assertThat(result).containsExactlyInAnyOrderElementsOf(range(0, n - 1));
     }
 
-    static class GeneratorFunctionFailingInit implements GeneratorFunction<Long, Long> {
-        @Override
-        public void open(SourceReaderContext readerContext) throws Exception {
-            throw new Exception("boom");
-        }
-
-        @Override
-        public Long map(Long value) {
-            return value;
-        }
-    }
-
     private DataStream<Long> getGeneratorSourceStream(
             GeneratorFunction<Long, Long> generatorFunction,
             StreamExecutionEnvironment env,
