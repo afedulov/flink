@@ -119,7 +119,19 @@ under the License.
 			</exclusions>
 		</dependency>
 
-    </dependencies>
+<!--        <dependency>-->
+<!--            <groupId>org.apache.flink</groupId>-->
+<!--            <artifactId>flink-connector-aws-kinesis-streams</artifactId>-->
+<!--            <version>${project.version}/version>-->
+<!--        </dependency>-->
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-connector-kinesis</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+
+	</dependencies>
 
 	<build>
 		<plugins>
