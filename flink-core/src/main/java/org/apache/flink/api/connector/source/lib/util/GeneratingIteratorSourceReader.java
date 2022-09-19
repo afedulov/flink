@@ -61,17 +61,17 @@ public class GeneratingIteratorSourceReader<
     }
 
     @Override
-    public void close() throws Exception {
-        generatorFunction.close();
-        super.close();
-    }
-
-    @Override
     public void start(SourceReaderContext context) {
         try {
             generatorFunction.open(context);
         } catch (Exception e) {
             throw new FlinkRuntimeException("Failed to open the GeneratorFunction", e);
         }
+    }
+
+    @Override
+    public void close() throws Exception {
+        generatorFunction.close();
+        super.close();
     }
 }
