@@ -33,7 +33,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.metrics.groups.SourceReaderMetricGroup;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
-import org.apache.flink.mock.Whitebox;
 import org.apache.flink.util.SimpleUserCodeClassLoader;
 import org.apache.flink.util.UserCodeClassLoader;
 
@@ -45,7 +44,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Queue;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -74,22 +72,16 @@ public class DataGeneratorSourceTest {
 
         Collection<NumberSequenceSource.NumberSequenceSplit> enumeratorState =
                 enumerator.snapshotState(0);
-
-        @SuppressWarnings("unchecked")
-        final Queue<NumberSequenceSource.NumberSequenceSplit> splits =
-                (Queue<NumberSequenceSource.NumberSequenceSplit>)
-                        Whitebox.getInternalState(enumerator, "remainingSplits");
-
-        assertThat(splits).hasSize(parallelism);
+        assertThat(enumeratorState).hasSize(parallelism);
 
         enumerator = dataGeneratorSource.restoreEnumerator(context, enumeratorState);
 
-        @SuppressWarnings("unchecked")
-        final Queue<NumberSequenceSource.NumberSequenceSplit> restoredSplits =
-                (Queue<NumberSequenceSource.NumberSequenceSplit>)
-                        Whitebox.getInternalState(enumerator, "remainingSplits");
-
-        assertThat(restoredSplits).hasSize(enumeratorState.size());
+        // Verify that splits were restored and can be assigned
+        assertThat(context.getSplitsAssignmentSequence()).isEmpty();
+        for (NumberSequenceSource.NumberSequenceSplit ignored : enumeratorState) {
+            enumerator.handleSplitRequest(0, "hostname");
+        }
+        assertThat(context.getSplitsAssignmentSequence()).hasSize(enumeratorState.size());
     }
 
     @Test
