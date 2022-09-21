@@ -58,7 +58,9 @@ public class GatedRateLimiter implements RateLimiter {
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         capacityLeft = capacityPerCycle - 1;
-        gatingFuture.complete(null);
+        if (gatingFuture != null) { // for bounded data can be called twice without acquire()
+            gatingFuture.complete(null);
+        }
         gatingFuture = null;
     }
 }
