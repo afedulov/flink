@@ -18,13 +18,20 @@
 
 package org.apache.flink.api.connector.source.lib.util;
 
+import javax.annotation.concurrent.NotThreadSafe;
+
 import java.io.Serializable;
 import java.util.concurrent.CompletionStage;
 
 /** The interface to rate limit execution of methods. */
+@NotThreadSafe
 public interface RateLimiter extends Serializable {
 
-    /** Returns a future that is completed once another event would not exceed the rate limit. */
+    /**
+     * Returns a future that is completed once another event would not exceed the rate limit. For
+     * correct functioning, the next invocation of this method should only happen after the
+     * previously returned future has been completed.
+     */
     CompletionStage<Void> acquire();
 
     /**
