@@ -36,7 +36,6 @@ import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.util.SimpleUserCodeClassLoader;
 import org.apache.flink.util.UserCodeClassLoader;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -44,15 +43,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Tests for the {@link DataGeneratorSource}. */
-public class DataGeneratorSourceTest {
+class DataGeneratorSourceTest {
 
     @Test
     @DisplayName("Correctly restores SplitEnumerator from a snapshot.")
-    public void testRestoreEnumerator() throws Exception {
+    void testRestoreEnumerator() throws Exception {
         final GeneratorFunction<Long, Long> generatorFunctionStateless = index -> index;
         final DataGeneratorSource<Long> dataGeneratorSource =
                 new DataGeneratorSource<>(generatorFunctionStateless, 100, Types.LONG);
@@ -86,7 +86,7 @@ public class DataGeneratorSourceTest {
 
     @Test
     @DisplayName("Uses the underlying NumberSequenceSource correctly for checkpointing.")
-    public void testReaderCheckpoints() throws Exception {
+    void testReaderCheckpoints() throws Exception {
         final long from = 177;
         final long mid = 333;
         final long to = 563;
@@ -118,28 +118,9 @@ public class DataGeneratorSourceTest {
         }
 
         final List<Long> result = out.getEmittedRecords();
-        validateSequence(result, from, to);
-    }
+        final Iterable<Long> expected = LongStream.range(from, to + 1)::iterator;
 
-    private static void validateSequence(
-            final List<Long> sequence, final long from, final long to) {
-        if (sequence.size() != to - from + 1) {
-            failSequence(sequence, from, to);
-        }
-
-        long nextExpected = from;
-        for (Long next : sequence) {
-            if (next != nextExpected++) {
-                failSequence(sequence, from, to);
-            }
-        }
-    }
-
-    private static void failSequence(final List<Long> sequence, final long from, final long to) {
-        Assertions.fail(
-                String.format(
-                        "Expected: A sequence [%d, %d], but found: sequence (size %d) : %s",
-                        from, to, sequence.size(), sequence));
+        assertThat(result).containsExactlyElementsOf(expected);
     }
 
     private static SourceReader<Long, NumberSequenceSource.NumberSequenceSplit> createReader()
