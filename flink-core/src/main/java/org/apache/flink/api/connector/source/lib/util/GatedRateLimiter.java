@@ -38,29 +38,25 @@ public class GatedRateLimiter implements RateLimiter {
      */
     public GatedRateLimiter(int capacityPerCycle) {
         this.capacityPerCycle = capacityPerCycle;
-        this.capacityLeft = capacityPerCycle + 1;
+        this.capacityLeft = capacityPerCycle;
     }
 
-    CompletableFuture<Void> gatingFuture;
+    transient CompletableFuture<Void> gatingFuture = null;
 
     @Override
     public CompletionStage<Void> acquire() {
-        if (capacityLeft-- > 0) {
-            return CompletableFuture.completedFuture(null);
-        } else {
-            if (gatingFuture == null) {
-                gatingFuture = new CompletableFuture<>();
-            }
-            return gatingFuture;
+        if (gatingFuture == null) {
+            gatingFuture = CompletableFuture.completedFuture(null);
         }
+        if (capacityLeft <= 0) {
+            gatingFuture = new CompletableFuture<>();
+        }
+        return gatingFuture.thenRun(() -> capacityLeft -= 1);
     }
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
-        capacityLeft = capacityPerCycle - 1;
-        if (gatingFuture != null) { // for bounded data can be called twice without acquire()
-            gatingFuture.complete(null);
-        }
-        gatingFuture = null;
+        capacityLeft = capacityPerCycle;
+        gatingFuture.complete(null);
     }
 }

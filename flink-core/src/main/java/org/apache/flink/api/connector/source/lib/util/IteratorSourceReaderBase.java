@@ -106,7 +106,11 @@ abstract class IteratorSourceReaderBase<
                 finishSplit();
             }
         }
-        return tryMoveToNextSplit();
+        final InputStatus inputStatus = tryMoveToNextSplit();
+        if (inputStatus == InputStatus.MORE_AVAILABLE) {
+            output.collect(convert(iterator.next()));
+        }
+        return inputStatus;
     }
 
     protected abstract O convert(E value);
