@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.connector.source.lib;
+package org.apache.flink.connector.datagen.source;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.RichMapFunction;
@@ -24,10 +24,8 @@ import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.SourceReaderFactory;
-import org.apache.flink.api.connector.source.datagen.DataGeneratorSource;
-import org.apache.flink.api.connector.source.datagen.GeneratorFunction;
+import org.apache.flink.api.connector.source.lib.NumberSequenceSource;
 import org.apache.flink.api.connector.source.lib.util.GatedRateLimiter;
-import org.apache.flink.api.connector.source.lib.util.GeneratingIteratorSourceReader;
 import org.apache.flink.api.connector.source.lib.util.RateLimitedSourceReader;
 import org.apache.flink.api.connector.source.lib.util.RateLimiter;
 import org.apache.flink.api.java.tuple.Tuple2;

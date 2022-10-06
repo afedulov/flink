@@ -22,13 +22,13 @@ import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.SourceReaderFactory;
-import org.apache.flink.api.connector.source.datagen.DataGeneratorSource;
-import org.apache.flink.api.connector.source.datagen.GeneratorFunction;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource;
 import org.apache.flink.api.connector.source.lib.util.GatedRateLimiter;
-import org.apache.flink.api.connector.source.lib.util.GeneratingIteratorSourceReader;
 import org.apache.flink.api.connector.source.lib.util.RateLimitedSourceReader;
 import org.apache.flink.api.connector.source.lib.util.RateLimiter;
+import org.apache.flink.connector.datagen.source.DataGeneratorSource;
+import org.apache.flink.connector.datagen.source.GeneratingIteratorSourceReader;
+import org.apache.flink.connector.datagen.source.GeneratorFunction;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 

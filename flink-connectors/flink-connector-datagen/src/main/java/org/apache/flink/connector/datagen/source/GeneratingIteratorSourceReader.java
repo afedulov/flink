@@ -16,11 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.connector.source.lib.util;
+package org.apache.flink.connector.datagen.source;
 
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.connector.source.SourceReaderContext;
-import org.apache.flink.api.connector.source.datagen.GeneratorFunction;
+import org.apache.flink.api.connector.source.lib.util.IteratorSourceReaderBase;
+import org.apache.flink.api.connector.source.lib.util.IteratorSourceSplit;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Iterator;

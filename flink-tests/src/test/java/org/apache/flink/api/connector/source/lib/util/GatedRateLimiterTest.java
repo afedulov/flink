@@ -15,10 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.flink.api.connector.source.lib.util;
 
 import org.junit.jupiter.api.Test;
+
 import java.util.concurrent.CompletionStage;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GatedRateLimiterTest {

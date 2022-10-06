@@ -50,7 +50,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *     the iterator that produces this reader's elements.
  */
 @Public
-abstract class IteratorSourceReaderBase<
+public abstract class IteratorSourceReaderBase<
                 E, O, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
         implements SourceReader<O, SplitT> {
 
