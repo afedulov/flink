@@ -18,6 +18,7 @@
 
 package org.apache.flink.api.connector.source.lib.util;
 
+import org.apache.flink.api.connector.source.util.ratelimit.GatedRateLimiter;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletionStage;

@@ -22,9 +22,9 @@ import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.SourceReaderFactory;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource;
-import org.apache.flink.api.connector.source.lib.util.GuavaRateLimiter;
-import org.apache.flink.api.connector.source.lib.util.RateLimitedSourceReader;
-import org.apache.flink.api.connector.source.lib.util.RateLimiter;
+import org.apache.flink.api.connector.source.util.ratelimit.GuavaRateLimiter;
+import org.apache.flink.api.connector.source.util.ratelimit.RateLimitedSourceReader;
+import org.apache.flink.api.connector.source.util.ratelimit.RateLimiter;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 

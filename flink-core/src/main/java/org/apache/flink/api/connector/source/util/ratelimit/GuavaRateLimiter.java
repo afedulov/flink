@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.connector.source.lib.util;
+package org.apache.flink.api.connector.source.util.ratelimit;
 
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
@@ -29,7 +29,7 @@ import java.util.concurrent.Executors;
 
 /** An implementation of {@link RateLimiter} based on Guava's RateLimiter. */
 public class GuavaRateLimiter
-        implements org.apache.flink.api.connector.source.lib.util.RateLimiter {
+        implements org.apache.flink.api.connector.source.util.ratelimit.RateLimiter {
 
     private final Executor limiter =
             Executors.newSingleThreadExecutor(new ExecutorThreadFactory("flink-rate-limiter"));
