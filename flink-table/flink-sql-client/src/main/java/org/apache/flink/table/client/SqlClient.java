@@ -90,7 +90,7 @@ public class SqlClient {
                     Executor.create(
                             DefaultContextUtils.buildDefaultContext(gatewayCliOptions),
                             gatewayCliOptions
-                                    .getGatewayAddress()
+                                    .getGatewayUrl()
                                     .orElseThrow(
                                             () ->
                                                     new SqlClientException(

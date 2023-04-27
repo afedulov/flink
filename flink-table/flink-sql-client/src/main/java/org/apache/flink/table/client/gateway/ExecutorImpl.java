@@ -77,6 +77,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URL;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -101,7 +102,9 @@ public class ExecutorImpl implements Executor {
     private static final long HEARTBEAT_INTERVAL_MILLISECONDS = 60_000L;
 
     private final AutoCloseableRegistry registry;
-    private final InetSocketAddress gatewayAddress;
+    private InetSocketAddress gatewayAddress;
+    private URL url;
+
     private final ExecutorService executorService;
     private final RestClient restClient;
 
@@ -111,6 +114,64 @@ public class ExecutorImpl implements Executor {
     public ExecutorImpl(
             DefaultContext defaultContext, InetSocketAddress gatewayAddress, String sessionId) {
         this(defaultContext, gatewayAddress, sessionId, HEARTBEAT_INTERVAL_MILLISECONDS);
+    }
+
+    public ExecutorImpl(DefaultContext defaultContext, URL gatewayAddress, String sessionId) {
+        this(defaultContext, gatewayAddress, sessionId, HEARTBEAT_INTERVAL_MILLISECONDS);
+    }
+
+    @VisibleForTesting
+    ExecutorImpl(DefaultContext defaultContext, URL url, String sessionId, long heartbeatInterval) {
+        this.registry = new AutoCloseableRegistry();
+        this.url = url;
+        try {
+            // register required resource
+            this.executorService = Executors.newCachedThreadPool();
+            registry.registerCloseable(executorService::shutdownNow);
+            this.restClient = new RestClient(defaultContext.getFlinkConfig(), executorService);
+            registry.registerCloseable(restClient);
+
+            // determine gateway rest api version
+            this.connectionVersion = negotiateVersion();
+
+            // register session
+            LOG.info(
+                    "Open session to {} with connection version: {}.",
+                    gatewayAddress,
+                    connectionVersion);
+            OpenSessionResponseBody response =
+                    sendRequest(
+                                    OpenSessionHeaders.getInstance(),
+                                    EmptyMessageParameters.getInstance(),
+                                    new OpenSessionRequestBody(
+                                            sessionId, defaultContext.getFlinkConfig().toMap()))
+                            .get();
+            this.sessionHandle = new SessionHandle(UUID.fromString(response.getSessionHandle()));
+            registry.registerCloseable(this::closeSession);
+
+            // heartbeat
+            ScheduledExecutorService heartbeatScheduler =
+                    Executors.newSingleThreadScheduledExecutor();
+            registry.registerCloseable(heartbeatScheduler::shutdownNow);
+            heartbeatScheduler.scheduleAtFixedRate(
+                    () ->
+                            getResponse(
+                                    sendRequest(
+                                            TriggerSessionHeartbeatHeaders.getInstance(),
+                                            new SessionMessageParameters(sessionHandle),
+                                            EmptyRequestBody.getInstance())),
+                    heartbeatInterval,
+                    heartbeatInterval,
+                    TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            try {
+                registry.close();
+            } catch (Throwable t) {
+                e.addSuppressed(t);
+            }
+
+            throw new SqlClientException("Failed to create the executor.", e);
+        }
     }
 
     @VisibleForTesting
@@ -357,8 +418,9 @@ public class ExecutorImpl implements Executor {
                     SqlGatewayRestAPIVersion connectionVersion) {
         try {
             return restClient.sendRequest(
-                    gatewayAddress.getHostName(),
-                    gatewayAddress.getPort(),
+                    //                    gatewayAddress.getHostName(),
+                    //                    gatewayAddress.getPort(),
+                    url,
                     messageHeaders,
                     messageParameters,
                     request,
@@ -454,8 +516,12 @@ public class ExecutorImpl implements Executor {
         List<SqlGatewayRestAPIVersion> gatewayVersions =
                 getResponse(
                                 restClient.sendRequest(
-                                        gatewayAddress.getHostName(),
-                                        gatewayAddress.getPort(),
+                                        //
+                                        // gatewayAddress.getHostName(),
+                                        //
+                                        // gatewayAddress.getPort(),
+                                        url.getHost(),
+                                        url.getPort(),
                                         GetApiVersionHeaders.getInstance(),
                                         EmptyMessageParameters.getInstance(),
                                         EmptyRequestBody.getInstance(),
@@ -473,7 +539,8 @@ public class ExecutorImpl implements Executor {
                                         // to build the target URL without API version.
                                         Collections.min(
                                                 SqlGatewayRestAPIVersion.getStableVersions())))
-                        .getVersions().stream()
+                        .getVersions()
+                        .stream()
                         .map(SqlGatewayRestAPIVersion::valueOf)
                         .collect(Collectors.toList());
         SqlGatewayRestAPIVersion clientVersion = SqlGatewayRestAPIVersion.getDefaultVersion();

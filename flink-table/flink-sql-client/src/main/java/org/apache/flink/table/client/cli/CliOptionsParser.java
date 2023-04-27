@@ -148,6 +148,15 @@ public class CliOptionsParser {
                     .desc("The address of the remote SQL Gateway to connect.")
                     .build();
 
+    public static final Option OPTION_ENDPOINT_ADDRESS_URL =
+            Option.builder("u")
+                    .required(false)
+                    .longOpt("url")
+                    .numberOfArgs(1)
+                    .argName("SQL Gateway address")
+                    .desc("The address of the remote SQL Gateway to connect.")
+                    .build();
+
     private static final Options EMBEDDED_MODE_CLIENT_OPTIONS =
             getEmbeddedModeClientOptions(new Options());
     private static final Options GATEWAY_MODE_CLIENT_OPTIONS =
@@ -278,6 +287,11 @@ public class CliOptionsParser {
                             ? NetUtils.parseHostPortAddress(
                                     line.getOptionValue(
                                             CliOptionsParser.OPTION_ENDPOINT_ADDRESS.getOpt()))
+                            : null,
+                    line.hasOption(CliOptionsParser.OPTION_ENDPOINT_ADDRESS_URL.getOpt())
+                            ? NetUtils.parseUrlAddress(
+                                    line.getOptionValue(
+                                            CliOptionsParser.OPTION_ENDPOINT_ADDRESS_URL.getOpt()))
                             : null);
         } catch (ParseException e) {
             throw new SqlClientException(e.getMessage());

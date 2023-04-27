@@ -120,6 +120,7 @@ public class CliOptions {
     public static class GatewayCliOptions extends CliOptions {
 
         private final @Nullable InetSocketAddress gatewayAddress;
+        private final @Nullable URL gatewayUrl;
 
         GatewayCliOptions(
                 boolean isPrintHelp,
@@ -128,13 +129,19 @@ public class CliOptions {
                 URL sqlFile,
                 String updateStatement,
                 String historyFilePath,
-                @Nullable InetSocketAddress gatewayAddress) {
+                @Nullable InetSocketAddress gatewayAddress,
+                @Nullable URL gatewayUrl) {
             super(isPrintHelp, sessionId, initFile, sqlFile, updateStatement, historyFilePath);
             this.gatewayAddress = gatewayAddress;
+            this.gatewayUrl = gatewayUrl;
         }
 
         public Optional<InetSocketAddress> getGatewayAddress() {
             return Optional.ofNullable(gatewayAddress);
+        }
+
+        public Optional<URL> getGatewayUrl() {
+            return Optional.ofNullable(gatewayUrl);
         }
     }
 }

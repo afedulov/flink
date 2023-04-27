@@ -119,6 +119,27 @@ public class NetUtils {
         }
     }
 
+    public static URL parseUrlAddress(String urlString) {
+        return validateUrlString(urlString);
+    }
+
+    private static URL validateUrlString(String urlString) {
+        try {
+            URL u = new URL(urlString);
+            if (u.getHost() == null) {
+                throw new IllegalArgumentException(
+                        "The given URL ('" + urlString + "') doesn't contain a valid host");
+            }
+            if (u.getPort() == -1) {
+                throw new IllegalArgumentException(
+                        "The given URL ('" + urlString + "') doesn't contain a valid port");
+            }
+            return u;
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException("The given URL ('" + urlString + "') is invalid", e);
+        }
+    }
+
     /**
      * Calls {@link ServerSocket#accept()} on the provided server socket, suppressing any thrown
      * {@link SocketTimeoutException}s. This is a workaround for the underlying JDK-8237858 bug in

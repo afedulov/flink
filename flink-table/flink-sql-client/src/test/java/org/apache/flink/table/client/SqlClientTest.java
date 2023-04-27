@@ -151,6 +151,24 @@ class SqlClientTest {
     }
 
     @Test
+    void testGatewayModeUrl() throws Exception {
+        String[] args =
+                new String[] {
+                    "gateway",
+                    "-u",
+                    new URL(
+                                    "http://"
+                                            + SQL_GATEWAY_REST_ENDPOINT_EXTENSION.getTargetAddress()
+                                            + ":"
+                                            + SQL_GATEWAY_REST_ENDPOINT_EXTENSION.getTargetPort()
+                                            + "/bla")
+                            .toString()
+                };
+        String actual = runSqlClient(args, String.join("\n", "SET;", "QUIT;"), false);
+        assertThat(actual).contains("execution.target", "yarn-session");
+    }
+
+    @Test
     void testGatewayModeWithoutAddress() throws Exception {
         String[] args = new String[] {"gateway"};
         assertThrows(

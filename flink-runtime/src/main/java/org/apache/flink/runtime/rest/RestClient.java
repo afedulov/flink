@@ -90,6 +90,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -394,6 +395,102 @@ public class RestClient implements AutoCloseableAsync {
         return submitRequest(targetAddress, targetPort, httpRequest, responseType);
     }
 
+    public <
+                    M extends MessageHeaders<R, P, U>,
+                    U extends MessageParameters,
+                    R extends RequestBody,
+                    P extends ResponseBody>
+            CompletableFuture<P> sendRequest(
+                    URL url,
+                    M messageHeaders,
+                    U messageParameters,
+                    R request,
+                    Collection<FileUpload> fileUploads)
+                    throws IOException {
+        Collection<? extends RestAPIVersion> supportedAPIVersions =
+                messageHeaders.getSupportedAPIVersions();
+        return sendRequest(
+                url,
+                messageHeaders,
+                messageParameters,
+                request,
+                fileUploads,
+                RestAPIVersion.getLatestVersion(supportedAPIVersions));
+    }
+
+    public <
+                    M extends MessageHeaders<R, P, U>,
+                    U extends MessageParameters,
+                    R extends RequestBody,
+                    P extends ResponseBody>
+            CompletableFuture<P> sendRequest(
+                    URL baseUrl,
+                    M messageHeaders,
+                    U messageParameters,
+                    R request,
+                    Collection<FileUpload> fileUploads,
+                    RestAPIVersion<? extends RestAPIVersion<?>> apiVersion)
+                    throws IOException {
+        Preconditions.checkNotNull(baseUrl.getHost());
+        Preconditions.checkArgument(
+                NetUtils.isValidHostPort(baseUrl.getPort()),
+                "The target port " + baseUrl.getPort() + " is not in the range [0, 65535].");
+        Preconditions.checkNotNull(messageHeaders);
+        Preconditions.checkNotNull(request);
+        Preconditions.checkNotNull(messageParameters);
+        Preconditions.checkNotNull(fileUploads);
+        Preconditions.checkState(
+                messageParameters.isResolved(), "Message parameters were not resolved.");
+
+        if (!messageHeaders.getSupportedAPIVersions().contains(apiVersion)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The requested version %s is not supported by the request (method=%s URL=%s). Supported versions are: %s.",
+                            apiVersion,
+                            messageHeaders.getHttpMethod(),
+                            messageHeaders.getTargetRestEndpointURL(),
+                            messageHeaders.getSupportedAPIVersions().stream()
+                                    .map(RestAPIVersion::getURLVersionPrefix)
+                                    .collect(Collectors.joining(","))));
+        }
+
+        String versionedHandlerURL =
+                "/" + apiVersion.getURLVersionPrefix() + messageHeaders.getTargetRestEndpointURL();
+        String targetUrl = MessageParameters.resolveUrl(versionedHandlerURL, messageParameters);
+
+        LOG.debug("Sending request of class {} to {}{}", request.getClass(), baseUrl, targetUrl);
+        // serialize payload
+        StringWriter sw = new StringWriter();
+        objectMapper.writeValue(sw, request);
+        ByteBuf payload =
+                Unpooled.wrappedBuffer(sw.toString().getBytes(ConfigConstants.DEFAULT_CHARSET));
+
+        Request httpRequest =
+                createRequest(
+                        baseUrl,
+                        targetUrl,
+                        messageHeaders.getHttpMethod().getNettyHttpMethod(),
+                        payload,
+                        fileUploads);
+
+        final JavaType responseType;
+
+        final Collection<Class<?>> typeParameters = messageHeaders.getResponseTypeParameters();
+
+        if (typeParameters.isEmpty()) {
+            responseType = objectMapper.constructType(messageHeaders.getResponseClass());
+        } else {
+            responseType =
+                    objectMapper
+                            .getTypeFactory()
+                            .constructParametricType(
+                                    messageHeaders.getResponseClass(),
+                                    typeParameters.toArray(new Class<?>[typeParameters.size()]));
+        }
+
+        return submitRequest(baseUrl.getHost(), baseUrl.getPort(), httpRequest, responseType);
+    }
+
     private static Request createRequest(
             String targetAddress,
             String targetUrl,
@@ -401,6 +498,80 @@ public class RestClient implements AutoCloseableAsync {
             ByteBuf jsonPayload,
             Collection<FileUpload> fileUploads)
             throws IOException {
+        if (fileUploads.isEmpty()) {
+
+            HttpRequest httpRequest =
+                    new DefaultFullHttpRequest(
+                            HttpVersion.HTTP_1_1, httpMethod, targetUrl, jsonPayload);
+
+            httpRequest
+                    .headers()
+                    .set(HttpHeaderNames.HOST, targetAddress)
+                    .set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE)
+                    .add(HttpHeaderNames.CONTENT_LENGTH, jsonPayload.capacity())
+                    .add(HttpHeaderNames.CONTENT_TYPE, RestConstants.REST_CONTENT_TYPE);
+
+            return new SimpleRequest(httpRequest);
+        } else {
+            HttpRequest httpRequest =
+                    new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, httpMethod, targetUrl);
+
+            httpRequest
+                    .headers()
+                    .set(HttpHeaderNames.HOST, targetAddress)
+                    .set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
+
+            // takes care of splitting the request into multiple parts
+            HttpPostRequestEncoder bodyRequestEncoder;
+            try {
+                // we could use mixed attributes here but we have to ensure that the minimum size is
+                // greater than
+                // any file as the upload otherwise fails
+                DefaultHttpDataFactory httpDataFactory = new DefaultHttpDataFactory(true);
+                // the FileUploadHandler explicitly checks for multipart headers
+                bodyRequestEncoder = new HttpPostRequestEncoder(httpDataFactory, httpRequest, true);
+
+                Attribute requestAttribute =
+                        new MemoryAttribute(FileUploadHandler.HTTP_ATTRIBUTE_REQUEST);
+                requestAttribute.setContent(jsonPayload);
+                bodyRequestEncoder.addBodyHttpData(requestAttribute);
+
+                int fileIndex = 0;
+                for (FileUpload fileUpload : fileUploads) {
+                    Path path = fileUpload.getFile();
+                    if (Files.isDirectory(path)) {
+                        throw new IllegalArgumentException(
+                                "Upload of directories is not supported. Dir=" + path);
+                    }
+                    File file = path.toFile();
+                    LOG.trace("Adding file {} to request.", file);
+                    bodyRequestEncoder.addBodyFileUpload(
+                            "file_" + fileIndex, file, fileUpload.getContentType(), false);
+                    fileIndex++;
+                }
+            } catch (HttpPostRequestEncoder.ErrorDataEncoderException e) {
+                throw new IOException("Could not encode request.", e);
+            }
+
+            try {
+                httpRequest = bodyRequestEncoder.finalizeRequest();
+            } catch (HttpPostRequestEncoder.ErrorDataEncoderException e) {
+                throw new IOException("Could not finalize request.", e);
+            }
+
+            return new MultipartRequest(httpRequest, bodyRequestEncoder);
+        }
+    }
+
+    private static Request createRequest(
+            URL baseUrl,
+            String targetUrl,
+            HttpMethod httpMethod,
+            ByteBuf jsonPayload,
+            Collection<FileUpload> fileUploads)
+            throws IOException {
+
+        String targetAddress = baseUrl.getHost() + ":" + baseUrl.getPort();
         if (fileUploads.isEmpty()) {
 
             HttpRequest httpRequest =

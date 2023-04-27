@@ -164,6 +164,8 @@ public class CliClient implements AutoCloseable {
         // print welcome
         terminal.writer().append(CliStrings.MESSAGE_WELCOME);
 
+        terminal.writer().append(">>>>> UPDATED! ");
+
         LineReader lineReader = createLineReader(terminal, ExecutionMode.INTERACTIVE_EXECUTION);
         getAndExecuteStatements(lineReader, false);
     }
