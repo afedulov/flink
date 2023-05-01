@@ -151,6 +151,26 @@ class SqlClientTest {
     }
 
     @Test
+    void testGatewayModeSsl() throws Exception {
+        String[] args =
+                new String[] {
+                    "gateway",
+                    "-e",
+                    InetSocketAddress.createUnresolved(
+                                    //
+                                    //
+                                    //
+                                    "og60-surface-eks-12.aws.ocean.g.apple.com", 443)
+                            //
+                            // "surface-siri-prod.aws.ocean.g.apple.com", 443)
+                            //                                    "www.w3.org", 443)
+                            .toString()
+                };
+        String actual = runSqlClient(args, String.join("\n", "SET;", "QUIT;"), false);
+        assertThat(actual).contains("execution.target", "yarn-session");
+    }
+
+    @Test
     void testGatewayModeWithoutAddress() throws Exception {
         String[] args = new String[] {"gateway"};
         assertThrows(

@@ -91,6 +91,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.configuration.SecurityOptions.SSL_PROVIDER;
+import static org.apache.flink.configuration.SecurityOptions.SSL_REST_ENABLED;
 import static org.apache.flink.table.gateway.rest.handler.session.CloseSessionHandler.CLOSE_MESSAGE;
 import static org.apache.flink.util.ExceptionUtils.firstOrSuppressed;
 
@@ -125,7 +127,12 @@ public class ExecutorImpl implements Executor {
             // register required resource
             this.executorService = Executors.newCachedThreadPool();
             registry.registerCloseable(executorService::shutdownNow);
-            this.restClient = new RestClient(defaultContext.getFlinkConfig(), executorService);
+            Configuration flinkConfig = defaultContext.getFlinkConfig();
+
+            flinkConfig.setBoolean(SSL_REST_ENABLED, true);
+            flinkConfig.set(SSL_PROVIDER, SSL_PROVIDER.defaultValue());
+
+            this.restClient = new RestClient(flinkConfig, executorService);
             registry.registerCloseable(restClient);
 
             // determine gateway rest api version
@@ -140,8 +147,7 @@ public class ExecutorImpl implements Executor {
                     sendRequest(
                                     OpenSessionHeaders.getInstance(),
                                     EmptyMessageParameters.getInstance(),
-                                    new OpenSessionRequestBody(
-                                            sessionId, defaultContext.getFlinkConfig().toMap()))
+                                    new OpenSessionRequestBody(sessionId, flinkConfig.toMap()))
                             .get();
             this.sessionHandle = new SessionHandle(UUID.fromString(response.getSessionHandle()));
             registry.registerCloseable(this::closeSession);
@@ -473,7 +479,8 @@ public class ExecutorImpl implements Executor {
                                         // to build the target URL without API version.
                                         Collections.min(
                                                 SqlGatewayRestAPIVersion.getStableVersions())))
-                        .getVersions().stream()
+                        .getVersions()
+                        .stream()
                         .map(SqlGatewayRestAPIVersion::valueOf)
                         .collect(Collectors.toList());
         SqlGatewayRestAPIVersion clientVersion = SqlGatewayRestAPIVersion.getDefaultVersion();

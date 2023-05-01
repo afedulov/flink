@@ -102,7 +102,9 @@ public final class RestClientConfiguration {
         final SSLHandlerFactory sslHandlerFactory;
         if (SecurityOptions.isRestSSLEnabled(config)) {
             try {
-                sslHandlerFactory = SSLUtils.createRestClientSSLEngineFactory(config);
+                //                sslHandlerFactory =
+                // SSLUtils.createRestClientSSLEngineFactory(config);
+                sslHandlerFactory = SSLUtils.createRestClientDefaultSSLEngineFactory(config);
             } catch (Exception e) {
                 throw new ConfigurationException(
                         "Failed to initialize SSLContext for the REST client", e);

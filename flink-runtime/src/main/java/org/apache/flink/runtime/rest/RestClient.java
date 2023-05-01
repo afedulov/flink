@@ -25,6 +25,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.io.network.netty.OutboundChannelHandlerFactory;
 import org.apache.flink.runtime.io.network.netty.SSLHandlerFactory;
+import org.apache.flink.runtime.rest.NettyHttpClient.InboundTrafficLogger;
 import org.apache.flink.runtime.rest.messages.EmptyMessageParameters;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.ErrorResponseBody;
@@ -67,6 +68,7 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.TooLongFrameExcepti
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.DefaultFullHttpRequest;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.FullHttpResponse;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpClientCodec;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpContentDecompressor;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpHeaderNames;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpHeaderValues;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpMethod;
@@ -79,6 +81,10 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.multipart.Attr
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.multipart.HttpPostRequestEncoder;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.multipart.MemoryAttribute;
+import org.apache.flink.shaded.netty4.io.netty.handler.logging.LogLevel;
+import org.apache.flink.shaded.netty4.io.netty.handler.logging.LoggingHandler;
+import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContext;
+import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.flink.shaded.netty4.io.netty.handler.stream.ChunkedWriteHandler;
 import org.apache.flink.shaded.netty4.io.netty.handler.timeout.IdleStateEvent;
 import org.apache.flink.shaded.netty4.io.netty.handler.timeout.IdleStateHandler;
@@ -86,10 +92,14 @@ import org.apache.flink.shaded.netty4.io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.SSLException;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -117,7 +127,7 @@ public class RestClient implements AutoCloseableAsync {
     // used to open connections to a rest server endpoint
     private final Executor executor;
 
-    private final Bootstrap bootstrap;
+    private Bootstrap bootstrap;
 
     private final CompletableFuture<Void> terminationFuture;
 
@@ -152,6 +162,21 @@ public class RestClient implements AutoCloseableAsync {
         final RestClientConfiguration restConfiguration =
                 RestClientConfiguration.fromConfiguration(configuration);
         final SSLHandlerFactory sslHandlerFactory = restConfiguration.getSslHandlerFactory();
+
+        URI uri = null;
+        SslContext sslContext = null;
+        try {
+            uri = new URI("https://og60-surface-eks-12.aws.ocean.g.apple.com/v1/info");
+            sslContext =
+                    SslContextBuilder.forClient()
+                            // .trustManager(InsecureTrustManagerFactory.INSTANCE)
+                            .build();
+        } catch (URISyntaxException | SSLException e) {
+            throw new RuntimeException(e);
+        }
+        String host = uri.getHost();
+        int port = uri.getPort() == -1 ? 443 : uri.getPort();
+
         ChannelInitializer<SocketChannel> initializer =
                 new ChannelInitializer<SocketChannel>() {
                     @Override
@@ -164,15 +189,19 @@ public class RestClient implements AutoCloseableAsync {
                                         .addLast(
                                                 "ssl",
                                                 sslHandlerFactory.createNettySSLHandler(
-                                                        socketChannel.alloc()));
+                                                        socketChannel.alloc(), host, port)
+                                                // sslHandlerFactory.createNettySSLHandler(
+                                                //      socketChannel.alloc())
+                                                );
                             }
-
                             socketChannel
                                     .pipeline()
                                     .addLast(new HttpClientCodec())
+                                    .addLast(new LoggingHandler(LogLevel.INFO))
                                     .addLast(
                                             new HttpObjectAggregator(
-                                                    restConfiguration.getMaxContentLength()));
+                                                    restConfiguration.getMaxContentLength()))
+                                    .addLast(new InboundTrafficLogger());
 
                             for (OutboundChannelHandlerFactory factory :
                                     outboundChannelHandlerFactories) {
@@ -200,19 +229,49 @@ public class RestClient implements AutoCloseableAsync {
                         }
                     }
                 };
+
         NioEventLoopGroup group =
                 new NioEventLoopGroup(1, new ExecutorThreadFactory("flink-rest-client-netty"));
 
-        bootstrap = new Bootstrap();
-        bootstrap
-                .option(
-                        ChannelOption.CONNECT_TIMEOUT_MILLIS,
-                        Math.toIntExact(restConfiguration.getConnectionTimeout()))
-                .group(group)
-                .channel(NioSocketChannel.class)
-                .handler(initializer);
+        try {
 
-        LOG.debug("Rest client endpoint started.");
+            SslContext mySslContext =
+                    SslContextBuilder.forClient()
+                            // .trustManager(InsecureTrustManagerFactory.INSTANCE)
+                            .build();
+
+            bootstrap = new Bootstrap();
+
+            ChannelInitializer<SocketChannel> myInitializer =
+                    new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(SocketChannel ch) {
+                            System.out.println("Initializing channel");
+                            ch.pipeline()
+                                    .addLast(new LoggingHandler(LogLevel.INFO))
+                                    .addLast(mySslContext.newHandler(ch.alloc(), host, port))
+                                    .addLast(new HttpClientCodec())
+                                    .addLast(
+                                            new HttpObjectAggregator(
+                                                    restConfiguration.getMaxContentLength()))
+                                    .addLast(new HttpContentDecompressor())
+                                    .addLast(new InboundTrafficLogger())
+                                    .addLast(new ClientHandler());
+                        }
+                    };
+
+            bootstrap
+                    .option(
+                            ChannelOption.CONNECT_TIMEOUT_MILLIS,
+                            Math.toIntExact(restConfiguration.getConnectionTimeout()))
+                    .group(group)
+                    .channel(NioSocketChannel.class)
+                    .handler(initializer);
+
+            LOG.debug("Rest client endpoint started.");
+        } catch (Exception e) {
+            System.out.println(e);
+        }
     }
 
     @Override
@@ -356,7 +415,7 @@ public class RestClient implements AutoCloseableAsync {
                 "/" + apiVersion.getURLVersionPrefix() + messageHeaders.getTargetRestEndpointURL();
         String targetUrl = MessageParameters.resolveUrl(versionedHandlerURL, messageParameters);
 
-        LOG.debug(
+        LOG.info(
                 "Sending request of class {} to {}:{}{}",
                 request.getClass(),
                 targetAddress,
