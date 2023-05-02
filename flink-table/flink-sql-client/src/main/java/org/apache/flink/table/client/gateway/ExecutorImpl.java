@@ -49,6 +49,7 @@ import org.apache.flink.table.gateway.rest.header.statement.CompleteStatementHea
 import org.apache.flink.table.gateway.rest.header.statement.ExecuteStatementHeaders;
 import org.apache.flink.table.gateway.rest.header.statement.FetchResultsHeaders;
 import org.apache.flink.table.gateway.rest.header.util.GetApiVersionHeaders;
+import org.apache.flink.table.gateway.rest.header.util.UrlPrefixDecorator;
 import org.apache.flink.table.gateway.rest.message.operation.OperationMessageParameters;
 import org.apache.flink.table.gateway.rest.message.operation.OperationStatusResponseBody;
 import org.apache.flink.table.gateway.rest.message.session.CloseSessionResponseBody;
@@ -68,6 +69,7 @@ import org.apache.flink.table.gateway.rest.util.SqlGatewayRestAPIVersion;
 import org.apache.flink.table.gateway.rest.util.SqlGatewayRestEndpointUtils;
 import org.apache.flink.table.gateway.service.context.DefaultContext;
 import org.apache.flink.util.CloseableIterator;
+import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -77,6 +79,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URL;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -103,7 +106,8 @@ public class ExecutorImpl implements Executor {
     private static final long HEARTBEAT_INTERVAL_MILLISECONDS = 60_000L;
 
     private final AutoCloseableRegistry registry;
-    private final InetSocketAddress gatewayAddress;
+    private final URL gatewayUrl;
+
     private final ExecutorService executorService;
     private final RestClient restClient;
 
@@ -112,7 +116,15 @@ public class ExecutorImpl implements Executor {
 
     public ExecutorImpl(
             DefaultContext defaultContext, InetSocketAddress gatewayAddress, String sessionId) {
-        this(defaultContext, gatewayAddress, sessionId, HEARTBEAT_INTERVAL_MILLISECONDS);
+        this(
+                defaultContext,
+                NetUtils.socketToURl(gatewayAddress),
+                sessionId,
+                HEARTBEAT_INTERVAL_MILLISECONDS);
+    }
+
+    public ExecutorImpl(DefaultContext defaultContext, URL gatewayUrl, String sessionId) {
+        this(defaultContext, gatewayUrl, sessionId, HEARTBEAT_INTERVAL_MILLISECONDS);
     }
 
     @VisibleForTesting
@@ -121,9 +133,18 @@ public class ExecutorImpl implements Executor {
             InetSocketAddress gatewayAddress,
             String sessionId,
             long heartbeatInterval) {
+        this(defaultContext, NetUtils.socketToURl(gatewayAddress), sessionId, heartbeatInterval);
+    }
+
+    @VisibleForTesting
+    ExecutorImpl(
+            DefaultContext defaultContext,
+            URL gatewayUrl,
+            String sessionId,
+            long heartbeatInterval) {
         this.registry = new AutoCloseableRegistry();
+        this.gatewayUrl = gatewayUrl;
         try {
-            this.gatewayAddress = gatewayAddress;
             // register required resource
             this.executorService = Executors.newCachedThreadPool();
             registry.registerCloseable(executorService::shutdownNow);
@@ -141,11 +162,12 @@ public class ExecutorImpl implements Executor {
             // register session
             LOG.info(
                     "Open session to {} with connection version: {}.",
-                    gatewayAddress,
+                    gatewayUrl,
                     connectionVersion);
             OpenSessionResponseBody response =
                     sendRequest(
-                                    OpenSessionHeaders.getInstance(),
+                                    new UrlPrefixDecorator<>(
+                                            OpenSessionHeaders.getInstance(), gatewayUrl.getPath()),
                                     EmptyMessageParameters.getInstance(),
                                     new OpenSessionRequestBody(sessionId, flinkConfig.toMap()))
                             .get();
@@ -160,7 +182,9 @@ public class ExecutorImpl implements Executor {
                     () ->
                             getResponse(
                                     sendRequest(
-                                            TriggerSessionHeartbeatHeaders.getInstance(),
+                                            new UrlPrefixDecorator<>(
+                                                    TriggerSessionHeartbeatHeaders.getInstance(),
+                                                    gatewayUrl.getPath()),
                                             new SessionMessageParameters(sessionHandle),
                                             EmptyRequestBody.getInstance())),
                     heartbeatInterval,
@@ -180,13 +204,14 @@ public class ExecutorImpl implements Executor {
     public void configureSession(String statement) {
         try {
             sendRequest(
-                            ConfigureSessionHeaders.getInstance(),
+                            new UrlPrefixDecorator<>(
+                                    ConfigureSessionHeaders.getInstance(), gatewayUrl.getPath()),
                             new SessionMessageParameters(sessionHandle),
                             new ConfigureSessionRequestBody(statement))
                     .get();
         } catch (Exception e) {
             throw new SqlExecutionException(
-                    String.format("Failed to open session to %s", gatewayAddress), e);
+                    String.format("Failed to open session to %s", gatewayUrl), e);
         }
     }
 
@@ -195,7 +220,9 @@ public class ExecutorImpl implements Executor {
             GetSessionConfigResponseBody response =
                     getResponse(
                             sendRequest(
-                                    GetSessionConfigHeaders.getInstance(),
+                                    new UrlPrefixDecorator<>(
+                                            GetSessionConfigHeaders.getInstance(),
+                                            gatewayUrl.getPath()),
                                     new SessionMessageParameters(sessionHandle),
                                     EmptyRequestBody.getInstance()));
             return Configuration.fromMap(response.getProperties());
@@ -208,7 +235,8 @@ public class ExecutorImpl implements Executor {
         ExecuteStatementRequestBody request = new ExecuteStatementRequestBody(statement);
         CompletableFuture<ExecuteStatementResponseBody> executeStatementResponse =
                 sendRequest(
-                        ExecuteStatementHeaders.getInstance(),
+                        new UrlPrefixDecorator<>(
+                                ExecuteStatementHeaders.getInstance(), gatewayUrl.getPath()),
                         new SessionMessageParameters(sessionHandle),
                         request);
 
@@ -263,7 +291,9 @@ public class ExecutorImpl implements Executor {
     public List<String> completeStatement(String statement, int position) {
         return getResponse(
                         sendRequest(
-                                CompleteStatementHeaders.getInstance(),
+                                new UrlPrefixDecorator<>(
+                                        CompleteStatementHeaders.getInstance(),
+                                        gatewayUrl.getPath()),
                                 new SessionMessageParameters(sessionHandle),
                                 new CompleteStatementRequestBody(statement, position)))
                 .getCandidates();
@@ -333,7 +363,8 @@ public class ExecutorImpl implements Executor {
                     false,
                     e -> {
                         sendRequest(
-                                CancelOperationHeaders.getInstance(),
+                                new UrlPrefixDecorator<>(
+                                        CancelOperationHeaders.getInstance(), gatewayUrl.getPath()),
                                 new OperationMessageParameters(sessionHandle, operationHandle),
                                 EmptyRequestBody.getInstance());
                         return new SqlExecutionException("Interrupted to fetch results.", e);
@@ -363,8 +394,8 @@ public class ExecutorImpl implements Executor {
                     SqlGatewayRestAPIVersion connectionVersion) {
         try {
             return restClient.sendRequest(
-                    gatewayAddress.getHostName(),
-                    gatewayAddress.getPort(),
+                    gatewayUrl.getHost(),
+                    gatewayUrl.getPort(),
                     messageHeaders,
                     messageParameters,
                     request,
@@ -403,7 +434,8 @@ public class ExecutorImpl implements Executor {
                 Thread.sleep(100);
             }
             return sendRequest(
-                            FetchResultsHeaders.getDefaultInstance(),
+                            new UrlPrefixDecorator<>(
+                                    FetchResultsHeaders.getDefaultInstance(), gatewayUrl.getPath()),
                             new FetchResultsMessageParameters(
                                     sessionHandle, operationHandle, token, RowFormat.PLAIN_TEXT),
                             EmptyRequestBody.getInstance())
@@ -447,7 +479,7 @@ public class ExecutorImpl implements Executor {
     private CompletableFuture<OperationStatusResponseBody> closeOperationAsync(
             OperationHandle operationHandle) {
         return sendRequest(
-                CloseOperationHeaders.getInstance(),
+                new UrlPrefixDecorator<>(CloseOperationHeaders.getInstance(), gatewayUrl.getPath()),
                 new OperationMessageParameters(sessionHandle, operationHandle),
                 EmptyRequestBody.getInstance());
     }
@@ -460,9 +492,11 @@ public class ExecutorImpl implements Executor {
         List<SqlGatewayRestAPIVersion> gatewayVersions =
                 getResponse(
                                 restClient.sendRequest(
-                                        gatewayAddress.getHostName(),
-                                        gatewayAddress.getPort(),
-                                        GetApiVersionHeaders.getInstance(),
+                                        gatewayUrl.getHost(),
+                                        gatewayUrl.getPort(),
+                                        new UrlPrefixDecorator<>(
+                                                GetApiVersionHeaders.getInstance(),
+                                                gatewayUrl.getPath()),
                                         EmptyMessageParameters.getInstance(),
                                         EmptyRequestBody.getInstance(),
                                         Collections.emptyList(),
@@ -506,7 +540,8 @@ public class ExecutorImpl implements Executor {
         try {
             CompletableFuture<CloseSessionResponseBody> response =
                     sendRequest(
-                            CloseSessionHeaders.getInstance(),
+                            new UrlPrefixDecorator<>(
+                                    CloseSessionHeaders.getInstance(), gatewayUrl.getPath()),
                             new SessionMessageParameters(sessionHandle),
                             EmptyRequestBody.getInstance());
 

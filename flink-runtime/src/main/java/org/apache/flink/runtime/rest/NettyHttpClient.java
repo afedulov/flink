@@ -10,6 +10,7 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInitializer;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelOption;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPromise;
 import org.apache.flink.shaded.netty4.io.netty.channel.EventLoopGroup;
 import org.apache.flink.shaded.netty4.io.netty.channel.SimpleChannelInboundHandler;
 import org.apache.flink.shaded.netty4.io.netty.channel.nio.NioEventLoopGroup;
@@ -23,6 +24,7 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpHeaderName
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpHeaderValues;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpMethod;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpObject;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpRequest;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponse;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpUtil;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpVersion;
@@ -171,6 +173,20 @@ public class NettyHttpClient {
                 System.out.println(">>> Received object: " + msg);
             }
             super.channelRead(ctx, msg);
+        }
+    }
+
+    public static class OutboundRequestLogger extends ChannelDuplexHandler {
+
+        @Override
+        public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise)
+                throws Exception {
+            if (msg instanceof HttpRequest) {
+                HttpRequest request = (HttpRequest) msg;
+                System.out.println(request.method() + " request to: " + request.uri());
+                System.out.println("Request headers: " + request.headers());
+            }
+            super.write(ctx, msg, promise);
         }
     }
 

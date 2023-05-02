@@ -171,6 +171,16 @@ class SqlClientTest {
     }
 
     @Test
+    void testGatewayModeSslUrl() throws Exception {
+        String[] args =
+                new String[] {
+                    "gateway", "-e", "https://og60-surface-eks-12.aws.ocean.g.apple.com/sql"
+                };
+        String actual = runSqlClient(args, String.join("\n", "SET;", "QUIT;"), false);
+        assertThat(actual).contains("execution.target", "yarn-session");
+    }
+
+    @Test
     void testGatewayModeWithoutAddress() throws Exception {
         String[] args = new String[] {"gateway"};
         assertThrows(

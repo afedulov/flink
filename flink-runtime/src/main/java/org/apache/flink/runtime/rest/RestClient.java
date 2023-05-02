@@ -26,6 +26,7 @@ import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.io.network.netty.OutboundChannelHandlerFactory;
 import org.apache.flink.runtime.io.network.netty.SSLHandlerFactory;
 import org.apache.flink.runtime.rest.NettyHttpClient.InboundTrafficLogger;
+import org.apache.flink.runtime.rest.NettyHttpClient.OutboundRequestLogger;
 import org.apache.flink.runtime.rest.messages.EmptyMessageParameters;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.ErrorResponseBody;
@@ -133,6 +134,8 @@ public class RestClient implements AutoCloseableAsync {
 
     private final AtomicBoolean isRunning = new AtomicBoolean(true);
 
+    public static final String VERSION_PLACEHOLDER = "{{VERSION}}";
+
     @VisibleForTesting List<OutboundChannelHandlerFactory> outboundChannelHandlerFactories;
 
     public RestClient(Configuration configuration, Executor executor)
@@ -222,6 +225,7 @@ public class RestClient implements AutoCloseableAsync {
                                                     restConfiguration.getIdlenessTimeout(),
                                                     restConfiguration.getIdlenessTimeout(),
                                                     TimeUnit.MILLISECONDS))
+                                    .addLast(new OutboundRequestLogger())
                                     .addLast(new ClientHandler());
                         } catch (Throwable t) {
                             t.printStackTrace();
@@ -412,7 +416,7 @@ public class RestClient implements AutoCloseableAsync {
         }
 
         String versionedHandlerURL =
-                "/" + apiVersion.getURLVersionPrefix() + messageHeaders.getTargetRestEndpointURL();
+                constructVersionedHandlerUrl(messageHeaders, apiVersion.getURLVersionPrefix());
         String targetUrl = MessageParameters.resolveUrl(versionedHandlerURL, messageParameters);
 
         LOG.info(
@@ -452,6 +456,118 @@ public class RestClient implements AutoCloseableAsync {
 
         return submitRequest(targetAddress, targetPort, httpRequest, responseType);
     }
+
+    private static <M extends MessageHeaders<?, ?, ?>> String constructVersionedHandlerUrl(
+            M messageHeaders, String urlVersionPrefix) {
+        String targetUrl = messageHeaders.getTargetRestEndpointURL();
+        if (targetUrl.contains(VERSION_PLACEHOLDER)) {
+            return targetUrl.replace(VERSION_PLACEHOLDER, urlVersionPrefix);
+        } else {
+            return "/" + urlVersionPrefix + messageHeaders.getTargetRestEndpointURL();
+        }
+    }
+
+    /*  public <
+                    M extends MessageHeaders<R, P, U>,
+                    U extends MessageParameters,
+                    R extends RequestBody,
+                    P extends ResponseBody>
+            CompletableFuture<P> sendRequest(
+                    URL url,
+                    M messageHeaders,
+                    U messageParameters,
+                    R request,
+                    Collection<FileUpload> fileUploads)
+                    throws IOException {
+        Collection<? extends RestAPIVersion> supportedAPIVersions =
+                messageHeaders.getSupportedAPIVersions();
+        return sendRequest(
+                url,
+                messageHeaders,
+                messageParameters,
+                request,
+                fileUploads,
+                RestAPIVersion.getLatestVersion(supportedAPIVersions));
+    }
+
+    public <
+                    M extends MessageHeaders<R, P, U>,
+                    U extends MessageParameters,
+                    R extends RequestBody,
+                    P extends ResponseBody>
+            CompletableFuture<P> sendRequest(
+                    URL url,
+                    M messageHeaders,
+                    U messageParameters,
+                    R request,
+                    Collection<FileUpload> fileUploads,
+                    RestAPIVersion<? extends RestAPIVersion<?>> apiVersion)
+                    throws IOException {
+        Preconditions.checkNotNull(url);
+        int targetPort = url.getPort();
+        Preconditions.checkArgument(
+                NetUtils.isValidHostPort(targetPort),
+                "The target port " + targetPort + " is not in the range [0, 65535].");
+        Preconditions.checkNotNull(messageHeaders);
+        Preconditions.checkNotNull(request);
+        Preconditions.checkNotNull(messageParameters);
+        Preconditions.checkNotNull(fileUploads);
+        Preconditions.checkState(
+                messageParameters.isResolved(), "Message parameters were not resolved.");
+
+        if (!messageHeaders.getSupportedAPIVersions().contains(apiVersion)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The requested version %s is not supported by the request (method=%s URL=%s). Supported versions are: %s.",
+                            apiVersion,
+                            messageHeaders.getHttpMethod(),
+                            messageHeaders.getTargetRestEndpointURL(),
+                            messageHeaders.getSupportedAPIVersions().stream()
+                                    .map(RestAPIVersion::getURLVersionPrefix)
+                                    .collect(Collectors.joining(","))));
+        }
+
+        String versionedHandlerURL =
+                "/" + apiVersion.getURLVersionPrefix() + messageHeaders.getTargetRestEndpointURL();
+        String targetUrl = MessageParameters.resolveUrl(versionedHandlerURL, messageParameters);
+
+        LOG.info(
+                "Sending request of class {} to {}:{}{}",
+                request.getClass(),
+                targetAddress,
+                targetPort,
+                targetUrl);
+        // serialize payload
+        StringWriter sw = new StringWriter();
+        objectMapper.writeValue(sw, request);
+        ByteBuf payload =
+                Unpooled.wrappedBuffer(sw.toString().getBytes(ConfigConstants.DEFAULT_CHARSET));
+
+        Request httpRequest =
+                createRequest(
+                        targetAddress + ':' + targetPort,
+                        targetUrl,
+                        messageHeaders.getHttpMethod().getNettyHttpMethod(),
+                        payload,
+                        fileUploads);
+
+        final JavaType responseType;
+
+        final Collection<Class<?>> typeParameters = messageHeaders.getResponseTypeParameters();
+
+        if (typeParameters.isEmpty()) {
+            responseType = objectMapper.constructType(messageHeaders.getResponseClass());
+        } else {
+            responseType =
+                    objectMapper
+                            .getTypeFactory()
+                            .constructParametricType(
+                                    messageHeaders.getResponseClass(),
+                                    typeParameters.toArray(new Class<?>[typeParameters.size()]));
+        }
+
+        return submitRequest(targetAddress, targetPort, httpRequest, responseType);
+    }*/
 
     private static Request createRequest(
             String targetAddress,

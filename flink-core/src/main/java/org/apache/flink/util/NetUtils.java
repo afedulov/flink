@@ -101,7 +101,7 @@ public class NetUtils {
      *
      * @return URL object for accessing host and port
      */
-    private static URL validateHostPortString(String hostPort) {
+    public static URL validateHostPortString(String hostPort) {
         try {
             URL u = new URL("http://" + hostPort);
             if (u.getHost() == null) {
@@ -117,6 +117,11 @@ public class NetUtils {
             throw new IllegalArgumentException(
                     "The given host:port ('" + hostPort + "') is invalid", e);
         }
+    }
+
+    public static URL socketToURl(InetSocketAddress socketAddress) {
+        String hostPort = socketAddress.getHostString() + ":" + socketAddress.getPort();
+        return validateHostPortString(hostPort);
     }
 
     /**
