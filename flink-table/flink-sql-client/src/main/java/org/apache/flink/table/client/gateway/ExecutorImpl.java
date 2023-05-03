@@ -94,7 +94,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.configuration.SecurityOptions.SSL_PROVIDER;
 import static org.apache.flink.configuration.SecurityOptions.SSL_REST_ENABLED;
 import static org.apache.flink.table.gateway.rest.handler.session.CloseSessionHandler.CLOSE_MESSAGE;
 import static org.apache.flink.util.ExceptionUtils.firstOrSuppressed;
@@ -150,10 +149,16 @@ public class ExecutorImpl implements Executor {
             registry.registerCloseable(executorService::shutdownNow);
             Configuration flinkConfig = defaultContext.getFlinkConfig();
 
-            flinkConfig.setBoolean(SSL_REST_ENABLED, true);
-            flinkConfig.set(SSL_PROVIDER, SSL_PROVIDER.defaultValue());
+            if ("https".equals(gatewayUrl.getProtocol())) {
+                flinkConfig.setBoolean(SSL_REST_ENABLED, true);
+            }
 
-            this.restClient = new RestClient(flinkConfig, executorService);
+            this.restClient =
+                    new RestClient(
+                            flinkConfig,
+                            executorService,
+                            gatewayUrl.getHost(),
+                            gatewayUrl.getPort());
             registry.registerCloseable(restClient);
 
             // determine gateway rest api version

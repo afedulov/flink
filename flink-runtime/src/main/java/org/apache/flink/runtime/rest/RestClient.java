@@ -86,6 +86,7 @@ import org.apache.flink.shaded.netty4.io.netty.handler.logging.LogLevel;
 import org.apache.flink.shaded.netty4.io.netty.handler.logging.LoggingHandler;
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContext;
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslHandler;
 import org.apache.flink.shaded.netty4.io.netty.handler.stream.ChunkedWriteHandler;
 import org.apache.flink.shaded.netty4.io.netty.handler.timeout.IdleStateEvent;
 import org.apache.flink.shaded.netty4.io.netty.handler.timeout.IdleStateHandler;
@@ -93,14 +94,10 @@ import org.apache.flink.shaded.netty4.io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.SSLException;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -140,6 +137,11 @@ public class RestClient implements AutoCloseableAsync {
 
     public RestClient(Configuration configuration, Executor executor)
             throws ConfigurationException {
+        this(configuration, executor, null, -1);
+    }
+
+    public RestClient(Configuration configuration, Executor executor, String host, int port)
+            throws ConfigurationException {
         Preconditions.checkNotNull(configuration);
         this.executor = Preconditions.checkNotNull(executor);
         this.terminationFuture = new CompletableFuture<>();
@@ -162,23 +164,11 @@ public class RestClient implements AutoCloseableAsync {
         outboundChannelHandlerFactories.sort(
                 Comparator.comparingInt(OutboundChannelHandlerFactory::priority).reversed());
 
+        // TODO: unclear how to decide if this connection is external
         final RestClientConfiguration restConfiguration =
-                RestClientConfiguration.fromConfiguration(configuration);
-        final SSLHandlerFactory sslHandlerFactory = restConfiguration.getSslHandlerFactory();
+                RestClientConfiguration.fromConfiguration(configuration, host != null);
 
-        URI uri = null;
-        SslContext sslContext = null;
-        try {
-            uri = new URI("https://og60-surface-eks-12.aws.ocean.g.apple.com/v1/info");
-            sslContext =
-                    SslContextBuilder.forClient()
-                            // .trustManager(InsecureTrustManagerFactory.INSTANCE)
-                            .build();
-        } catch (URISyntaxException | SSLException e) {
-            throw new RuntimeException(e);
-        }
-        String host = uri.getHost();
-        int port = uri.getPort() == -1 ? 443 : uri.getPort();
+        final SSLHandlerFactory sslHandlerFactory = restConfiguration.getSslHandlerFactory();
 
         ChannelInitializer<SocketChannel> initializer =
                 new ChannelInitializer<SocketChannel>() {
@@ -187,15 +177,13 @@ public class RestClient implements AutoCloseableAsync {
                         try {
                             // SSL should be the first handler in the pipeline
                             if (sslHandlerFactory != null) {
-                                socketChannel
-                                        .pipeline()
-                                        .addLast(
-                                                "ssl",
-                                                sslHandlerFactory.createNettySSLHandler(
-                                                        socketChannel.alloc(), host, port)
-                                                // sslHandlerFactory.createNettySSLHandler(
-                                                //      socketChannel.alloc())
-                                                );
+                                SslHandler nettySSLHandler =
+                                        host == null
+                                                ? sslHandlerFactory.createNettySSLHandler(
+                                                        socketChannel.alloc())
+                                                : sslHandlerFactory.createNettySSLHandler(
+                                                        socketChannel.alloc(), host, port);
+                                socketChannel.pipeline().addLast("ssl", nettySSLHandler);
                             }
                             socketChannel
                                     .pipeline()

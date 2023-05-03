@@ -35,6 +35,9 @@ import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslProvider;
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.util.FingerprintTrustManagerFactory;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 import javax.net.ServerSocketFactory;
 import javax.net.SocketFactory;
@@ -57,6 +60,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslProvider.JDK;
 import static org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslProvider.OPENSSL;
@@ -65,6 +69,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Common utilities to manage SSL transport settings. */
 public class SSLUtils {
+
+    private static final Logger log = LoggerFactory.getLogger(SSLUtils.class);
 
     /**
      * Creates a factory for SSL Server Sockets from the given configuration. SSL Server Sockets are
@@ -169,46 +175,7 @@ public class SSLUtils {
     public static SSLHandlerFactory createRestClientDefaultSSLEngineFactory(
             final Configuration config) throws Exception {
 
-        //        String[] CIPHER_SUITES = {
-        //            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-        //            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-        //            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-        //            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-        //            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-        //            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-        //            "TLS_RSA_WITH_AES_128_GCM_SHA256",
-        //            "TLS_RSA_WITH_AES_128_CBC_SHA",
-        //            "TLS_RSA_WITH_AES_256_CBC_SHA",
-        //            "TLS_AES_128_GCM_SHA256",
-        //            "TLS_AES_256_GCM_SHA384"
-        //        };
-        String[] CIPHER_SUITES = {
-            "TLS_AES_256_GCM_SHA384",
-            "TLS_AES_128_GCM_SHA256",
-            "TLS_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_RSA_WITH_AES_128_CBC_SHA"
-        };
-
-        SslContext sslContext =
-                SslContextBuilder.forClient()
-                        .sslProvider(JDK)
-                        //                        .trustManager(
-                        //                                TrustManagerFactory.getInstance(
-                        //
-                        // TrustManagerFactory.getDefaultAlgorithm()))
-                        .ciphers(Arrays.asList(CIPHER_SUITES))
-                        .build();
+        SslContext sslContext = SslContextBuilder.forClient().sslProvider(JDK).build();
 
         return new SSLHandlerFactory(sslContext, -1, -1);
     }
@@ -262,24 +229,42 @@ public class SSLUtils {
         }
     }
 
-    private static TrustManagerFactory getTrustManagerFactory(
+    private static Optional<TrustManagerFactory> getTrustManagerFactory(
             Configuration config, boolean internal)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
+
         String trustStoreFilePath =
-                getAndCheckOption(
-                        config,
+                config.getString(
                         internal
                                 ? SecurityOptions.SSL_INTERNAL_TRUSTSTORE
                                 : SecurityOptions.SSL_REST_TRUSTSTORE,
-                        SecurityOptions.SSL_TRUSTSTORE);
+                        config.getString(SecurityOptions.SSL_TRUSTSTORE));
 
         String trustStorePassword =
-                getAndCheckOption(
-                        config,
+                config.getString(
                         internal
                                 ? SecurityOptions.SSL_INTERNAL_TRUSTSTORE_PASSWORD
                                 : SecurityOptions.SSL_REST_TRUSTSTORE_PASSWORD,
-                        SecurityOptions.SSL_TRUSTSTORE_PASSWORD);
+                        config.getString(SecurityOptions.SSL_TRUSTSTORE_PASSWORD));
+
+        if (trustStoreFilePath == null || trustStorePassword == null) {
+            if (!internal) {
+                // For REST client connecting to external URLs using the default trust store of the
+                // provider
+                return Optional.empty();
+            } else {
+                throw new IllegalConfigurationException(
+                        "The config options "
+                                + SecurityOptions.SSL_INTERNAL_TRUSTSTORE.key()
+                                + ","
+                                + SecurityOptions.SSL_INTERNAL_TRUSTSTORE_PASSWORD.key()
+                                + " or "
+                                + SecurityOptions.SSL_TRUSTSTORE.key()
+                                + ", "
+                                + SecurityOptions.SSL_TRUSTSTORE_PASSWORD
+                                + " are missing.");
+            }
+        }
 
         KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
         try (InputStream trustStoreFile =
@@ -302,7 +287,7 @@ public class SSLUtils {
 
         tmf.init(trustStore);
 
-        return tmf;
+        return Optional.of(tmf);
     }
 
     private static KeyManagerFactory getKeyManagerFactory(
@@ -390,7 +375,6 @@ public class SSLUtils {
         int sessionTimeoutMs = config.getInteger(SecurityOptions.SSL_INTERNAL_SESSION_TIMEOUT);
 
         KeyManagerFactory kmf = getKeyManagerFactory(config, true, provider);
-        TrustManagerFactory tmf = getTrustManagerFactory(config, true);
         ClientAuth clientAuth = ClientAuth.REQUIRE;
 
         final SslContextBuilder sslContextBuilder;
@@ -400,11 +384,13 @@ public class SSLUtils {
             sslContextBuilder = SslContextBuilder.forServer(kmf);
         }
 
+        Optional<TrustManagerFactory> tmf = getTrustManagerFactory(config, true);
+        tmf.map(sslContextBuilder::trustManager);
+
         return sslContextBuilder
                 .sslProvider(provider)
                 .protocols(sslProtocols)
                 .ciphers(ciphers)
-                .trustManager(tmf)
                 .clientAuth(clientAuth)
                 .sessionCacheSize(sessionCacheSize)
                 .sessionTimeout(sessionTimeoutMs / 1000)
@@ -465,16 +451,19 @@ public class SSLUtils {
         }
 
         if (clientMode || clientAuth != ClientAuth.NONE) {
-            TrustManagerFactory tmf = getTrustManagerFactory(config, false);
-            sslContextBuilder.trustManager(tmf);
+            Optional<TrustManagerFactory> tmf = getTrustManagerFactory(config, false);
+            tmf.map(
+                    // Use specific ciphers and protocols if SSL is configured with self-signed
+                    // certificates (user-supplied truststore)
+                    tm ->
+                            sslContextBuilder
+                                    .trustManager(tm)
+                                    .protocols(sslProtocols)
+                                    .ciphers(ciphers)
+                                    .clientAuth(clientAuth));
         }
 
-        return sslContextBuilder
-                .sslProvider(provider)
-                .protocols(sslProtocols)
-                .ciphers(ciphers)
-                .clientAuth(clientAuth)
-                .build();
+        return sslContextBuilder.sslProvider(provider).build();
     }
 
     // ------------------------------------------------------------------------
