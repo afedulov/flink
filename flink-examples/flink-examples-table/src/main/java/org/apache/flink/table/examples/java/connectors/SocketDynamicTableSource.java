@@ -24,7 +24,7 @@ import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
-import org.apache.flink.table.connector.source.SourceFunctionProvider;
+import org.apache.flink.table.connector.source.SourceProvider;
 import org.apache.flink.table.connector.source.abilities.SupportsFilterPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
@@ -75,10 +75,15 @@ public final class SocketDynamicTableSource implements ScanTableSource {
         final DeserializationSchema<RowData> deserializer =
                 decodingFormat.createRuntimeDecoder(runtimeProviderContext, producedDataType);
 
-        final SourceFunction<RowData> sourceFunction =
-                new SocketSourceFunction(hostname, port, byteDelimiter, deserializer);
+        //        final SourceFunction<RowData> sourceFunction =
+        //                new SocketSourceFunction(hostname, port, byteDelimiter, deserializer);
+        //
+        //        return SourceFunctionProvider.of(sourceFunction, false);
 
-        return SourceFunctionProvider.of(sourceFunction, false);
+        SocketSource socketSourceRow =
+                new SocketSource(hostname, port, byteDelimiter, deserializer);
+
+        return SourceProvider.of(socketSourceRow);
     }
 
     @Override
