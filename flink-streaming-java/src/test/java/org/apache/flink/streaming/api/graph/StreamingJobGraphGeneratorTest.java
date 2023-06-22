@@ -1137,6 +1137,7 @@ class StreamingJobGraphGeneratorTest {
     void testYieldingOperatorChainableToTaskNotChainedToLegacySource() {
         StreamExecutionEnvironment chainEnv = StreamExecutionEnvironment.createLocalEnvironment(1);
 
+        // TODO: keep legacy fromElements() under a different name for testing?
         chainEnv.fromElements(1)
                 .disableChaining()
                 .map((x) -> x)
@@ -1163,6 +1164,7 @@ class StreamingJobGraphGeneratorTest {
     void testYieldingOperatorProperlyChainedOnLegacySources() {
         StreamExecutionEnvironment chainEnv = StreamExecutionEnvironment.createLocalEnvironment(1);
 
+        // TODO: keep legacy fromElements() under a different name for testing?
         chainEnv.fromElements(1)
                 .map((x) -> x)
                 // should automatically break chain here
