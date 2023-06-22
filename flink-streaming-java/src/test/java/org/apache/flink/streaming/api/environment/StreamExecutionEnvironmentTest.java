@@ -23,11 +23,13 @@ import org.apache.flink.api.common.operators.SlotSharingGroup;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.typeutils.GenericTypeInfo;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.connector.datagen.source.DataGeneratorSource;
 import org.apache.flink.core.testutils.CheckedThread;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
@@ -35,13 +37,13 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.functions.sink.v2.DiscardingSink;
-import org.apache.flink.streaming.api.functions.source.FromElementsFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.source.StatefulSequenceSource;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamGraphGenerator;
 import org.apache.flink.streaming.api.operators.AbstractUdfStreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperator;
+import org.apache.flink.streaming.api.transformations.SourceTransformation;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.SplittableIterator;
@@ -55,6 +57,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CountDownLatch;
 
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
@@ -85,10 +88,9 @@ class StreamExecutionEnvironmentTest {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStreamSource<String> source = env.fromElements("a", "b");
 
-        FromElementsFunction<String> elementsFunction =
-                (FromElementsFunction<String>) getFunctionFromDataSource(source);
-        assertThat(elementsFunction.getSerializer())
-                .isEqualTo(BasicTypeInfo.STRING_TYPE_INFO.createSerializer(env.getConfig()));
+        DataGeneratorSource<String> generatorSource = getSourceFromDataSource(source);
+
+        assertThat(generatorSource.getProducedType()).isEqualTo(BasicTypeInfo.STRING_TYPE_INFO);
     }
 
     @Test
@@ -96,22 +98,39 @@ class StreamExecutionEnvironmentTest {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStreamSource<String> source = env.fromElements("a", "b");
         TypeInformation<String> customType = new GenericTypeInfo<>(String.class);
-
         source.returns(customType);
 
-        FromElementsFunction<String> elementsFunction =
-                (FromElementsFunction<String>) getFunctionFromDataSource(source);
-        assertThat(elementsFunction.getSerializer())
-                .isNotEqualTo(BasicTypeInfo.STRING_TYPE_INFO.createSerializer(env.getConfig()));
-        assertThat(elementsFunction.getSerializer())
-                .isEqualTo(customType.createSerializer(env.getConfig()));
+        DataGeneratorSource<String> generatorSource = getSourceFromDataSource(source);
+
+        assertThat(generatorSource.getProducedType()).isNotEqualTo(BasicTypeInfo.STRING_TYPE_INFO);
+        assertThat(generatorSource.getProducedType()).isEqualTo(customType);
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void testFromElementsPostConstructionTypeIncompatible() {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        DataStreamSource<String> source = env.fromElements("a", "b");
+        source.returns((TypeInformation) BasicTypeInfo.INT_TYPE_INFO);
+
+        assertThatThrownBy(() -> getSourceFromDataSource(source))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not all subclasses of java.lang.Integer");
+    }
+
+    @Test
+    void testFromElementsNullElement() {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        assertThatThrownBy(() -> env.fromElements("a", null, "c"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("contains a null element");
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void testFromCollectionParallelism() {
         try {
-            TypeInformation<Integer> typeInfo = BasicTypeInfo.INT_TYPE_INFO;
+            TypeInformation<Integer> typeInfo = INT_TYPE_INFO;
             StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
             DataStreamSource<Integer> dataStream1 =
@@ -167,10 +186,10 @@ class StreamExecutionEnvironmentTest {
         assertThat(getFunctionFromDataSource(src2)).isInstanceOf(StatefulSequenceSource.class);
 
         DataStreamSource<Long> src3 = env.fromElements(0L, 1L, 2L);
-        assertThat(getFunctionFromDataSource(src3)).isInstanceOf(FromElementsFunction.class);
+        assertThat(getSourceFromDataSourceTyped(src3)).isInstanceOf(DataGeneratorSource.class);
 
         DataStreamSource<Long> src4 = env.fromCollection(list);
-        assertThat(getFunctionFromDataSource(src4)).isInstanceOf(FromElementsFunction.class);
+        assertThat(getSourceFromDataSourceTyped(src4)).isInstanceOf(DataGeneratorSource.class);
     }
 
     /** Verifies that the API method doesn't throw and creates a source of the expected type. */
@@ -303,7 +322,7 @@ class StreamExecutionEnvironmentTest {
     @Test
     void testGetStreamGraph() {
         try {
-            TypeInformation<Integer> typeInfo = BasicTypeInfo.INT_TYPE_INFO;
+            TypeInformation<Integer> typeInfo = INT_TYPE_INFO;
             StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
             DataStreamSource<Integer> dataStream1 =
@@ -490,6 +509,22 @@ class StreamExecutionEnvironmentTest {
         AbstractUdfStreamOperator<?, ?> operator =
                 (AbstractUdfStreamOperator<?, ?>) getOperatorFromDataStream(dataStreamSource);
         return (SourceFunction<T>) operator.getUserFunction();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T, S extends Source<T, ?, ?>> S getSourceFromDataSource(
+            DataStreamSource<T> dataStreamSource) {
+        dataStreamSource.sinkTo(new DiscardingSink<>());
+        dataStreamSource.getExecutionEnvironment().getStreamGraph();
+        return (S)
+                ((SourceTransformation<T, ?, ?>) dataStreamSource.getTransformation()).getSource();
+    }
+
+    private static <T> Source<T, ?, ?> getSourceFromDataSourceTyped(
+            DataStreamSource<T> dataStreamSource) {
+        dataStreamSource.sinkTo(new DiscardingSink<>());
+        dataStreamSource.getExecutionEnvironment().getStreamGraph();
+        return ((SourceTransformation<T, ?, ?>) dataStreamSource.getTransformation()).getSource();
     }
 
     private static class DummySplittableIterator<T> extends SplittableIterator<T> {
