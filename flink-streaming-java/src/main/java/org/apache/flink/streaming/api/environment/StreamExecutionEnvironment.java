@@ -62,6 +62,8 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.StateChangelogOptions;
+import org.apache.flink.connector.datagen.source.DataGeneratorSource;
+import org.apache.flink.connector.datagen.source.FromElementsGeneratorFunction;
 import org.apache.flink.core.execution.CacheSupportedPipelineExecutor;
 import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.execution.DetachedJobExecutionResult;
@@ -86,7 +88,6 @@ import org.apache.flink.streaming.api.functions.source.ContinuousFileReaderOpera
 import org.apache.flink.streaming.api.functions.source.FileMonitoringFunction;
 import org.apache.flink.streaming.api.functions.source.FileProcessingMode;
 import org.apache.flink.streaming.api.functions.source.FileReadFunction;
-import org.apache.flink.streaming.api.functions.source.FromElementsFunction;
 import org.apache.flink.streaming.api.functions.source.FromIteratorFunction;
 import org.apache.flink.streaming.api.functions.source.FromSplittableIteratorFunction;
 import org.apache.flink.streaming.api.functions.source.InputFormatSourceFunction;
@@ -1278,10 +1279,24 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         Preconditions.checkNotNull(data, "Collection must not be null");
 
         // must not have null elements and mixed elements
-        FromElementsFunction.checkCollection(data, typeInfo.getTypeClass());
+        FromElementsGeneratorFunction.checkCollection(data, typeInfo.getTypeClass());
 
-        SourceFunction<OUT> function = new FromElementsFunction<>(data);
-        return addSource(function, "Collection Source", typeInfo, Boundedness.BOUNDED)
+        FromElementsGeneratorFunction<OUT> generatorFunction;
+        try {
+            generatorFunction =
+                    new FromElementsGeneratorFunction<>(
+                            typeInfo.createSerializer(getConfig()), data);
+        } catch (IOException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+
+        DataGeneratorSource<OUT> generatorSource =
+                new DataGeneratorSource<>(generatorFunction, data.size(), typeInfo);
+
+        return fromSource(
+                        generatorSource,
+                        WatermarkStrategy.forMonotonousTimestamps(),
+                        "Collection source new")
                 .setParallelism(1);
     }
 
