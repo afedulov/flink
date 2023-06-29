@@ -70,6 +70,10 @@ public class Predicates {
         return areFieldOfType(clazz, JavaModifier.PUBLIC, JavaModifier.STATIC);
     }
 
+    public static DescribedPredicate<JavaField> arePublicStaticOfType(String fqClassName) {
+        return areFieldOfType(fqClassName, JavaModifier.PUBLIC, JavaModifier.STATIC);
+    }
+
     /**
      * Tests that the given field is of the given type {@code clazz} and has given modifiers.
      *
@@ -90,7 +94,7 @@ public class Predicates {
                                 && field.getRawType().isEquivalentTo(clazz));
     }
 
-    public static DescribedPredicate<JavaField> areFieldOfTypeNew(
+    public static DescribedPredicate<JavaField> areFieldOfType(
             String fqClassName, JavaModifier... modifiers) {
         String className = getClassFromFqName(fqClassName);
 
@@ -106,7 +110,7 @@ public class Predicates {
                     System.out.println(field.getType().getName());
                     boolean b =
                             field.getModifiers().containsAll(Arrays.asList(modifiers))
-                                    && field.getType().getName().equals(fqClassName);
+                                    && field.getRawType().getName().equals(fqClassName);
                     if (b) {
                         System.out.println(field.getOwner());
                     }
@@ -130,6 +134,14 @@ public class Predicates {
     }
 
     /**
+     * Tests that the given field is {@code public final} and not {@code static} and of the given
+     * type {@code clazz} .
+     */
+    public static DescribedPredicate<JavaField> arePublicFinalOfType(String fqClassName) {
+        return is(ofType(fqClassName)).and(isPublic()).and(isFinal()).and(isNotStatic());
+    }
+
+    /**
      * Tests that the given field is {@code public static final} and is assignable to the given type
      * {@code clazz} .
      */
@@ -145,6 +157,10 @@ public class Predicates {
         return arePublicStaticOfType(clazz).and(isFinal());
     }
 
+    public static DescribedPredicate<JavaField> arePublicStaticFinalOfType(String fqClassName) {
+        return arePublicStaticOfType(fqClassName).and(isFinal());
+    }
+
     /**
      * Tests that the given field is {@code public final} and of the given type {@code clazz} with
      * exactly the given {@code annotationType}.
@@ -152,6 +168,15 @@ public class Predicates {
     public static DescribedPredicate<JavaField> arePublicFinalOfTypeWithAnnotation(
             Class<?> clazz, Class<? extends Annotation> annotationType) {
         return arePublicFinalOfType(clazz).and(annotatedWith(annotationType));
+    }
+
+    /**
+     * Tests that the given field is {@code public final} and of the given type {@code fqClassName}
+     * with exactly the given {@code annotationType}.
+     */
+    public static DescribedPredicate<JavaField> arePublicFinalOfTypeWithAnnotation(
+            String fqClassName, Class<? extends Annotation> annotationType) {
+        return arePublicFinalOfType(fqClassName).and(annotatedWith(annotationType));
     }
 
     /**
@@ -163,13 +188,18 @@ public class Predicates {
         return arePublicStaticFinalOfType(clazz).and(annotatedWith(annotationType));
     }
 
+    public static DescribedPredicate<JavaField> arePublicStaticFinalOfTypeWithAnnotation(
+            String fqClassName, Class<? extends Annotation> annotationType) {
+        return arePublicStaticFinalOfType(fqClassName).and(annotatedWith(annotationType));
+    }
+
     /**
      * Tests that the given field is {@code static final} and of the given type {@code clazz} with
      * exactly the given {@code annotationType}. It doesn't matter if public, private or protected.
      */
     public static DescribedPredicate<JavaField> areStaticFinalOfTypeWithAnnotation(
             String fqClassName, Class<? extends Annotation> annotationType) {
-        return areFieldOfTypeNew(fqClassName, JavaModifier.STATIC, JavaModifier.FINAL)
+        return areFieldOfType(fqClassName, JavaModifier.STATIC, JavaModifier.FINAL)
                 .and(annotatedWith(annotationType));
     }
 

@@ -19,8 +19,6 @@
 package org.apache.flink.architecture.rules;
 
 import org.apache.flink.architecture.common.Predicates;
-import org.apache.flink.connector.testframe.junit.annotations.TestEnv;
-import org.apache.flink.test.util.MiniClusterWithClientResource;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -39,7 +37,7 @@ import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
 import static org.apache.flink.architecture.common.Conditions.fulfill;
 import static org.apache.flink.architecture.common.GivenJavaClasses.javaClassesThat;
 import static org.apache.flink.architecture.common.JavaFieldPredicates.annotatedWith;
-import static org.apache.flink.architecture.common.Predicates.areFieldOfTypeNew;
+import static org.apache.flink.architecture.common.Predicates.areFieldOfType;
 import static org.apache.flink.architecture.common.Predicates.arePublicFinalOfTypeWithAnnotation;
 import static org.apache.flink.architecture.common.Predicates.arePublicStaticFinalOfTypeWithAnnotation;
 import static org.apache.flink.architecture.common.Predicates.areStaticFinalOfTypeWithAnnotation;
@@ -149,17 +147,20 @@ public class ITCaseRules {
             "org.apache.flink.test.junit5.MiniClusterExtension";
     public static final String MINI_CLUSTER_TEST_ENVIRONMENT_FQ_NAME =
             "org.apache.flink.connector.testframe.environment.MiniClusterTestEnvironment";
+    public static final String TEST_ENV_FQ_NAME =
+            "org.apache.flink.connector.testframe.junit.annotations.TestEnv";
 
     private static DescribedPredicate<JavaClass> miniClusterWithClientResourceClassRule() {
         return containAnyFieldsInClassHierarchyThat(
                 arePublicStaticFinalOfTypeWithAnnotation(
-                        MiniClusterWithClientResource.class, ClassRule.class));
+                        "org.apache.flink.test.util.MiniClusterWithClientResource",
+                        ClassRule.class));
     }
 
     private static DescribedPredicate<JavaClass> miniClusterWithClientResourceRule() {
         return containAnyFieldsInClassHierarchyThat(
                 arePublicFinalOfTypeWithAnnotation(
-                        MiniClusterWithClientResource.class, Rule.class));
+                        "org.apache.flink.test.util.MiniClusterWithClientResource", Rule.class));
     }
 
     private static DescribedPredicate<JavaClass> inFlinkRuntimePackages() {
@@ -187,11 +188,11 @@ public class ITCaseRules {
                                                         MINI_CLUSTER_EXTENSION_FQ_NAME,
                                                         RegisterExtension.class)
                                                 .or(
-                                                        areFieldOfTypeNew(
+                                                        areFieldOfType(
                                                                         MINI_CLUSTER_TEST_ENVIRONMENT_FQ_NAME)
                                                                 .and(
                                                                         annotatedWith(
-                                                                                TestEnv.class))))),
+                                                                                TEST_ENV_FQ_NAME))))),
                 inFlinkRuntimePackages()
                         .and(
                                 isAnnotatedWithExtendWithUsingExtension(
