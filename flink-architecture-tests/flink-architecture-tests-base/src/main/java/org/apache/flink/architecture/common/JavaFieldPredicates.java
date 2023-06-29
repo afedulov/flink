@@ -24,6 +24,8 @@ import com.tngtech.archunit.core.domain.JavaModifier;
 
 import java.lang.annotation.Annotation;
 
+import static org.apache.flink.architecture.common.Predicates.getClassFromFqName;
+
 /** Fine-grained predicates focus on the JavaField. */
 public class JavaFieldPredicates {
 
@@ -84,6 +86,18 @@ public class JavaFieldPredicates {
     }
 
     /**
+     * Match the {@link Class} of the {@link JavaField}.
+     *
+     * @return A {@link DescribedPredicate} returning true, if and only if the tested {@link
+     *     JavaField} has the same type of the given {@code clazz}.
+     */
+    public static DescribedPredicate<JavaField> ofType(String fqClassName) {
+        String className = getClassFromFqName(fqClassName);
+        return DescribedPredicate.describe(
+                "of type " + className, field -> field.getType().getName().equals(fqClassName));
+    }
+
+    /**
      * Match the {@link Class} of the {@link JavaField}'s assignability.
      *
      * @param clazz the Class type to check for assignability
@@ -113,6 +127,21 @@ public class JavaFieldPredicates {
                                                 annotation
                                                         .getRawType()
                                                         .isEquivalentTo(annotationType))
+                                .reduce(false, Boolean::logicalOr));
+    }
+
+    public static DescribedPredicate<JavaField> annotatedWith(String annotationTypeFqName) {
+
+        return DescribedPredicate.describe(
+                "annotated with @" + getClassFromFqName(annotationTypeFqName),
+                field ->
+                        field.getAnnotations().stream()
+                                .map(
+                                        annotation ->
+                                                annotation
+                                                        .getRawType()
+                                                        .getName()
+                                                        .equals(annotationTypeFqName))
                                 .reduce(false, Boolean::logicalOr));
     }
 }
