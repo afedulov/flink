@@ -90,6 +90,37 @@ public class Predicates {
                                 && field.getRawType().isEquivalentTo(clazz));
     }
 
+    public static DescribedPredicate<JavaField> areFieldOfTypeNew(
+            String fqClassName, JavaModifier... modifiers) {
+        String className = getClassFromFqName(fqClassName);
+
+        return DescribedPredicate.describe(
+                String.format(
+                        "are %s, and of type %s",
+                        Arrays.stream(modifiers)
+                                .map(JavaModifier::toString)
+                                .map(String::toLowerCase)
+                                .collect(Collectors.joining(", ")),
+                        className),
+                field -> {
+                    System.out.println(field.getType().getName());
+                    boolean b =
+                            field.getModifiers().containsAll(Arrays.asList(modifiers))
+                                    && field.getType().getName().equals(fqClassName);
+                    if (b) {
+                        System.out.println(field.getOwner());
+                    }
+                    return b;
+                });
+    }
+
+    /** Retrieves the class name from the fully qualified class name. */
+    public static String getClassFromFqName(String fqClassName) {
+        String[] classNameComponents = fqClassName.split("\\.");
+        String className = classNameComponents[classNameComponents.length - 1];
+        return className;
+    }
+
     /**
      * Tests that the given field is {@code public final} and not {@code static} and of the given
      * type {@code clazz} .
@@ -137,8 +168,8 @@ public class Predicates {
      * exactly the given {@code annotationType}. It doesn't matter if public, private or protected.
      */
     public static DescribedPredicate<JavaField> areStaticFinalOfTypeWithAnnotation(
-            Class<?> clazz, Class<? extends Annotation> annotationType) {
-        return areFieldOfType(clazz, JavaModifier.STATIC, JavaModifier.FINAL)
+            String fqClassName, Class<? extends Annotation> annotationType) {
+        return areFieldOfTypeNew(fqClassName, JavaModifier.STATIC, JavaModifier.FINAL)
                 .and(annotatedWith(annotationType));
     }
 

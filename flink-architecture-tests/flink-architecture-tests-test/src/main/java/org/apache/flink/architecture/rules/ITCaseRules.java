@@ -19,11 +19,7 @@
 package org.apache.flink.architecture.rules;
 
 import org.apache.flink.architecture.common.Predicates;
-import org.apache.flink.connector.testframe.environment.MiniClusterTestEnvironment;
 import org.apache.flink.connector.testframe.junit.annotations.TestEnv;
-import org.apache.flink.runtime.testutils.InternalMiniClusterExtension;
-import org.apache.flink.test.junit5.MiniClusterExtension;
-import org.apache.flink.test.util.AbstractTestBase;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 
 import com.tngtech.archunit.base.DescribedPredicate;
@@ -43,11 +39,12 @@ import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
 import static org.apache.flink.architecture.common.Conditions.fulfill;
 import static org.apache.flink.architecture.common.GivenJavaClasses.javaClassesThat;
 import static org.apache.flink.architecture.common.JavaFieldPredicates.annotatedWith;
-import static org.apache.flink.architecture.common.Predicates.areFieldOfType;
+import static org.apache.flink.architecture.common.Predicates.areFieldOfTypeNew;
 import static org.apache.flink.architecture.common.Predicates.arePublicFinalOfTypeWithAnnotation;
 import static org.apache.flink.architecture.common.Predicates.arePublicStaticFinalOfTypeWithAnnotation;
 import static org.apache.flink.architecture.common.Predicates.areStaticFinalOfTypeWithAnnotation;
 import static org.apache.flink.architecture.common.Predicates.containAnyFieldsInClassHierarchyThat;
+import static org.apache.flink.architecture.common.Predicates.getClassFromFqName;
 
 /** Rules for Integration Tests. */
 public class ITCaseRules {
@@ -56,7 +53,14 @@ public class ITCaseRules {
     public static final ArchRule INTEGRATION_TEST_ENDING_WITH_ITCASE =
             freeze(
                             javaClassesThat()
-                                    .areAssignableTo(AbstractTestBase.class)
+                                    .areAssignableTo(
+                                            DescribedPredicate.describe(
+                                                    "super class with name org.apache.flink.test.util.AbstractTestBase",
+                                                    javaClass ->
+                                                            javaClass
+                                                                    .getName()
+                                                                    .equals(
+                                                                            "org.apache.flink.test.util.AbstractTestBase")))
                                     .and()
                                     .doNotHaveModifier(ABSTRACT)
                                     .should()
@@ -139,6 +143,13 @@ public class ITCaseRules {
                     .allowEmptyShould(true)
                     .as("ITCASE tests should use a MiniCluster resource or extension");
 
+    public static final String INTERNAL_MINI_CLUSTER_EXTENSION_FQ_NAME =
+            "org.apache.flink.runtime.testutils.InternalMiniClusterExtension";
+    public static final String MINI_CLUSTER_EXTENSION_FQ_NAME =
+            "org.apache.flink.test.junit5.MiniClusterExtension";
+    public static final String MINI_CLUSTER_TEST_ENVIRONMENT_FQ_NAME =
+            "org.apache.flink.connector.testframe.environment.MiniClusterTestEnvironment";
+
     private static DescribedPredicate<JavaClass> miniClusterWithClientResourceClassRule() {
         return containAnyFieldsInClassHierarchyThat(
                 arePublicStaticFinalOfTypeWithAnnotation(
@@ -167,37 +178,42 @@ public class ITCaseRules {
                         .and(
                                 containAnyFieldsInClassHierarchyThat(
                                         areStaticFinalOfTypeWithAnnotation(
-                                                InternalMiniClusterExtension.class,
+                                                INTERNAL_MINI_CLUSTER_EXTENSION_FQ_NAME,
                                                 RegisterExtension.class))),
                 outsideFlinkRuntimePackages()
                         .and(
                                 containAnyFieldsInClassHierarchyThat(
                                         areStaticFinalOfTypeWithAnnotation(
-                                                        MiniClusterExtension.class,
+                                                        MINI_CLUSTER_EXTENSION_FQ_NAME,
                                                         RegisterExtension.class)
                                                 .or(
-                                                        areFieldOfType(
-                                                                        MiniClusterTestEnvironment
-                                                                                .class)
+                                                        areFieldOfTypeNew(
+                                                                        MINI_CLUSTER_TEST_ENVIRONMENT_FQ_NAME)
                                                                 .and(
                                                                         annotatedWith(
                                                                                 TestEnv.class))))),
                 inFlinkRuntimePackages()
                         .and(
                                 isAnnotatedWithExtendWithUsingExtension(
-                                        InternalMiniClusterExtension.class)),
+                                        INTERNAL_MINI_CLUSTER_EXTENSION_FQ_NAME)),
                 outsideFlinkRuntimePackages()
-                        .and(isAnnotatedWithExtendWithUsingExtension(MiniClusterExtension.class)));
+                        .and(
+                                isAnnotatedWithExtendWithUsingExtension(
+                                        MINI_CLUSTER_EXTENSION_FQ_NAME)));
     }
 
     private static DescribedPredicate<JavaClass> isAnnotatedWithExtendWithUsingExtension(
-            Class<? extends Extension> extensionClass) {
+            String extensionClassFqName) {
+
         return DescribedPredicate.describe(
-                "is annotated with @ExtendWith with class " + extensionClass.getSimpleName(),
+                "is annotated with @ExtendWith with class "
+                        + getClassFromFqName(extensionClassFqName),
                 clazz ->
-                        clazz.isAnnotatedWith(ExtendWith.class)
-                                && Arrays.asList(
+                        clazz.isAssignableTo(Extension.class)
+                                && clazz.isAnnotatedWith(ExtendWith.class)
+                                && Arrays.stream(
                                                 clazz.getAnnotationOfType(ExtendWith.class).value())
-                                        .contains(extensionClass));
+                                        .map(Class::getCanonicalName)
+                                        .anyMatch(s -> s.equals(extensionClassFqName)));
     }
 }
