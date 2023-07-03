@@ -53,6 +53,7 @@ import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.SerializedValue;
 
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -70,6 +71,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * JobGraph}.
  */
 public class DefaultExecutionGraphBuilder {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultExecutionGraphBuilder.class);
 
     public static DefaultExecutionGraph buildGraph(
             JobGraph jobGraph,
@@ -343,6 +346,9 @@ public class DefaultExecutionGraphBuilder {
                     checkpointsCleaner,
                     jobManagerConfig.getString(STATE_CHANGE_LOG_STORAGE));
         }
+
+        LOG.debug("Execution graph:");
+        LOG.debug("{}", executionGraph);
 
         return executionGraph;
     }
