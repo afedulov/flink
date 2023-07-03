@@ -51,6 +51,7 @@ public class GatedRateLimiter implements RateLimiter {
 
     @Override
     public CompletionStage<Void> acquire() {
+        System.out.println("!!acquire()");
         if (gatingFuture == null) {
             gatingFuture = CompletableFuture.completedFuture(null);
         }
@@ -62,6 +63,7 @@ public class GatedRateLimiter implements RateLimiter {
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
+        System.out.println("Checkpoint: " + checkpointId);
         capacityLeft = capacityPerCycle;
         gatingFuture.complete(null);
     }

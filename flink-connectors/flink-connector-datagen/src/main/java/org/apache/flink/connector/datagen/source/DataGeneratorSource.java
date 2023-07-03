@@ -18,6 +18,8 @@
 
 package org.apache.flink.connector.datagen.source;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
@@ -37,8 +39,6 @@ import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.util.Collection;
-
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * A data source that produces N data points in parallel. This source is useful for testing and for
@@ -102,7 +102,7 @@ public class DataGeneratorSource<OUT>
 
     private final NumberSequenceSource numberSource;
 
-    private final GeneratorFunction<Long, OUT> generatorFunction;
+    private GeneratorFunction<Long, OUT> generatorFunction;
 
     /**
      * Instantiates a new {@code DataGeneratorSource}.
@@ -140,7 +140,7 @@ public class DataGeneratorSource<OUT>
                 rateLimiterStrategy, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
     }
 
-    private DataGeneratorSource(
+    public DataGeneratorSource(
             SourceReaderFactory<OUT, NumberSequenceSplit> sourceReaderFactory,
             GeneratorFunction<Long, OUT> generatorFunction,
             long count,
@@ -153,6 +153,17 @@ public class DataGeneratorSource<OUT>
                 generatorFunction, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
         ClosureCleaner.clean(
                 sourceReaderFactory, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
+    }
+
+    public DataGeneratorSource(
+            SourceReaderFactory<OUT, NumberSequenceSplit> sourceReaderFactory,
+            long count,
+            TypeInformation<OUT> typeInfo) {
+        this.sourceReaderFactory = checkNotNull(sourceReaderFactory);
+        ClosureCleaner.clean(
+                sourceReaderFactory, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
+        this.typeInfo = checkNotNull(typeInfo);
+        this.numberSource = new NumberSequenceSource(0, count - 1);
     }
 
     @VisibleForTesting

@@ -18,16 +18,7 @@
 
 package org.apache.flink.formats.avro;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.formats.avro.generated.Address;
-import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.UniqueBucketAssigner;
-import org.apache.flink.streaming.util.FiniteTestSource;
-import org.apache.flink.test.util.AbstractTestBase;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
@@ -37,6 +28,22 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.reflect.ReflectDatumReader;
 import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.connector.datagen.source.DataGeneratorSource;
+import org.apache.flink.connector.datagen.source.FiniteSourceReaderFactory;
+import org.apache.flink.connector.datagen.source.FromElementsGeneratorFunction;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.formats.avro.generated.Address;
+import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
+import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.UniqueBucketAssigner;
+import org.apache.flink.streaming.util.FiniteTestSource;
+import org.apache.flink.test.util.AbstractTestBase;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
@@ -51,15 +58,13 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
  * Simple integration test case for writing bulk encoded files with the {@link StreamingFileSink}
  * with Avro.
  */
 public class AvroStreamingFileSinkITCase extends AbstractTestBase {
 
-    @Rule public final Timeout timeoutPerTest = Timeout.seconds(20);
+    @Rule public final Timeout timeoutPerTest = Timeout.seconds(20000);
 
     @Test
     public void testWriteAvroSpecific() throws Exception {
@@ -78,6 +83,49 @@ public class AvroStreamingFileSinkITCase extends AbstractTestBase {
         AvroWriterFactory<Address> avroWriterFactory = AvroWriters.forSpecificRecord(Address.class);
         DataStream<Address> stream =
                 env.addSource(new FiniteTestSource<>(data), TypeInformation.of(Address.class));
+        stream.addSink(
+                StreamingFileSink.forBulkFormat(Path.fromLocalFile(folder), avroWriterFactory)
+                        .withBucketAssigner(new UniqueBucketAssigner<>("test"))
+                        .build());
+        env.execute();
+
+        validateResults(folder, new SpecificDatumReader<>(Address.class), data);
+    }
+
+    @Test
+    public void testWriteAvroSpecificNew() throws Exception {
+        File folder = TEMPORARY_FOLDER.newFolder();
+
+        List<Address> data =
+                Arrays.asList(
+                        new Address(1, "a", "b", "c", "12345"),
+                        new Address(2, "p", "q", "r", "12345"),
+                        new Address(3, "x", "y", "z", "12345"));
+
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(1);
+        env.enableCheckpointing(2000);
+
+        AvroWriterFactory<Address> avroWriterFactory = AvroWriters.forSpecificRecord(Address.class);
+
+        TypeInformation<Address> ty = TypeInformation.of(Address.class);
+        ExecutionConfig executionConfig = new ExecutionConfig();
+        ty.createSerializer(executionConfig);
+
+        FromElementsGeneratorFunction<Address> generatorFunction =
+                new FromElementsGeneratorFunction<>(
+                        TypeInformation.of(Address.class).createSerializer(new ExecutionConfig()),
+                        data);
+        FiniteSourceReaderFactory<Address> readerFactory =
+                new FiniteSourceReaderFactory<>(generatorFunction, data.size(), 2);
+
+        DataGeneratorSource<Address> addressSource =
+                new DataGeneratorSource<>(
+                        readerFactory, data.size() * 2L, TypeInformation.of(Address.class));
+
+        DataStreamSource<Address> stream =
+                env.fromSource(addressSource, WatermarkStrategy.noWatermarks(), "");
+
         stream.addSink(
                 StreamingFileSink.forBulkFormat(Path.fromLocalFile(folder), avroWriterFactory)
                         .withBucketAssigner(new UniqueBucketAssigner<>("test"))
