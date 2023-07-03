@@ -84,6 +84,11 @@ public class StreamingFileSinkHelper<IN> implements ProcessingTimeCallback {
     }
 
     public void snapshotState(long checkpointId) throws Exception {
+        System.out.println(
+                "### StreamingFileSinkHelper.snapshotState("
+                        + checkpointId
+                        + ") in Thread "
+                        + Thread.currentThread());
         buckets.snapshotState(checkpointId, bucketStates, maxPartCountersState);
     }
 

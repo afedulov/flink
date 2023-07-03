@@ -122,6 +122,69 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** Default implementation of the {@link ExecutionGraph}. */
 public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionGraphAccessor {
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("ExecutionGraph(");
+        sb.append("JobID: ").append(getJobID()).append(", ");
+        sb.append("JobName: ").append(getJobName()).append(", ");
+        sb.append("Status: ").append(getState()).append(", ");
+        sb.append("Vertices: {\n");
+
+        for (ExecutionJobVertex vertex : getVerticesTopologically()) {
+            sb.append("    JobVertex(");
+            sb.append("ID: ").append(vertex.getJobVertexId()).append(", ");
+            sb.append("Name: ").append(vertex.getJobVertex().getName()).append(", ");
+            sb.append("Parallelism: ").append(vertex.getParallelism()).append(", ");
+
+            // Inputs
+            sb.append("Inputs: [");
+            if (vertex.isInitialized()) {
+                for (IntermediateResult input : vertex.getInputs()) {
+                    for (IntermediateResultPartition partition : input.getPartitions()) {
+                        sb.append("{ Partition ID: ").append(partition.getPartitionId());
+                        sb.append(", Producer JobVertex ID: ")
+                                .append(partition.getProducer().getJobvertexId())
+                                .append(" }, ");
+                    }
+                }
+                if (!vertex.getInputs().isEmpty()) {
+                    sb.setLength(sb.length() - 2);
+                }
+            }
+            // Remove trailing comma and space
+            sb.append("], ");
+
+            // Outputs
+            sb.append("Outputs: [");
+            if (vertex.isInitialized()) {
+                for (IntermediateResult output : vertex.getProducedDataSets()) {
+                    for (IntermediateResultPartition partition : output.getPartitions()) {
+                        sb.append("{ Partition ID: ")
+                                .append(partition.getPartitionId())
+                                .append(" }, ");
+                    }
+                }
+                // Remove trailing comma and space
+                if (!(vertex.getProducedDataSets().length == 0)) {
+                    sb.setLength(sb.length() - 2);
+                }
+            }
+            sb.append("]");
+
+            sb.append("),\n"); // Close JobVertex
+        }
+
+        // Remove last comma and newline
+        if (!getAllExecutionVertices().iterator().hasNext()) {
+            sb.setLength(sb.length() - 2);
+        }
+        sb.append("\n}"); // Close Vertices
+
+        sb.append(")"); // Close ExecutionGraph
+        return sb.toString();
+    }
+
     /** The log object used for debugging. */
     static final Logger LOG = LoggerFactory.getLogger(ExecutionGraph.class);
 

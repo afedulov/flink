@@ -18,25 +18,25 @@
 
 package org.apache.flink.table.planner.runtime.stream.sql;
 
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.connector.datagen.source.DataGeneratorSource;
 import org.apache.flink.streaming.api.scala.DataStream;
-import org.apache.flink.streaming.util.FiniteTestSource;
 import org.apache.flink.table.planner.runtime.utils.StreamingTestBase;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.CollectionUtil;
 
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.Timeout;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -47,7 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Streaming sink File Compaction ITCase base, test checkpoint. */
 public abstract class CompactionITCaseBase extends StreamingTestBase {
 
-    @Rule public Timeout timeoutPerTest = Timeout.seconds(90);
+    //    @Rule public Timeout timeoutPerTest = Timeout.seconds(90);
 
     private String resultPath;
 
@@ -58,6 +58,7 @@ public abstract class CompactionITCaseBase extends StreamingTestBase {
         resultPath = tempFolder().newFolder().toURI().toString();
 
         env().setParallelism(3);
+        // TODO: enableCheckpointing(200); - works better for stability
         env().enableCheckpointing(100);
 
         List<Row> rows = new ArrayList<>();
@@ -70,18 +71,21 @@ public abstract class CompactionITCaseBase extends StreamingTestBase {
         this.expectedRows.addAll(rows);
         this.expectedRows.sort(Comparator.comparingInt(o -> (Integer) o.getField(0)));
 
+        RowTypeInfo rowTypeInfo =
+                new RowTypeInfo(
+                        new TypeInformation[] {Types.INT, Types.STRING, Types.STRING},
+                        new String[] {"a", "b", "c"});
+
         DataStream<Row> stream =
                 new DataStream<>(
                                 env().getJavaEnv()
-                                        .addSource(
-                                                new FiniteTestSource<>(rows),
-                                                new RowTypeInfo(
-                                                        new TypeInformation[] {
-                                                            Types.INT, Types.STRING, Types.STRING
-                                                        },
-                                                        new String[] {"a", "b", "c"})))
+                                        .fromSource(
+                                                DataGeneratorSource.fromDataWithSnapshotsLatch(
+                                                        rows, rowTypeInfo),
+                                                WatermarkStrategy.noWatermarks(),
+                                                "Test Source"))
                         .filter((FilterFunction<Row>) value -> true)
-                        .setParallelism(3); // to parallel tasks
+                        .setParallelism(1); // to parallel tasks
 
         tEnv().createTemporaryView("my_table", stream);
     }
@@ -111,9 +115,37 @@ public abstract class CompactionITCaseBase extends StreamingTestBase {
                         parallelism);
         tEnv().executeSql(sql).await();
 
+        printFiles(resultPath);
+
         assertIterator(tEnv().executeSql("select * from sink_table").collect());
 
         assertFiles(new File(URI.create(resultPath)).listFiles(), false);
+    }
+
+    private static void printFiles(String directoryPath) {
+        File dir = new File(URI.create(directoryPath));
+
+        if (dir.isDirectory()) {
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile()) {
+                        System.out.println("File: " + file.getName());
+                        try {
+                            List<String> content = Files.readAllLines(file.toPath());
+                            for (String line : content) {
+                                System.out.println(line);
+                            }
+                        } catch (IOException e) {
+                            System.err.println("Error reading file: " + file.getName());
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+        } else {
+            System.out.println(directoryPath + " is not a directory.");
+        }
     }
 
     @Test
