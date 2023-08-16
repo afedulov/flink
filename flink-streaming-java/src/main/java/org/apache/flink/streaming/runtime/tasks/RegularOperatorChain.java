@@ -186,6 +186,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
             CheckpointStreamFactory storage)
             throws Exception {
         for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
+            System.out.println(operatorWrapper.getStreamOperator());
             if (!operatorWrapper.isClosed()) {
                 operatorSnapshotsInProgress.put(
                         operatorWrapper.getStreamOperator().getOperatorID(),

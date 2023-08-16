@@ -50,7 +50,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *     the iterator that produces this reader's elements.
  */
 @Public
-public abstract class IteratorSourceReaderBase<
+public abstract class IteratorSourceReaderBaseCopy<
                 E, O, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
         implements SourceReader<O, SplitT> {
 
@@ -58,32 +58,34 @@ public abstract class IteratorSourceReaderBase<
     private final SourceReaderContext context;
 
     /** The availability future. This reader is available as soon as a split is assigned. */
-    protected CompletableFuture<Void> availability;
+    private CompletableFuture<Void> availability;
 
     /**
      * The iterator producing data. Non-null after a split has been assigned. This field is null or
      * non-null always together with the {@link #currentSplit} field.
      */
-    @Nullable protected IterT iterator;
+    @Nullable private IterT iterator;
 
     /**
      * The split whose data we return. Non-null after a split has been assigned. This field is null
      * or non-null always together with the {@link #iterator} field.
      */
-    @Nullable protected SplitT currentSplit;
+    @Nullable private SplitT currentSplit;
 
     /** The remaining splits that were assigned but not yet processed. */
     private final Queue<SplitT> remainingSplits;
 
     private boolean noMoreSplits;
 
-    public IteratorSourceReaderBase(SourceReaderContext context) {
+    public IteratorSourceReaderBaseCopy(SourceReaderContext context) {
         this.context = checkNotNull(context);
         this.availability = new CompletableFuture<>();
         this.remainingSplits = new ArrayDeque<>();
     }
 
     // ------------------------------------------------------------------------
+
+    E element;
 
     @Override
     public void start() {
@@ -96,12 +98,68 @@ public abstract class IteratorSourceReaderBase<
 
     protected void start(SourceReaderContext context) {}
 
+    int cycle = 0;
+
     @Override
     public InputStatus pollNext(ReaderOutput<O> output) {
+
+        //        System.out.println("pollNext in " + Thread.currentThread());
+        //        System.out.println("Cycle: " + cycle);
+        //        if (iterator == null) {
+        //            final InputStatus inputStatus = tryMoveToNextSplit();
+        //            if (inputStatus == InputStatus.MORE_AVAILABLE) {
+        //                element = iterator.next();
+        //            }
+        //        }
+        //
+        //        if (cycle == 0) {
+        //            output.collect(convert(element));
+        //            output.collect(convert(element));
+        //            output.collect(convert(element));
+        //            cycle++;
+        //            return InputStatus.MORE_AVAILABLE;
+        //        }
+        //
+        //        if (cycle == 1) {
+        //            output.collect(convert(element));
+        //            output.collect(convert(element));
+        //            output.collect(convert(element));
+        //            cycle++;
+        //        }
+        //
+        //        return InputStatus.MORE_AVAILABLE;
+
+        /*
+        System.out.println("pollNext in " + Thread.currentThread());
+        System.out.println("Cycle: " + cycle);
+        if (iterator == null || element == null) {
+            final InputStatus inputStatus = tryMoveToNextSplit();
+            if (inputStatus == InputStatus.MORE_AVAILABLE) {
+                element = iterator.next();
+            }
+        }
+
+        if (cycle == 0) {
+            output.collect(convert(element));
+            output.collect(convert(element));
+            output.collect(convert(element));
+            cycle++;
+            return InputStatus.NOTHING_AVAILABLE;
+        }
+        return InputStatus.END_OF_INPUT;*/
+
+        System.out.println("pollNext in " + Thread.currentThread());
         if (iterator != null) {
+            while (iterator.hasNext()) {
+                System.out.println(">>>" + iterator.next());
+            }
+
             if (iterator.hasNext()) {
                 output.collect(convert(iterator.next()));
+                output.collect(convert(iterator.next()));
+                //                output.collect(convert(iterator.next()));
                 return InputStatus.MORE_AVAILABLE;
+                //                return InputStatus.END_OF_INPUT;
             } else {
                 finishSplit();
             }
@@ -109,13 +167,15 @@ public abstract class IteratorSourceReaderBase<
         final InputStatus inputStatus = tryMoveToNextSplit();
         if (inputStatus == InputStatus.MORE_AVAILABLE) {
             output.collect(convert(iterator.next()));
+            output.collect(convert(iterator.next()));
+            output.collect(convert(iterator.next()));
         }
         return inputStatus;
     }
 
     protected abstract O convert(E value);
 
-    protected void finishSplit() {
+    private void finishSplit() {
         iterator = null;
         currentSplit = null;
 
@@ -127,7 +187,7 @@ public abstract class IteratorSourceReaderBase<
         }
     }
 
-    protected InputStatus tryMoveToNextSplit() {
+    private InputStatus tryMoveToNextSplit() {
         currentSplit = remainingSplits.poll();
         if (currentSplit != null) {
             iterator = currentSplit.getIterator();
@@ -163,8 +223,21 @@ public abstract class IteratorSourceReaderBase<
         availability.complete(null);
     }
 
+    int snapshotsBetween = 2;
+
     @Override
     public List<SplitT> snapshotState(long checkpointId) {
+        System.out.println(
+                "@@@ SourceReader.snapshotState("
+                        + checkpointId
+                        + ") in Thread "
+                        + Thread.currentThread());
+        System.out.println("@@@ snapshotsBetween: " + snapshotsBetween);
+        snapshotsBetween = snapshotsBetween - 1;
+        if (snapshotsBetween == 0) {
+            availability.complete(null);
+        }
+
         if (currentSplit == null && remainingSplits.isEmpty()) {
             return Collections.emptyList();
         }
@@ -179,6 +252,7 @@ public abstract class IteratorSourceReaderBase<
             allSplits.add(inProgressSplit);
         }
         allSplits.addAll(remainingSplits);
+
         return allSplits;
     }
 

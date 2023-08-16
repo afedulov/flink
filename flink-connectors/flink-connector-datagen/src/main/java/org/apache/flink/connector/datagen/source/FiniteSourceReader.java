@@ -16,13 +16,15 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.connector.source.lib.util;
+package org.apache.flink.connector.datagen.source;
 
 import org.apache.flink.annotation.Public;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.api.connector.source.lib.util.IteratorSourceSplit;
 import org.apache.flink.core.io.InputStatus;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import javax.annotation.Nullable;
 
@@ -50,7 +52,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *     the iterator that produces this reader's elements.
  */
 @Public
-public abstract class IteratorSourceReaderBase<
+public class FiniteSourceReader<
                 E, O, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
         implements SourceReader<O, SplitT> {
 
@@ -58,35 +60,49 @@ public abstract class IteratorSourceReaderBase<
     private final SourceReaderContext context;
 
     /** The availability future. This reader is available as soon as a split is assigned. */
-    protected CompletableFuture<Void> availability;
+    private CompletableFuture<Void> availability;
 
     /**
      * The iterator producing data. Non-null after a split has been assigned. This field is null or
      * non-null always together with the {@link #currentSplit} field.
      */
-    @Nullable protected IterT iterator;
+    @Nullable private IterT iterator;
 
     /**
      * The split whose data we return. Non-null after a split has been assigned. This field is null
      * or non-null always together with the {@link #iterator} field.
      */
-    @Nullable protected SplitT currentSplit;
+    @Nullable private SplitT currentSplit;
 
     /** The remaining splits that were assigned but not yet processed. */
     private final Queue<SplitT> remainingSplits;
 
+    private final GeneratorFunction<E, O> generatorFunction;
+
     private boolean noMoreSplits;
 
-    public IteratorSourceReaderBase(SourceReaderContext context) {
+    private final int elementsPerCycle;
+
+    public FiniteSourceReader(
+            SourceReaderContext context,
+            GeneratorFunction<E, O> generatorFunction,
+            int elementsPerCycle) {
         this.context = checkNotNull(context);
+        this.generatorFunction = checkNotNull(generatorFunction);
         this.availability = new CompletableFuture<>();
         this.remainingSplits = new ArrayDeque<>();
+        this.elementsPerCycle = elementsPerCycle;
     }
 
     // ------------------------------------------------------------------------
 
     @Override
     public void start() {
+        try {
+            generatorFunction.open(context);
+        } catch (Exception e) {
+            throw new FlinkRuntimeException("Failed to open the GeneratorFunction", e);
+        }
         // request a split if we don't have one
         if (remainingSplits.isEmpty()) {
             context.sendSplitRequest();
@@ -98,24 +114,50 @@ public abstract class IteratorSourceReaderBase<
 
     @Override
     public InputStatus pollNext(ReaderOutput<O> output) {
+
+        System.out.println("pollNext in " + Thread.currentThread());
         if (iterator != null) {
             if (iterator.hasNext()) {
-                output.collect(convert(iterator.next()));
+                emitElements(output);
                 return InputStatus.MORE_AVAILABLE;
             } else {
                 finishSplit();
             }
         }
+
         final InputStatus inputStatus = tryMoveToNextSplit();
         if (inputStatus == InputStatus.MORE_AVAILABLE) {
-            output.collect(convert(iterator.next()));
+            emitElements(output);
+            availability = new CompletableFuture<>();
+            return InputStatus.NOTHING_AVAILABLE;
         }
         return inputStatus;
     }
 
-    protected abstract O convert(E value);
+    private InputStatus emitElements(ReaderOutput<O> output) {
+        for (int i = 0; i < elementsPerCycle; i++) {
+            if (iterator.hasNext()) {
+                output.collect(convert(iterator.next()));
+            } else {
+                return InputStatus.NOTHING_AVAILABLE;
+            }
+        }
+        return InputStatus.MORE_AVAILABLE;
+    }
 
-    protected void finishSplit() {
+    protected O convert(E value) {
+        try {
+            return generatorFunction.map(value);
+        } catch (Exception e) {
+            String message =
+                    String.format(
+                            "A user-provided generator function threw an exception on this input: %s",
+                            value.toString());
+            throw new FlinkRuntimeException(message, e);
+        }
+    }
+
+    private void finishSplit() {
         iterator = null;
         currentSplit = null;
 
@@ -127,7 +169,7 @@ public abstract class IteratorSourceReaderBase<
         }
     }
 
-    protected InputStatus tryMoveToNextSplit() {
+    private InputStatus tryMoveToNextSplit() {
         currentSplit = remainingSplits.poll();
         if (currentSplit != null) {
             iterator = currentSplit.getIterator();
@@ -163,8 +205,21 @@ public abstract class IteratorSourceReaderBase<
         availability.complete(null);
     }
 
+    int snapshotsBetween = 2;
+
     @Override
     public List<SplitT> snapshotState(long checkpointId) {
+        System.out.println(
+                "@@@ SourceReader.snapshotState("
+                        + checkpointId
+                        + ") in Thread "
+                        + Thread.currentThread());
+        snapshotsBetween--;
+        System.out.println("@@@ snapshotsBetween: " + snapshotsBetween);
+        if (snapshotsBetween == 0) {
+            availability.complete(null);
+        }
+
         if (currentSplit == null && remainingSplits.isEmpty()) {
             return Collections.emptyList();
         }
@@ -179,6 +234,7 @@ public abstract class IteratorSourceReaderBase<
             allSplits.add(inProgressSplit);
         }
         allSplits.addAll(remainingSplits);
+
         return allSplits;
     }
 

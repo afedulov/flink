@@ -217,6 +217,7 @@ public class Buckets<IN, BucketID> {
     }
 
     public void commitUpToCheckpoint(final long checkpointId) throws IOException {
+        //        System.out.println(">>> Checkpoint: " + checkpointId);
         final Iterator<Map.Entry<BucketID, Bucket<IN, BucketID>>> activeBucketIt =
                 activeBuckets.entrySet().iterator();
 
@@ -297,6 +298,7 @@ public class Buckets<IN, BucketID> {
             @Nullable final Long elementTimestamp,
             final long currentWatermark)
             throws Exception {
+        System.out.println("IN: " + value);
         // setting the values in the bucketer context
         bucketerContext.update(elementTimestamp, currentWatermark, currentProcessingTime);
 
