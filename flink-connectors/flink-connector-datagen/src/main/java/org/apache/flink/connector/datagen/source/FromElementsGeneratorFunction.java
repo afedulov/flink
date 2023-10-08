@@ -19,17 +19,25 @@
 package org.apache.flink.connector.datagen.source;
 
 import org.apache.flink.annotation.Experimental;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.api.java.typeutils.OutputTypeConfigurable;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 
 /**
  * A stream generator function that returns a sequence of elements.
@@ -40,46 +48,61 @@ import java.util.Collection;
  *
  * <p><b>NOTE:</b> This source has a parallelism of 1.
  *
- * @param <T> The type of elements returned by this function.
+ * @param <OUT> The type of elements returned by this function.
  */
 @Experimental
-public class FromElementsGeneratorFunction<T> implements GeneratorFunction<Long, T> {
+public class FromElementsGeneratorFunction<OUT>
+        implements GeneratorFunction<Long, OUT>, OutputTypeConfigurable<OUT> {
 
     private static final long serialVersionUID = 1L;
 
     /** The (de)serializer to be used for the data elements. */
-    private final TypeSerializer<T> serializer;
+    private @Nullable TypeSerializer<OUT> serializer;
 
     /** The actual data elements, in serialized form. */
-    private final byte[] elementsSerialized;
+    private byte[] elementsSerialized;
 
     /** The number of elements emitted already. */
     private int numElementsEmitted;
 
+    private final transient Iterable<OUT> elements;
+
     private transient ByteArrayInputStream bais;
     private transient DataInputView input;
 
-    public FromElementsGeneratorFunction(TypeSerializer<T> serializer, T... elements)
+    public FromElementsGeneratorFunction(TypeSerializer<OUT> serializer, OUT... elements)
             throws IOException {
         this(serializer, Arrays.asList(elements));
     }
 
-    public FromElementsGeneratorFunction(TypeSerializer<T> serializer, Iterable<T> elements)
+    //    public FromElementsGeneratorFunction(OUT... elements) throws IOException {
+    //        this(Arrays.asList(elements));
+    //    }
+
+    //    public FromElementsGeneratorFunction(Iterable<OUT> elements) {
+    //        this.serializer = null;
+    //        this.elements = elements;
+    //        checkIterable(elements, Object.class);
+    //    }
+
+    public FromElementsGeneratorFunction(TypeSerializer<OUT> serializer, Iterable<OUT> elements)
             throws IOException {
+        this.serializer = Preconditions.checkNotNull(serializer);
+        this.elements = elements;
+        serializeElements();
+    }
+
+    private void serializeElements() throws IOException {
+        Preconditions.checkState(serializer != null, "serializer not set");
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputViewStreamWrapper wrapper = new DataOutputViewStreamWrapper(baos);
-
-        int count = 0;
         try {
-            for (T element : elements) {
+            for (OUT element : elements) {
                 serializer.serialize(element, wrapper);
-                count++;
             }
         } catch (Exception e) {
             throw new IOException("Serializing the source elements failed: " + e.getMessage(), e);
         }
-
-        this.serializer = serializer;
         this.elementsSerialized = baos.toByteArray();
     }
 
@@ -90,7 +113,7 @@ public class FromElementsGeneratorFunction<T> implements GeneratorFunction<Long,
     }
 
     @Override
-    public T map(Long nextIndex) throws Exception {
+    public OUT map(Long nextIndex) throws Exception {
         // Move iterator to the required position in case of failure recovery
         while (numElementsEmitted < nextIndex) {
             numElementsEmitted++;
@@ -100,7 +123,8 @@ public class FromElementsGeneratorFunction<T> implements GeneratorFunction<Long,
         return tryDeserialize(serializer, input);
     }
 
-    private T tryDeserialize(TypeSerializer<T> serializer, DataInputView input) throws IOException {
+    private OUT tryDeserialize(TypeSerializer<OUT> serializer, DataInputView input)
+            throws IOException {
         try {
             return serializer.deserialize(input);
         } catch (Exception e) {
@@ -110,6 +134,24 @@ public class FromElementsGeneratorFunction<T> implements GeneratorFunction<Long,
                             + "serialization functions.\nSerializer is "
                             + serializer,
                     e);
+        }
+    }
+
+    @Override
+    public void setOutputType(TypeInformation<OUT> outTypeInfo, ExecutionConfig executionConfig) {
+        Preconditions.checkState(
+                elements != null,
+                "The output type should've been specified before shipping the graph to the cluster");
+        checkIterable(elements, outTypeInfo.getTypeClass());
+        TypeSerializer<OUT> newSerializer = outTypeInfo.createSerializer(executionConfig);
+        if (Objects.equals(serializer, newSerializer)) {
+            return;
+        }
+        serializer = newSerializer;
+        try {
+            serializeElements();
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
         }
     }
 
@@ -126,6 +168,20 @@ public class FromElementsGeneratorFunction<T> implements GeneratorFunction<Long,
      * @param <OUT> The generic type of the collection to be checked.
      */
     public static <OUT> void checkCollection(Collection<OUT> elements, Class<OUT> viewedAs) {
+        for (OUT elem : elements) {
+            if (elem == null) {
+                throw new IllegalArgumentException("The collection contains a null element");
+            }
+
+            if (!viewedAs.isAssignableFrom(elem.getClass())) {
+                throw new IllegalArgumentException(
+                        "The elements in the collection are not all subclasses of "
+                                + viewedAs.getCanonicalName());
+            }
+        }
+    }
+
+    private static <OUT> void checkIterable(Iterable<OUT> elements, Class<?> viewedAs) {
         for (OUT elem : elements) {
             if (elem == null) {
                 throw new IllegalArgumentException("The collection contains a null element");

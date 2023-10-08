@@ -17,44 +17,49 @@
 
 package org.apache.flink.streaming.api.environment;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.fail;
-
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.operators.SlotSharingGroup;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.typeutils.GenericTypeInfo;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.connector.datagen.source.DataGeneratorSource;
+import org.apache.flink.core.testutils.CheckedThread;
+import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
-import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
 import org.apache.flink.streaming.api.functions.sink.v2.DiscardingSink;
-import org.apache.flink.streaming.api.functions.source.FromElementsFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.source.StatefulSequenceSource;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamGraphGenerator;
 import org.apache.flink.streaming.api.operators.AbstractUdfStreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperator;
+import org.apache.flink.streaming.api.transformations.SourceTransformation;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.SplittableIterator;
+
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CountDownLatch;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 
 /** Tests for {@link StreamExecutionEnvironment}. */
 class StreamExecutionEnvironmentTest {
@@ -490,7 +495,7 @@ class StreamExecutionEnvironmentTest {
     @SuppressWarnings("unchecked")
     private static <T, S extends Source<T, ?, ?>> S getSourceFromDataSource(
             DataStreamSource<T> dataStreamSource) {
-        dataStreamSource.addSink(new DiscardingSink<>());
+        dataStreamSource.sinkTo(new DiscardingSink<>());
         dataStreamSource.getExecutionEnvironment().getStreamGraph();
         return (S)
                 ((SourceTransformation<T, ?, ?>) dataStreamSource.getTransformation()).getSource();
@@ -498,7 +503,7 @@ class StreamExecutionEnvironmentTest {
 
     private static <T> Source<T, ?, ?> getSourceFromDataSourceTyped(
             DataStreamSource<T> dataStreamSource) {
-        dataStreamSource.addSink(new DiscardingSink<>());
+        dataStreamSource.sinkTo(new DiscardingSink<>());
         dataStreamSource.getExecutionEnvironment().getStreamGraph();
         return ((SourceTransformation<T, ?, ?>) dataStreamSource.getTransformation()).getSource();
     }
