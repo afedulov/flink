@@ -339,14 +339,12 @@ LogicalProject(a=[$0], d=[$1], e=[$2], f=[$3], ny=[$4])
     </Resource>
     <Resource name="optimized exec plan">
       <![CDATA[
-NestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])
-:- Union(all=[true], union=[a])
-:  :- Calc(select=[a])
-:  :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, x, source: [TestTableSource(a, b, c, nx)]]], fields=[a, b, c, nx])
-:  +- Calc(select=[a])
-:     +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
-+- Exchange(distribution=[broadcast])
-   +- LegacyTableSourceScan(table=[[default_catalog, default_database, y, source: [TestTableSource(d, e, f, ny)]]], fields=[d, e, f, ny])
+MultipleInput(readOrder=[0,1,1], members=[\nNestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])\n:- Union(all=[true], union=[a])\n:  :- [#2] Calc(select=[a])\n:  +- Calc(select=[a])\n:     +- [#3] BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])\n+- [#1] Exchange(distribution=[broadcast])\n])
+:- Exchange(distribution=[broadcast])
+:  +- LegacyTableSourceScan(table=[[default_catalog, default_database, y, source: [TestTableSource(d, e, f, ny)]]], fields=[d, e, f, ny])
+:- Calc(select=[a])
+:  +- LegacyTableSourceScan(table=[[default_catalog, default_database, x, source: [TestTableSource(a, b, c, nx)]]], fields=[a, b, c, nx])
++- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
 ]]>
     </Resource>
   </TestCase>
@@ -373,14 +371,12 @@ LogicalProject(a=[$0], d=[$1], e=[$2], f=[$3], ny=[$4])
     </Resource>
     <Resource name="optimized exec plan">
       <![CDATA[
-NestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])
-:- Union(all=[true], union=[a])
-:  :- Calc(select=[a])
-:  :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, x, source: [TestTableSource(a, b, c, nx)]]], fields=[a, b, c, nx])
-:  +- Calc(select=[a])
-:     +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
-+- Exchange(distribution=[broadcast])
-   +- LegacyTableSourceScan(table=[[default_catalog, default_database, y, source: [TestTableSource(d, e, f, ny)]]], fields=[d, e, f, ny])
+MultipleInput(readOrder=[0,1,1], members=[\nNestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])\n:- Union(all=[true], union=[a])\n:  :- [#2] Calc(select=[a])\n:  +- Calc(select=[a])\n:     +- [#3] BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])\n+- [#1] Exchange(distribution=[broadcast])\n])
+:- Exchange(distribution=[broadcast])
+:  +- LegacyTableSourceScan(table=[[default_catalog, default_database, y, source: [TestTableSource(d, e, f, ny)]]], fields=[d, e, f, ny])
+:- Calc(select=[a])
+:  +- LegacyTableSourceScan(table=[[default_catalog, default_database, x, source: [TestTableSource(a, b, c, nx)]]], fields=[a, b, c, nx])
++- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
 ]]>
     </Resource>
   </TestCase>
@@ -407,14 +403,12 @@ LogicalProject(a=[$0], d=[$1], e=[$2], f=[$3], ny=[$4])
     </Resource>
     <Resource name="optimized exec plan">
       <![CDATA[
-NestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])
-:- Union(all=[true], union=[a])
-:  :- Calc(select=[a])
-:  :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, x, source: [TestTableSource(a, b, c, nx)]]], fields=[a, b, c, nx])
-:  +- Calc(select=[a])
-:     +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
-+- Exchange(distribution=[broadcast])
-   +- LegacyTableSourceScan(table=[[default_catalog, default_database, y, source: [TestTableSource(d, e, f, ny)]]], fields=[d, e, f, ny])
+MultipleInput(readOrder=[0,1,1], members=[\nNestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])\n:- Union(all=[true], union=[a])\n:  :- [#2] Calc(select=[a])\n:  +- Calc(select=[a])\n:     +- [#3] BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])\n+- [#1] Exchange(distribution=[broadcast])\n])
+:- Exchange(distribution=[broadcast])
+:  +- LegacyTableSourceScan(table=[[default_catalog, default_database, y, source: [TestTableSource(d, e, f, ny)]]], fields=[d, e, f, ny])
+:- Calc(select=[a])
+:  +- LegacyTableSourceScan(table=[[default_catalog, default_database, x, source: [TestTableSource(a, b, c, nx)]]], fields=[a, b, c, nx])
++- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
 ]]>
     </Resource>
   </TestCase>
@@ -888,12 +882,11 @@ LogicalProject(a=[$0], d=[$1], e=[$2], f=[$3], ny=[$4])
     </Resource>
     <Resource name="optimized exec plan">
       <![CDATA[
-MultipleInput(readOrder=[0,1,1], members=[\nNestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])\n:- Union(all=[true], union=[a])\n:  :- [#2] BoundedStreamScan(table=[[default_catalog, default_database, chainable]], fields=[a])\n:  +- [#3] Calc(select=[a])\n+- [#1] Exchange(distribution=[broadcast])\n])
+MultipleInput(readOrder=[0,1,1], members=[\nNestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])\n:- Union(all=[true], union=[a])\n:  :- [#2] BoundedStreamScan(table=[[default_catalog, default_database, chainable]], fields=[a])\n:  +- Calc(select=[a])\n:     +- [#3] BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])\n+- [#1] Exchange(distribution=[broadcast])\n])
 :- Exchange(distribution=[broadcast])
 :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, y, source: [TestTableSource(d, e, f, ny)]]], fields=[d, e, f, ny])
 :- BoundedStreamScan(table=[[default_catalog, default_database, chainable]], fields=[a])
-+- Calc(select=[a])
-   +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
++- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
 ]]>
     </Resource>
   </TestCase>
@@ -920,12 +913,11 @@ LogicalProject(a=[$0], d=[$1], e=[$2], f=[$3], ny=[$4])
     </Resource>
     <Resource name="optimized exec plan">
       <![CDATA[
-MultipleInput(readOrder=[0,1,1], members=[\nNestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])\n:- Union(all=[true], union=[a])\n:  :- [#2] BoundedStreamScan(table=[[default_catalog, default_database, chainable]], fields=[a])\n:  +- [#3] Calc(select=[a])\n+- [#1] Exchange(distribution=[broadcast])\n])
+MultipleInput(readOrder=[0,1,1], members=[\nNestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])\n:- Union(all=[true], union=[a])\n:  :- [#2] BoundedStreamScan(table=[[default_catalog, default_database, chainable]], fields=[a])\n:  +- Calc(select=[a])\n:     +- [#3] BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])\n+- [#1] Exchange(distribution=[broadcast])\n])
 :- Exchange(distribution=[broadcast])
 :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, y, source: [TestTableSource(d, e, f, ny)]]], fields=[d, e, f, ny])
 :- BoundedStreamScan(table=[[default_catalog, default_database, chainable]], fields=[a])
-+- Calc(select=[a])
-   +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
++- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
 ]]>
     </Resource>
   </TestCase>
@@ -952,12 +944,11 @@ LogicalProject(a=[$0], d=[$1], e=[$2], f=[$3], ny=[$4])
     </Resource>
     <Resource name="optimized exec plan">
       <![CDATA[
-MultipleInput(readOrder=[0,1,1], members=[\nNestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])\n:- Union(all=[true], union=[a])\n:  :- [#2] BoundedStreamScan(table=[[default_catalog, default_database, chainable]], fields=[a])\n:  +- [#3] Calc(select=[a])\n+- [#1] Exchange(distribution=[broadcast])\n])
+MultipleInput(readOrder=[0,1,1], members=[\nNestedLoopJoin(joinType=[LeftOuterJoin], where=[(a = d)], select=[a, d, e, f, ny], build=[right])\n:- Union(all=[true], union=[a])\n:  :- [#2] BoundedStreamScan(table=[[default_catalog, default_database, chainable]], fields=[a])\n:  +- Calc(select=[a])\n:     +- [#3] BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])\n+- [#1] Exchange(distribution=[broadcast])\n])
 :- Exchange(distribution=[broadcast])
 :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, y, source: [TestTableSource(d, e, f, ny)]]], fields=[d, e, f, ny])
 :- BoundedStreamScan(table=[[default_catalog, default_database, chainable]], fields=[a])
-+- Calc(select=[a])
-   +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
++- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
 ]]>
     </Resource>
   </TestCase>
