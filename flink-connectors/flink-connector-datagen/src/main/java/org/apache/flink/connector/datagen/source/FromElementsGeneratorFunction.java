@@ -18,7 +18,7 @@
 
 package org.apache.flink.connector.datagen.source;
 
-import org.apache.flink.annotation.Experimental;
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
@@ -50,7 +50,7 @@ import java.util.Objects;
  *
  * @param <OUT> The type of elements returned by this function.
  */
-@Experimental
+@Internal
 public class FromElementsGeneratorFunction<OUT>
         implements GeneratorFunction<Long, OUT>, OutputTypeConfigurable<OUT> {
 
