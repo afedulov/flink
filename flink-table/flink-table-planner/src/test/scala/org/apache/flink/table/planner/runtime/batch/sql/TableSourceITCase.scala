@@ -426,7 +426,7 @@ class TableSourceITCase extends BatchTestBase {
       "3,2,Hello world",
       "3,2,Hello world",
       "3,2,Hello world")
-    assertThat(expected.sorted).isEqualTo(result.sorted)
+    assertThat(result.sorted).isEqualTo(expected.sorted)
   }
 
   @Test

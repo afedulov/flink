@@ -71,9 +71,9 @@ class TableSinkITCase extends BatchTestBase {
     assertThat(TableTestUtil.readFromFile(resultPath).isEmpty).isTrue
     val expected = Seq("1,1,Hi", "2,2,Hello", "3,2,Hello world")
     val result1 = TableTestUtil.readFromFile(newPath1)
-    assertThat(expected.sorted).isEqualTo(result1.sorted)
+    assertThat(result1.sorted).isEqualTo(expected.sorted)
     val result2 = TableTestUtil.readFromFile(newPath2)
-    assertThat(expected.sorted).isEqualTo(result2.sorted)
+    assertThat(result2.sorted).isEqualTo(expected.sorted)
   }
 
   @Test

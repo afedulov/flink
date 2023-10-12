@@ -373,6 +373,6 @@ class LegacyTableSourceITCase extends BatchTestBase {
 
     val result = TableTestUtil.readFromFile(resultPath)
     val expected = Seq("31,31,31.0", "32,32,32.0", "32,32,32.0")
-    assertThat(expected.sorted).isEqualTo(result.sorted)
+    assertThat(result.sorted).isEqualTo(expected.sorted)
   }
 }
