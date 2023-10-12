@@ -17,10 +17,6 @@
 
 package org.apache.flink.streaming.api.environment;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
-import com.esotericsoftware.kryo.Serializer;
-
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.Public;
@@ -116,6 +112,10 @@ import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.TernaryBoolean;
 import org.apache.flink.util.WrappingRuntimeException;
 
+import com.esotericsoftware.kryo.Serializer;
+
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
@@ -133,7 +133,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import javax.annotation.Nullable;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * The StreamExecutionEnvironment is the context in which a streaming program is executed. A {@link
