@@ -17,6 +17,10 @@
 
 package org.apache.flink.streaming.api.environment;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+import com.esotericsoftware.kryo.Serializer;
+
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.Public;
@@ -88,6 +92,7 @@ import org.apache.flink.streaming.api.functions.source.ContinuousFileReaderOpera
 import org.apache.flink.streaming.api.functions.source.FileMonitoringFunction;
 import org.apache.flink.streaming.api.functions.source.FileProcessingMode;
 import org.apache.flink.streaming.api.functions.source.FileReadFunction;
+import org.apache.flink.streaming.api.functions.source.FromElementsFunction;
 import org.apache.flink.streaming.api.functions.source.FromIteratorFunction;
 import org.apache.flink.streaming.api.functions.source.FromSplittableIteratorFunction;
 import org.apache.flink.streaming.api.functions.source.InputFormatSourceFunction;
@@ -112,10 +117,6 @@ import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.TernaryBoolean;
 import org.apache.flink.util.WrappingRuntimeException;
 
-import com.esotericsoftware.kryo.Serializer;
-
-import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
@@ -133,7 +134,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
+import javax.annotation.Nullable;
 
 /**
  * The StreamExecutionEnvironment is the context in which a streaming program is executed. A {@link
@@ -1220,7 +1221,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                             + "StreamExecutionEnvironment#fromElements(Collection, TypeInformation)",
                     e);
         }
-        return fromCollection(Arrays.asList(data), typeInfo);
+        return fromData(Arrays.asList(data), typeInfo);
     }
 
     /**
@@ -1275,6 +1276,18 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @return The data stream representing the given collection
      */
     public <OUT> DataStreamSource<OUT> fromCollection(
+            Collection<OUT> data, TypeInformation<OUT> typeInfo) {
+        Preconditions.checkNotNull(data, "Collection must not be null");
+
+        // must not have null elements and mixed elements
+        FromElementsFunction.checkCollection(data, typeInfo.getTypeClass());
+
+        SourceFunction<OUT> function = new FromElementsFunction<>(data);
+        return addSource(function, "Collection Source", typeInfo, Boundedness.BOUNDED)
+                .setParallelism(1);
+    }
+
+    private <OUT> DataStreamSource<OUT> fromData(
             Collection<OUT> data, TypeInformation<OUT> typeInfo) {
         Preconditions.checkNotNull(data, "Collection must not be null");
 

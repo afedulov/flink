@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CountDownLatch;
 
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
@@ -97,10 +98,8 @@ class StreamExecutionEnvironmentTest {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStreamSource<String> source = env.fromElements("a", "b");
         TypeInformation<String> customType = new GenericTypeInfo<>(String.class);
-
         source.returns(customType);
 
-        // TODO: how to achieve FLINK-21386 with DataGeneratorSource?
         DataGeneratorSource<String> generatorSource = getSourceFromDataSource(source);
 
         assertThat(generatorSource.getProducedType()).isNotEqualTo(BasicTypeInfo.STRING_TYPE_INFO);
@@ -108,10 +107,30 @@ class StreamExecutionEnvironmentTest {
     }
 
     @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void testFromElementsPostConstructionTypeIncompatible() {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        DataStreamSource<String> source = env.fromElements("a", "b");
+        source.returns((TypeInformation) BasicTypeInfo.INT_TYPE_INFO);
+
+        assertThatThrownBy(() -> getSourceFromDataSource(source))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not all subclasses of java.lang.Integer");
+    }
+
+    @Test
+    void testFromElementsNullElement() {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        assertThatThrownBy(() -> env.fromElements("a", null, "c"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("contains a null element");
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void testFromCollectionParallelism() {
         try {
-            TypeInformation<Integer> typeInfo = BasicTypeInfo.INT_TYPE_INFO;
+            TypeInformation<Integer> typeInfo = INT_TYPE_INFO;
             StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
             DataStreamSource<Integer> dataStream1 =
@@ -303,7 +322,7 @@ class StreamExecutionEnvironmentTest {
     @Test
     void testGetStreamGraph() {
         try {
-            TypeInformation<Integer> typeInfo = BasicTypeInfo.INT_TYPE_INFO;
+            TypeInformation<Integer> typeInfo = INT_TYPE_INFO;
             StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
             DataStreamSource<Integer> dataStream1 =
