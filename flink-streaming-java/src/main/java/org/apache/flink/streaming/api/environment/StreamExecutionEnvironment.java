@@ -1188,7 +1188,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                             + "StreamExecutionEnvironment#fromElements(Collection, TypeInformation)",
                     e);
         }
-        return fromCollection(Arrays.asList(data), typeInfo);
+        return fromData(Arrays.asList(data), typeInfo);
     }
 
     /**
