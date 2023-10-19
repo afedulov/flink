@@ -106,11 +106,13 @@ public class StreamExecutionEnvironmentITCase {
     void testAvroGenericRecordsInFromElements() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         Schema schema = getSchemaFromResources("/avro/user.avsc");
-        GenericRecord user =
+        GenericRecord user1 =
                 new GenericRecordBuilder(schema).set("name", "Foo").set("age", 40).build();
-        GenericRecord[] data = {user};
+        GenericRecord user2 =
+                new GenericRecordBuilder(schema).set("name", "Bar").set("age", 45).build();
+        GenericRecord[] data = {user1, user2};
         DataStream<GenericRecord> stream =
-                env.fromElements(user).returns(new GenericRecordAvroTypeInfo(schema));
+                env.fromElements(data).returns(new GenericRecordAvroTypeInfo(schema));
         DataGeneratorSource<GenericRecord> source = getSourceFromStream(stream);
         FromElementsGeneratorFunction<GenericRecord> generatorFunction =
                 (FromElementsGeneratorFunction<GenericRecord>) source.getGeneratorFunction();
