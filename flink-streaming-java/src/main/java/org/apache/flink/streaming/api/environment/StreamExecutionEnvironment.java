@@ -88,7 +88,6 @@ import org.apache.flink.streaming.api.functions.source.ContinuousFileReaderOpera
 import org.apache.flink.streaming.api.functions.source.FileMonitoringFunction;
 import org.apache.flink.streaming.api.functions.source.FileProcessingMode;
 import org.apache.flink.streaming.api.functions.source.FileReadFunction;
-import org.apache.flink.streaming.api.functions.source.FromElementsFunction;
 import org.apache.flink.streaming.api.functions.source.FromIteratorFunction;
 import org.apache.flink.streaming.api.functions.source.FromSplittableIteratorFunction;
 import org.apache.flink.streaming.api.functions.source.InputFormatSourceFunction;
@@ -1278,13 +1277,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     public <OUT> DataStreamSource<OUT> fromCollection(
             Collection<OUT> data, TypeInformation<OUT> typeInfo) {
         Preconditions.checkNotNull(data, "Collection must not be null");
-
-        // must not have null elements and mixed elements
-        FromElementsFunction.checkCollection(data, typeInfo.getTypeClass());
-
-        SourceFunction<OUT> function = new FromElementsFunction<>(data);
-        return addSource(function, "Collection Source", typeInfo, Boundedness.BOUNDED)
-                .setParallelism(1);
+        return fromData(data, typeInfo);
     }
 
     private <OUT> DataStreamSource<OUT> fromData(
