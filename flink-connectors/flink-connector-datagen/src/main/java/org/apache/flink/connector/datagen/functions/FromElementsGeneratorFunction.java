@@ -24,11 +24,11 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.connector.source.SourceReaderContext;
-import org.apache.flink.api.java.typeutils.OutputTypeConfigurable;
 import org.apache.flink.connector.datagen.source.GeneratorFunction;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.streaming.api.operators.OutputTypeConfigurable;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
