@@ -1292,7 +1292,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         Preconditions.checkNotNull(data, "Collection must not be null");
 
         // must not have null elements and mixed elements
-        FromElementsGeneratorFunction.checkCollection(data, typeInfo.getTypeClass());
+        FromElementsGeneratorFunction.checkIterable(data, typeInfo.getTypeClass());
 
         FromElementsGeneratorFunction<OUT> generatorFunction =
                 new FromElementsGeneratorFunction<>(data);
