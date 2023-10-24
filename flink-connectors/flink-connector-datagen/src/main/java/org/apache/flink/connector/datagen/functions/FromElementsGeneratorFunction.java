@@ -41,7 +41,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Objects;
 
 /**
@@ -75,6 +74,7 @@ public class FromElementsGeneratorFunction<OUT>
     private final transient Iterable<OUT> elements;
     private transient DataInputView input;
 
+    @SafeVarargs
     public FromElementsGeneratorFunction(TypeSerializer<OUT> serializer, OUT... elements)
             throws IOException {
         this(serializer, Arrays.asList(elements));
@@ -174,28 +174,14 @@ public class FromElementsGeneratorFunction<OUT>
     // ------------------------------------------------------------------------
 
     /**
-     * Verifies that all elements in the collection are non-null, and are of the given class, or a
+     * Verifies that all elements in the iterable are non-null, and are of the given class, or a
      * subclass thereof.
      *
-     * @param elements The collection to check.
+     * @param elements The iterable to check.
      * @param viewedAs The class to which the elements must be assignable to.
-     * @param <OUT> The generic type of the collection to be checked.
+     * @param <OUT> The generic type of the iterable to be checked.
      */
-    public static <OUT> void checkCollection(Collection<OUT> elements, Class<OUT> viewedAs) {
-        for (OUT elem : elements) {
-            if (elem == null) {
-                throw new IllegalArgumentException("The collection contains a null element");
-            }
-
-            if (!viewedAs.isAssignableFrom(elem.getClass())) {
-                throw new IllegalArgumentException(
-                        "The elements in the collection are not all subclasses of "
-                                + viewedAs.getCanonicalName());
-            }
-        }
-    }
-
-    private static <OUT> void checkIterable(Iterable<OUT> elements, Class<?> viewedAs) {
+    public static <OUT> void checkIterable(Iterable<OUT> elements, Class<?> viewedAs) {
         for (OUT elem : elements) {
             if (elem == null) {
                 throw new IllegalArgumentException("The collection contains a null element");
