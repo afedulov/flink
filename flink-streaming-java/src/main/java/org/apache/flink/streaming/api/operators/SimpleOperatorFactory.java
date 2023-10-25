@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.Function;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.InputTypeConfigurable;
+import org.apache.flink.api.java.typeutils.OutputTypeConfigurable;
 import org.apache.flink.streaming.api.functions.sink.OutputFormatSinkFunction;
 import org.apache.flink.streaming.api.functions.source.InputFormatSourceFunction;
 
@@ -109,7 +110,9 @@ public class SimpleOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
 
     @Override
     public boolean isOutputTypeConfigurable() {
-        return operator instanceof OutputTypeConfigurable;
+        return operator instanceof OutputTypeConfigurable
+                || operator // legacy interface check is kept for compatibility purposes
+                        instanceof org.apache.flink.streaming.api.operators.OutputTypeConfigurable;
     }
 
     @SuppressWarnings("unchecked")
@@ -117,6 +120,10 @@ public class SimpleOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
     public void setOutputType(TypeInformation<OUT> type, ExecutionConfig executionConfig) {
         if (operator instanceof OutputTypeConfigurable) {
             ((OutputTypeConfigurable<OUT>) operator).setOutputType(type, executionConfig);
+        } else if (operator // legacy interface check is kept for compatibility purposes
+                instanceof org.apache.flink.streaming.api.operators.OutputTypeConfigurable) {
+            ((org.apache.flink.streaming.api.operators.OutputTypeConfigurable<OUT>) operator)
+                    .setOutputType(type, executionConfig);
         }
     }
 
