@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.connector.datagen.source.DataGeneratorSource;
 import org.apache.flink.connector.datagen.source.generated.User;
 import org.apache.flink.formats.avro.typeutils.AvroSerializer;
@@ -64,7 +65,7 @@ class FromElementsGeneratorSourceITCase extends TestLogger {
         env.setParallelism(PARALLELISM);
         String[] data = {"Foo", "bar", "baz"};
         FromElementsGeneratorFunction<String> generatorFunction =
-                new FromElementsGeneratorFunction<>("Foo", "bar", "baz");
+                new FromElementsGeneratorFunction<>(Types.STRING, "Foo", "bar", "baz");
         DataGeneratorSource<String> dataGeneratorSource =
                 new DataGeneratorSource<>(generatorFunction, data.length, Types.STRING);
         DataStream<String> stream =
@@ -87,7 +88,7 @@ class FromElementsGeneratorSourceITCase extends TestLogger {
         User user2 = new User("Bar", 2);
         User[] data = {user1, user2};
         FromElementsGeneratorFunction<User> generatorFunction =
-                new FromElementsGeneratorFunction<>(data);
+                new FromElementsGeneratorFunction<>(TypeExtractor.createTypeInfo(User.class), data);
         DataGeneratorSource<User> dataGeneratorSource =
                 new DataGeneratorSource<>(
                         generatorFunction, data.length, new AvroTypeInfo<>(User.class));
@@ -108,7 +109,7 @@ class FromElementsGeneratorSourceITCase extends TestLogger {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         String[] data = {"foo", "bar"};
         FromElementsGeneratorFunction<String> generatorFunction =
-                new FromElementsGeneratorFunction<>(data);
+                new FromElementsGeneratorFunction<>(Types.STRING, data);
         DataGeneratorSource<String> dataGeneratorSource =
                 new DataGeneratorSource<>(generatorFunction, data.length + 1, Types.STRING);
         DataStream<String> stream =

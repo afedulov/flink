@@ -115,9 +115,7 @@ public class SimpleOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
     @SuppressWarnings("unchecked")
     @Override
     public void setOutputType(TypeInformation<OUT> type, ExecutionConfig executionConfig) {
-        if (operator instanceof OutputTypeConfigurable) {
-            ((OutputTypeConfigurable<OUT>) operator).setOutputType(type, executionConfig);
-        }
+        ((OutputTypeConfigurable<OUT>) operator).setOutputType(type, executionConfig);
     }
 
     @Override

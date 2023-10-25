@@ -98,16 +98,6 @@ class StreamExecutionEnvironmentTest {
     }
 
     @Test
-    void testFromElementsDeducedTypeAvro() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        DataStreamSource<String> source = env.fromElements("a", "b");
-
-        DataGeneratorSource<String> generatorSource = getSourceFromStream(source);
-
-        assertThat(generatorSource.getProducedType()).isEqualTo(BasicTypeInfo.STRING_TYPE_INFO);
-    }
-
-    @Test
     void testFromElementsPostConstructionType() {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStreamSource<String> source = env.fromElements("a", "b");

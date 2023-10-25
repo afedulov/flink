@@ -112,6 +112,25 @@ public class StreamExecutionEnvironmentITCase {
                 new GenericRecordBuilder(schema).set("name", "Bar").set("age", 45).build();
         GenericRecord[] data = {user1, user2};
         DataStream<GenericRecord> stream =
+                env.fromElements(new GenericRecordAvroTypeInfo(schema), data);
+
+        List<GenericRecord> result = stream.executeAndCollect(data.length + 1);
+
+        assertThat(result).containsExactly(data);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testAvroGenericRecordsInFromElementsDoesNotFailDueToKryoFallbackUsingReturns()
+            throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        Schema schema = getSchemaFromResources("/avro/user.avsc");
+        GenericRecord user1 =
+                new GenericRecordBuilder(schema).set("name", "Foo").set("age", 40).build();
+        GenericRecord user2 =
+                new GenericRecordBuilder(schema).set("name", "Bar").set("age", 45).build();
+        GenericRecord[] data = {user1, user2};
+        DataStream<GenericRecord> stream =
                 env.fromElements(data).returns(new GenericRecordAvroTypeInfo(schema));
         DataGeneratorSource<GenericRecord> source = getSourceFromStream(stream);
         FromElementsGeneratorFunction<GenericRecord> generatorFunction =

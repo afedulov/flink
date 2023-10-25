@@ -40,7 +40,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -73,31 +72,21 @@ public class FromElementsGeneratorFunction<OUT>
     /** The number of elements emitted already. */
     private int numElementsEmitted;
 
-    private final transient Iterable<OUT> elements;
+    private transient Iterable<OUT> elements;
     private transient DataInputView input;
 
     @SafeVarargs
-    public FromElementsGeneratorFunction(TypeSerializer<OUT> serializer, OUT... elements)
-            throws IOException {
-        this(serializer, Arrays.asList(elements));
+    public FromElementsGeneratorFunction(TypeInformation<OUT> typeInfo, OUT... elements) {
+        this(typeInfo, new ExecutionConfig(), Arrays.asList(elements));
     }
 
-    public FromElementsGeneratorFunction(TypeSerializer<OUT> serializer, Iterable<OUT> elements)
-            throws IOException {
-        this.serializer = Preconditions.checkNotNull(serializer);
+    public FromElementsGeneratorFunction(
+            TypeInformation<OUT> typeInfo, ExecutionConfig config, Iterable<OUT> elements) {
+        // must not have null elements and mixed elements
+        checkIterable(elements, typeInfo.getTypeClass());
+        this.serializer = typeInfo.createSerializer(config);
         this.elements = elements;
-        serializeElements();
-    }
-
-    @SafeVarargs
-    public FromElementsGeneratorFunction(OUT... elements) {
-        this(Arrays.asList(elements));
-    }
-
-    public FromElementsGeneratorFunction(Iterable<OUT> elements) {
-        this.serializer = null;
-        this.elements = elements;
-        checkIterable(elements, Object.class);
+        trySerialize(elements);
     }
 
     @VisibleForTesting
@@ -106,7 +95,7 @@ public class FromElementsGeneratorFunction<OUT>
         return serializer;
     }
 
-    private void serializeElements() throws IOException {
+    private void serializeElements(Iterable<OUT> elements) throws IOException {
         Preconditions.checkState(serializer != null, "serializer not set");
         LOG.info("Serializing elements using  " + serializer);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -156,6 +145,9 @@ public class FromElementsGeneratorFunction<OUT>
         }
     }
 
+    // For backward compatibility: Supports legacy usage of
+    // StreamExecutionEnvironment#fromElements() which lacked type information and relied on the
+    // returns() method. See FLINK-21386 for details.
     @Override
     public void setOutputType(TypeInformation<OUT> outTypeInfo, ExecutionConfig executionConfig) {
         Preconditions.checkState(
@@ -168,9 +160,17 @@ public class FromElementsGeneratorFunction<OUT>
         }
         serializer = newSerializer;
         try {
-            serializeElements();
-        } catch (IOException ex) {
-            throw new UncheckedIOException(ex);
+            serializeElements(elements);
+        } catch (IOException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+    }
+
+    private void trySerialize(Iterable<OUT> elements) {
+        try {
+            serializeElements(elements);
+        } catch (IOException e) {
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
