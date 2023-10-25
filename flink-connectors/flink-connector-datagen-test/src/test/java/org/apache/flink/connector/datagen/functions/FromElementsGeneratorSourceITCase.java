@@ -37,8 +37,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Integration tests for {@code FromElementsGeneratorSourceITCase}. */
 class FromElementsGeneratorSourceITCase extends TestLogger {
@@ -98,5 +100,22 @@ class FromElementsGeneratorSourceITCase extends TestLogger {
 
         assertThat(serializer).isInstanceOf(AvroSerializer.class);
         assertThat(result).containsExactly(data);
+    }
+
+    @Test
+    @DisplayName("Test exception when more elements are requested than available")
+    void testMoreElementsRequestedThanAvailable() {
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        String[] data = {"foo", "bar"};
+        FromElementsGeneratorFunction<String> generatorFunction =
+                new FromElementsGeneratorFunction<>(data);
+        DataGeneratorSource<String> dataGeneratorSource =
+                new DataGeneratorSource<>(generatorFunction, data.length + 1, Types.STRING);
+        DataStream<String> stream =
+                env.fromSource(
+                        dataGeneratorSource, WatermarkStrategy.noWatermarks(), "generator source");
+
+        assertThatThrownBy(() -> stream.executeAndCollect(data.length + 1))
+                .hasRootCauseInstanceOf(NoSuchElementException.class);
     }
 }
