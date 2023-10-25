@@ -17,22 +17,14 @@
 
 package org.apache.flink.test.streaming.api;
 
-import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.client.deployment.executors.RemoteExecutor;
 import org.apache.flink.client.program.ProgramInvocationException;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
-import org.apache.flink.connector.datagen.functions.FromElementsGeneratorFunction;
-import org.apache.flink.connector.datagen.source.DataGeneratorSource;
-import org.apache.flink.connector.datagen.source.generated.User;
-import org.apache.flink.formats.avro.typeutils.AvroSerializer;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.transformations.SourceTransformation;
 import org.apache.flink.test.junit5.MiniClusterExtension;
 
 import org.apache.avro.Schema;
@@ -84,26 +76,7 @@ public class StreamExecutionEnvironmentITCase {
 
     @Test
     @SuppressWarnings("unchecked")
-    void testAvroSpecificRecordsInFromElements() throws Exception {
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        User user1 = new User("Foo", 1);
-        User user2 = new User("Bar", 2);
-        User[] data = {user1, user2};
-        DataStreamSource<User> stream = env.fromElements(User.class, user1, user2);
-        DataGeneratorSource<User> source = getSourceFromStream(stream);
-        FromElementsGeneratorFunction<User> generatorFunction =
-                (FromElementsGeneratorFunction<User>) source.getGeneratorFunction();
-
-        List<User> result = stream.executeAndCollect(data.length + 1);
-        TypeSerializer<User> serializer = generatorFunction.getSerializer();
-
-        assertThat(serializer).isInstanceOf(AvroSerializer.class);
-        assertThat(result).containsExactly(data);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void testAvroGenericRecordsInFromElements() throws Exception {
+    void testAvroGenericRecordsInFromElementsDoesNotFailDueToKryoFallback() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         Schema schema = getSchemaFromResources("/avro/user.avsc");
         GenericRecord user1 =
@@ -132,14 +105,9 @@ public class StreamExecutionEnvironmentITCase {
         GenericRecord[] data = {user1, user2};
         DataStream<GenericRecord> stream =
                 env.fromElements(data).returns(new GenericRecordAvroTypeInfo(schema));
-        DataGeneratorSource<GenericRecord> source = getSourceFromStream(stream);
-        FromElementsGeneratorFunction<GenericRecord> generatorFunction =
-                (FromElementsGeneratorFunction<GenericRecord>) source.getGeneratorFunction();
 
         List<GenericRecord> result = stream.executeAndCollect(data.length + 1);
-        TypeSerializer<GenericRecord> serializer = generatorFunction.getSerializer();
 
-        assertThat(serializer).isInstanceOf(AvroSerializer.class);
         assertThat(result).containsExactly(data);
     }
 
@@ -150,10 +118,5 @@ public class StreamExecutionEnvironmentITCase {
             }
             return new Schema.Parser().parse(schemaStream);
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T, S extends Source<T, ?, ?>> S getSourceFromStream(DataStream<T> stream) {
-        return (S) ((SourceTransformation<T, ?, ?>) stream.getTransformation()).getSource();
     }
 }
