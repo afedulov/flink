@@ -26,7 +26,6 @@ import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.SourceSplit;
-import org.apache.flink.api.java.typeutils.OutputTypeConfigurable;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -158,9 +157,7 @@ public class SourceOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
 
     @Override
     public boolean isOutputTypeConfigurable() {
-        return source instanceof OutputTypeConfigurable
-                || source // legacy interface check is kept for compatibility purposes
-                        instanceof org.apache.flink.streaming.api.operators.OutputTypeConfigurable;
+        return source instanceof OutputTypeConfigurable;
     }
 
     @Override

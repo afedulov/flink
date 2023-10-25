@@ -17,6 +17,7 @@
 
 package org.apache.flink.streaming.api.environment;
 
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.operators.SlotSharingGroup;
@@ -90,45 +91,17 @@ class StreamExecutionEnvironmentTest {
 
         DataGeneratorSource<String> generatorSource = getSourceFromStream(source);
 
-        assertThat(generatorSource.getProducedType()).isEqualTo(BasicTypeInfo.STRING_TYPE_INFO);
+        assertThat(generatorSource.getProducedType()).isEqualTo(Types.STRING);
     }
 
     @Test
-    void testFromElementsDeducedTypeAvro() {
+    void testFromElementsTypeIncompatible() {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        DataStreamSource<String> source = env.fromElements("a", "b");
 
-        DataGeneratorSource<String> generatorSource = getSourceFromStream(source);
-
-        assertThat(generatorSource.getProducedType()).isEqualTo(BasicTypeInfo.STRING_TYPE_INFO);
-    }
-
-    @Test
-    void testFromElementsPostConstructionType() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        DataStreamSource<String> source = env.fromElements("a", "b");
-        TypeInformation<String> customType = new GenericTypeInfo<>(String.class);
-        source.returns(customType);
-
-        DataGeneratorSource<String> generatorSource = getSourceFromStream(source);
-        source.sinkTo(new DiscardingSink<>());
-        env.getStreamGraph();
-
-        assertThat(generatorSource.getProducedType()).isNotEqualTo(BasicTypeInfo.STRING_TYPE_INFO);
-        assertThat(generatorSource.getProducedType()).isEqualTo(customType);
-    }
-
-    @Test
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    void testFromElementsPostConstructionTypeIncompatible() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        DataStreamSource<String> source = env.fromElements("a", "b");
-        source.returns((TypeInformation) BasicTypeInfo.INT_TYPE_INFO);
-        source.sinkTo(new DiscardingSink<>());
-
-        assertThatThrownBy(env::getStreamGraph)
+        assertThatThrownBy(() -> env.fromElements(Types.INT, new ExecutionConfig(), "a", "b"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not all subclasses of java.lang.Integer");
+                .hasMessageContaining(
+                        "not all subclasses of org.apache.flink.api.common.typeinfo.IntegerTypeInfo");
     }
 
     @Test
