@@ -38,9 +38,11 @@ import javax.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 
 /**
@@ -141,6 +143,9 @@ public class FromElementsGeneratorFunction<OUT>
             throws IOException {
         try {
             return serializer.deserialize(input);
+        } catch (EOFException eof) {
+            throw new NoSuchElementException(
+                    "Reached the end of the collection. This could be caused by issues with the serializer or by calling the map() function more times than there are elements in the collection. Make sure that you set the number of records to be produced by the DataGeneratorSource equal to the number of elements in the collection.");
         } catch (Exception e) {
             throw new IOException(
                     "Failed to deserialize an element from the source. "
