@@ -27,10 +27,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
  * at {@link org.apache.flink.streaming.api.graph.StreamGraph} generation. This can be useful for
  * cases where the output type is specified by the returns method and, thus, after the stream
  * operator has been created.
- *
- * @deprecated Use {@link org.apache.flink.api.java.typeutils.OutputTypeConfigurable} instead
  */
-@Deprecated
 @PublicEvolving
 public interface OutputTypeConfigurable<OUT> {
 

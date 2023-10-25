@@ -33,7 +33,6 @@ import org.apache.flink.api.connector.source.lib.NumberSequenceSource;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequenceSplit;
 import org.apache.flink.api.connector.source.util.ratelimit.RateLimiterStrategy;
 import org.apache.flink.api.java.ClosureCleaner;
-import org.apache.flink.api.java.typeutils.OutputTypeConfigurable;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
@@ -94,8 +93,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 @Experimental
 public class DataGeneratorSource<OUT>
         implements Source<OUT, NumberSequenceSplit, Collection<NumberSequenceSplit>>,
-                ResultTypeQueryable<OUT>,
-                OutputTypeConfigurable<OUT> {
+                ResultTypeQueryable<OUT> {
 
     private static final long serialVersionUID = 1L;
 
@@ -155,16 +153,6 @@ public class DataGeneratorSource<OUT>
                 generatorFunction, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
         ClosureCleaner.clean(
                 sourceReaderFactory, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public void setOutputType(TypeInformation<OUT> outTypeInfo, ExecutionConfig executionConfig) {
-        this.typeInfo = outTypeInfo;
-        if (generatorFunction instanceof OutputTypeConfigurable) {
-            ((OutputTypeConfigurable<OUT>) generatorFunction)
-                    .setOutputType(outTypeInfo, executionConfig);
-        }
     }
 
     @VisibleForTesting

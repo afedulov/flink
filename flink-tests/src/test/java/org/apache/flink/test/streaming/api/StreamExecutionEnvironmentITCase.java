@@ -85,7 +85,7 @@ public class StreamExecutionEnvironmentITCase {
                 new GenericRecordBuilder(schema).set("name", "Bar").set("age", 45).build();
         GenericRecord[] data = {user1, user2};
         DataStream<GenericRecord> stream =
-                env.fromElements(data).returns(new GenericRecordAvroTypeInfo(schema));
+                env.fromElements(new GenericRecordAvroTypeInfo(schema), data);
 
         List<GenericRecord> result = stream.executeAndCollect(data.length + 1);
 

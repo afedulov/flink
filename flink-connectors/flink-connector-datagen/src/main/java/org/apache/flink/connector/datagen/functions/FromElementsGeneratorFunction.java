@@ -24,7 +24,6 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.connector.source.SourceReaderContext;
-import org.apache.flink.api.java.typeutils.OutputTypeConfigurable;
 import org.apache.flink.connector.datagen.source.GeneratorFunction;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
@@ -40,10 +39,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 
 /**
  * A stream generator function that returns a sequence of elements.
@@ -57,15 +54,14 @@ import java.util.Objects;
  * @param <OUT> The type of elements returned by this function.
  */
 @Internal
-public class FromElementsGeneratorFunction<OUT>
-        implements GeneratorFunction<Long, OUT>, OutputTypeConfigurable<OUT> {
+public class FromElementsGeneratorFunction<OUT> implements GeneratorFunction<Long, OUT> {
 
     private static final long serialVersionUID = 1L;
 
     private static final Logger LOG = LoggerFactory.getLogger(FromElementsGeneratorFunction.class);
 
     /** The (de)serializer to be used for the data elements. */
-    private @Nullable TypeSerializer<OUT> serializer;
+    private final TypeSerializer<OUT> serializer;
 
     /** The actual data elements, in serialized form. */
     private byte[] elementsSerialized;
@@ -73,31 +69,19 @@ public class FromElementsGeneratorFunction<OUT>
     /** The number of elements emitted already. */
     private int numElementsEmitted;
 
-    private final transient Iterable<OUT> elements;
     private transient DataInputView input;
 
     @SafeVarargs
-    public FromElementsGeneratorFunction(TypeSerializer<OUT> serializer, OUT... elements)
-            throws IOException {
-        this(serializer, Arrays.asList(elements));
+    public FromElementsGeneratorFunction(TypeInformation<OUT> typeInfo, OUT... elements) {
+        this(typeInfo, new ExecutionConfig(), Arrays.asList(elements));
     }
 
-    public FromElementsGeneratorFunction(TypeSerializer<OUT> serializer, Iterable<OUT> elements)
-            throws IOException {
-        this.serializer = Preconditions.checkNotNull(serializer);
-        this.elements = elements;
-        serializeElements();
-    }
-
-    @SafeVarargs
-    public FromElementsGeneratorFunction(OUT... elements) {
-        this(Arrays.asList(elements));
-    }
-
-    public FromElementsGeneratorFunction(Iterable<OUT> elements) {
-        this.serializer = null;
-        this.elements = elements;
-        checkIterable(elements, Object.class);
+    public FromElementsGeneratorFunction(
+            TypeInformation<OUT> typeInfo, ExecutionConfig config, Iterable<OUT> elements) {
+        // must not have null elements and mixed elements
+        checkIterable(elements, typeInfo.getTypeClass());
+        this.serializer = typeInfo.createSerializer(config);
+        trySerialize(elements);
     }
 
     @VisibleForTesting
@@ -106,7 +90,7 @@ public class FromElementsGeneratorFunction<OUT>
         return serializer;
     }
 
-    private void serializeElements() throws IOException {
+    private void serializeElements(Iterable<OUT> elements) throws IOException {
         Preconditions.checkState(serializer != null, "serializer not set");
         LOG.info("Serializing elements using  " + serializer);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -156,21 +140,11 @@ public class FromElementsGeneratorFunction<OUT>
         }
     }
 
-    @Override
-    public void setOutputType(TypeInformation<OUT> outTypeInfo, ExecutionConfig executionConfig) {
-        Preconditions.checkState(
-                elements != null,
-                "The output type should've been specified before shipping the graph to the cluster");
-        checkIterable(elements, outTypeInfo.getTypeClass());
-        TypeSerializer<OUT> newSerializer = outTypeInfo.createSerializer(executionConfig);
-        if (Objects.equals(serializer, newSerializer)) {
-            return;
-        }
-        serializer = newSerializer;
+    private void trySerialize(Iterable<OUT> elements) {
         try {
-            serializeElements();
-        } catch (IOException ex) {
-            throw new UncheckedIOException(ex);
+            serializeElements(elements);
+        } catch (IOException e) {
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
