@@ -117,11 +117,4 @@ public class DataStreamSource<T> extends SingleOutputStreamOperator<T> {
         super.setParallelism(parallelism);
         return this;
     }
-
-    @Override
-    public DataStreamSource<T> forceNonParallel() {
-        super.forceNonParallel();
-        this.isParallel = false;
-        return this;
-    }
 }

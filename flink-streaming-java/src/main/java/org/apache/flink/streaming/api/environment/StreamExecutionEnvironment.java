@@ -1341,7 +1341,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                         generatorSource,
                         WatermarkStrategy.forMonotonousTimestamps(),
                         "Collection Source")
-                .forceNonParallel();
+                .setParallelism(1);
     }
 
     /**
