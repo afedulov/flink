@@ -49,8 +49,6 @@ import java.util.NoSuchElementException;
  * object transport using Java serialization will not be affected by the serializability of the
  * elements.
  *
- * <p><b>NOTE:</b> This source has a parallelism of 1.
- *
  * @param <OUT> The type of elements returned by this function.
  */
 @Internal

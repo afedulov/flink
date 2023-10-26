@@ -1338,10 +1338,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                 new DataGeneratorSource<>(generatorFunction, data.size(), typeInfo);
 
         return fromSource(
-                        generatorSource,
-                        WatermarkStrategy.forMonotonousTimestamps(),
-                        "Collection Source")
-                .forceNonParallel();
+                generatorSource, WatermarkStrategy.forMonotonousTimestamps(), "Collection Source");
     }
 
     /**
