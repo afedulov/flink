@@ -115,8 +115,8 @@ public class DataStreamCollectTestITCase extends TestLogger {
     public void testAsyncCollect() throws Exception {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-        final DataStream<Integer> stream1 = env.fromElements(1, 2, 3, 4, 5);
-        final DataStream<Integer> stream2 = env.fromElements(6, 7, 8, 9, 10);
+        final DataStream<Integer> stream1 = env.fromElements(1, 2, 3, 4, 5).setParallelism(1);
+        final DataStream<Integer> stream2 = env.fromElements(6, 7, 8, 9, 10).setParallelism(1);
 
         try (final CloseableIterator<Integer> iterator1 = stream1.collectAsync();
                 final CloseableIterator<Integer> iterator2 = stream2.collectAsync()) {
@@ -174,8 +174,8 @@ public class DataStreamCollectTestITCase extends TestLogger {
             Consumer<DataStream<Integer>> sink1Applier,
             Consumer<DataStream<Integer>> sink2Applier) {
 
-        final DataStream<Integer> stream1 = env.fromElements(1, 2, 3, 4, 5);
-        final DataStream<Integer> stream2 = env.fromElements(6, 7, 8, 9, 10);
+        final DataStream<Integer> stream1 = env.fromElements(1, 2, 3, 4, 5).setParallelism(1);
+        final DataStream<Integer> stream2 = env.fromElements(6, 7, 8, 9, 10).setParallelism(1);
 
         sink1Applier.accept(stream1);
         sink2Applier.accept(stream2);

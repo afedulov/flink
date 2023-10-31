@@ -35,13 +35,13 @@ BoundedStreamScan(table=[[default_catalog, default_database, MyTable]], fields=[
     "type" : "Source: Collection Source",
     "pact" : "Data Source",
     "contents" : "Source: Collection Source",
-    "parallelism" : 1
+    "parallelism" : 2
   }, {
     "id" : ,
     "type" : "SourceConversion(table=[default_catalog.default_database.MyTable], fields=[f0])",
     "pact" : "Operator",
     "contents" : "SourceConversion(table=[default_catalog.default_database.MyTable], fields=[f0])",
-    "parallelism" : 1,
+    "parallelism" : 2,
     "predecessors" : [ {
       "id" : ,
       "ship_strategy" : "FORWARD",
@@ -70,13 +70,13 @@ BoundedStreamScan(table=[[default_catalog, default_database, MyTable]], fields=[
     "type" : "Source: Collection Source",
     "pact" : "Data Source",
     "contents" : "Source: Collection Source",
-    "parallelism" : 1
+    "parallelism" : 2
   }, {
     "id" : ,
     "type" : "SourceConversion[]",
     "pact" : "Operator",
     "contents" : "[]:SourceConversion(table=[default_catalog.default_database.MyTable], fields=[f0])",
-    "parallelism" : 1,
+    "parallelism" : 2,
     "predecessors" : [ {
       "id" : ,
       "ship_strategy" : "FORWARD",

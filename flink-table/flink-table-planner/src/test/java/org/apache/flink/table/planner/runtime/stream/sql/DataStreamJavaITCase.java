@@ -485,7 +485,8 @@ public class DataStreamJavaITCase extends AbstractTestBase {
                         output(RowKind.UPDATE_BEFORE, "alice", 1),
                         output(RowKind.UPDATE_AFTER, "alice", 101));
 
-        final DataStream<Row> changelogStream = env.fromElements(getInput(inputOrOutput));
+        final DataStream<Row> changelogStream =
+                env.fromElements(getInput(inputOrOutput)).setParallelism(1);
         tableEnv.createTemporaryView("t", tableEnv.fromChangelogStream(changelogStream));
 
         final Table result = tableEnv.sqlQuery("SELECT f0, SUM(f1) FROM t GROUP BY f0");
@@ -521,7 +522,8 @@ public class DataStreamJavaITCase extends AbstractTestBase {
                         output(RowKind.UPDATE_BEFORE, "alice", 2),
                         output(RowKind.UPDATE_AFTER, "alice", 100));
 
-        final DataStream<Row> changelogStream = env.fromElements(getInput(inputOrOutput));
+        final DataStream<Row> changelogStream =
+                env.fromElements(getInput(inputOrOutput)).setParallelism(1);
         tableEnv.createTemporaryView(
                 "t",
                 tableEnv.fromChangelogStream(
@@ -557,7 +559,8 @@ public class DataStreamJavaITCase extends AbstractTestBase {
                         input(RowKind.UPDATE_AFTER, "alice", 100),
                         output(RowKind.UPDATE_AFTER, "alice", 100));
 
-        final DataStream<Row> changelogStream = env.fromElements(getInput(inputOrOutput));
+        final DataStream<Row> changelogStream =
+                env.fromElements(getInput(inputOrOutput)).setParallelism(1);
         tableEnv.createTemporaryView(
                 "t",
                 tableEnv.fromChangelogStream(

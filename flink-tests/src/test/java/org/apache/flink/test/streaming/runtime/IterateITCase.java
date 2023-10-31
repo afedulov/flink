@@ -79,7 +79,7 @@ public class IterateITCase extends AbstractTestBase {
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-        DataStream<Integer> source = env.fromElements(1, 10);
+        DataStream<Integer> source = env.fromElements(1, 10).setParallelism(1);
 
         IterativeStream<Integer> iter1 = source.iterate();
         SingleOutputStreamOperator<Integer> map1 = iter1.map(noOpIntMap);

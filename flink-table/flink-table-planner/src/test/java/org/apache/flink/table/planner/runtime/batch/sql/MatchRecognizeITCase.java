@@ -76,6 +76,7 @@ public class MatchRecognizeITCase {
                                         Row.of(7, "b"),
                                         Row.of(8, "c"),
                                         Row.of(9, "h"))
+                                .setParallelism(1)
                                 .returns(ROW_NAMED(new String[] {"id", "name"}, INT, STRING)),
                         Schema.newBuilder()
                                 .column("id", DataTypes.INT())
@@ -118,6 +119,7 @@ public class MatchRecognizeITCase {
                                         Row.of(7, "b", null),
                                         Row.of(8, "c", null),
                                         Row.of(9, null, null))
+                                .setParallelism(1)
                                 .returns(
                                         ROW_NAMED(
                                                 new String[] {"id", "name", "nullField"},
@@ -168,6 +170,7 @@ public class MatchRecognizeITCase {
                                         Row.of(7, "b", "key2", "second_key4"),
                                         Row.of(8, "c", "key2", "second_key4"),
                                         Row.of(9, "f", "key", "second_key"))
+                                .setParallelism(1)
                                 .returns(
                                         ROW_NAMED(
                                                 new String[] {"id", "name", "key1", "key2"},
@@ -224,6 +227,7 @@ public class MatchRecognizeITCase {
                                         Row.of("ACME", 6L, 26, 6),
                                         Row.of("ACME", 7L, 20, 7),
                                         Row.of("ACME", 8L, 25, 8))
+                                .setParallelism(1)
                                 .returns(
                                         ROW_NAMED(
                                                 new String[] {"symbol", "tstamp", "price", "tax"},
@@ -276,6 +280,7 @@ public class MatchRecognizeITCase {
                                         Row.of(6, "ACME", 6L, 15),
                                         Row.of(7, "ACME", 7L, 14),
                                         Row.of(8, "ACME", 8L, 20))
+                                .setParallelism(1)
                                 .returns(
                                         ROW_NAMED(
                                                 new String[] {"id", "symbol", "tstamp", "price"},
@@ -335,6 +340,7 @@ public class MatchRecognizeITCase {
                                         Row.of("ACME", 2L, 17, 2),
                                         Row.of("ACME", 3L, 13, 3),
                                         Row.of("ACME", 4L, 20, 4))
+                                .setParallelism(1)
                                 .returns(
                                         ROW_NAMED(
                                                 new String[] {"symbol", "tstamp", "price", "tax"},
@@ -397,6 +403,7 @@ public class MatchRecognizeITCase {
                                         Row.of(10, "h", 4, 0.8, 3),
                                         Row.of(11, "h", 2, 0.8, 3),
                                         Row.of(12, "h", 2, 0.8, 3))
+                                .setParallelism(1)
                                 .returns(
                                         ROW_NAMED(
                                                 new String[] {
@@ -464,6 +471,7 @@ public class MatchRecognizeITCase {
                                         Row.of(7, "c", 3),
                                         Row.of(8, "c", 3),
                                         Row.of(9, "c", 2))
+                                .setParallelism(1)
                                 .returns(
                                         ROW_NAMED(
                                                 new String[] {"id", "name", "price"},
@@ -548,6 +556,7 @@ public class MatchRecognizeITCase {
                                         Row.of(7, "a", 1),
                                         Row.of(8, "a", 1),
                                         Row.of(9, "f", 1))
+                                .setParallelism(1)
                                 .returns(
                                         ROW_NAMED(
                                                 new String[] {"id", "name", "price"},

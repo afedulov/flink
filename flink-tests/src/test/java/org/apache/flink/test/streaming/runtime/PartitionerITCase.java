@@ -58,7 +58,7 @@ public class PartitionerITCase extends AbstractTestBase {
     public void testForwardFailsLowToHighParallelism() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-        DataStream<Integer> src = env.fromElements(1, 2, 3);
+        DataStream<Integer> src = env.fromElements(1, 2, 3).setParallelism(1);
 
         // this doesn't work because it goes from 1 to 3
         src.forward().map(new NoOpIntMap());

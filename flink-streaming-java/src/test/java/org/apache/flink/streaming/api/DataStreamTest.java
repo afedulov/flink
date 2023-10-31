@@ -598,9 +598,9 @@ public class DataStreamTest extends TestLogger {
     @Test
     public void testParallelism() {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(10);
 
         DataStreamSource<Tuple2<Long, Long>> src = env.fromElements(new Tuple2<>(0L, 0L));
-        env.setParallelism(10);
 
         SingleOutputStreamOperator<Long> map =
                 src.map(
@@ -634,7 +634,7 @@ public class DataStreamTest extends TestLogger {
                             public void invoke(Long value) throws Exception {}
                         });
 
-        assertEquals(1, getStreamGraph(env).getStreamNode(src.getId()).getParallelism());
+        assertEquals(10, getStreamGraph(env).getStreamNode(src.getId()).getParallelism());
         assertEquals(10, getStreamGraph(env).getStreamNode(map.getId()).getParallelism());
         assertEquals(1, getStreamGraph(env).getStreamNode(windowed.getId()).getParallelism());
         assertEquals(
@@ -648,7 +648,7 @@ public class DataStreamTest extends TestLogger {
         // Some parts, such as windowing rely on the fact that previous operators have a parallelism
         // set when instantiating the Discretizer. This would break if we dynamically changed
         // the parallelism of operations when changing the setting on the Execution Environment.
-        assertEquals(1, getStreamGraph(env).getStreamNode(src.getId()).getParallelism());
+        assertEquals(10, getStreamGraph(env).getStreamNode(src.getId()).getParallelism());
         assertEquals(10, getStreamGraph(env).getStreamNode(map.getId()).getParallelism());
         assertEquals(1, getStreamGraph(env).getStreamNode(windowed.getId()).getParallelism());
         assertEquals(
@@ -656,13 +656,6 @@ public class DataStreamTest extends TestLogger {
                 getStreamGraph(env)
                         .getStreamNode(sink.getTransformation().getId())
                         .getParallelism());
-
-        try {
-            src.setParallelism(3);
-            fail();
-        } catch (IllegalArgumentException success) {
-            // do nothing
-        }
 
         DataStreamSource<Long> parallelSource = env.generateSequence(0, 0);
         parallelSource.sinkTo(new DiscardingSink<Long>());
