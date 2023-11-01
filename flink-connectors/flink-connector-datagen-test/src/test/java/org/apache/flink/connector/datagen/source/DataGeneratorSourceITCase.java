@@ -18,10 +18,8 @@
 
 package org.apache.flink.connector.datagen.source;
 
-import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.util.ratelimit.RateLimiterStrategy;
@@ -32,7 +30,6 @@ import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.operators.OutputTypeConfigurable;
 import org.apache.flink.test.junit5.MiniClusterExtension;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.TestLogger;
@@ -201,32 +198,6 @@ class DataGeneratorSourceITCase extends TestLogger {
         final List<Long> results = map.executeAndCollect(1000);
 
         assertThat(results).hasSize(capacityPerCheckpoint);
-    }
-
-    @SuppressWarnings("rawtypes")
-    private static class OutputTypeConfigurableGeneratorFunction
-            implements GeneratorFunction<Long, Long>, OutputTypeConfigurable<Long> {
-
-        public OutputTypeConfigurableGeneratorFunction(TypeInformation typeInformation) {
-            this.typeInformation = typeInformation;
-        }
-
-        private TypeInformation typeInformation;
-
-        @Override
-        public Long map(Long value) throws Exception {
-            return 0L;
-        }
-
-        @Override
-        public void setOutputType(
-                TypeInformation<Long> outTypeInfo, ExecutionConfig executionConfig) {
-            typeInformation = outTypeInfo;
-        }
-
-        public TypeInformation getTypeInformation() {
-            return typeInformation;
-        }
     }
 
     private static class FirstCheckpointFilter
