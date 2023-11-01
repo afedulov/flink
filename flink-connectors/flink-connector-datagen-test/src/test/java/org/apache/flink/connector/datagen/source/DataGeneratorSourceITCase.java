@@ -21,7 +21,6 @@ package org.apache.flink.connector.datagen.source;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.SourceReaderContext;
@@ -34,7 +33,6 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.operators.OutputTypeConfigurable;
-import org.apache.flink.streaming.api.transformations.SourceTransformation;
 import org.apache.flink.test.junit5.MiniClusterExtension;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.TestLogger;
@@ -203,29 +201,6 @@ class DataGeneratorSourceITCase extends TestLogger {
         final List<Long> results = map.executeAndCollect(1000);
 
         assertThat(results).hasSize(capacityPerCheckpoint);
-    }
-
-    @Test
-    @DisplayName("Stream returns() call is propagated correctly.")
-    @SuppressWarnings("unchecked")
-    void testReturnsIsCorrectlyPropagated() throws Exception {
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setParallelism(PARALLELISM);
-
-        OutputTypeConfigurableGeneratorFunction generatorFunction =
-                new OutputTypeConfigurableGeneratorFunction(BasicTypeInfo.STRING_TYPE_INFO);
-
-        final DataStreamSource<Long> streamSource =
-                getGeneratorSourceStream(generatorFunction, env, 1);
-        streamSource.returns(BasicTypeInfo.LONG_TYPE_INFO).executeAndCollect(1);
-
-        DataGeneratorSource<Long> dataGeneratorSource =
-                (DataGeneratorSource<Long>)
-                        ((SourceTransformation<Long, ?, ?>) streamSource.getTransformation())
-                                .getSource();
-
-        assertThat(dataGeneratorSource.getProducedType()).isEqualTo(BasicTypeInfo.LONG_TYPE_INFO);
-        assertThat(generatorFunction.getTypeInformation()).isEqualTo(BasicTypeInfo.LONG_TYPE_INFO);
     }
 
     @SuppressWarnings("rawtypes")

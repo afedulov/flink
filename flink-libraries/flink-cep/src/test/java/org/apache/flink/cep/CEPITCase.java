@@ -96,15 +96,16 @@ public class CEPITCase extends AbstractTestBase {
 
         DataStream<Event> input =
                 env.fromElements(
-                        new Event(1, "barfoo", 1.0),
-                        new Event(2, "start", 2.0),
-                        new Event(3, "foobar", 3.0),
-                        new SubEvent(4, "foo", 4.0, 1.0),
-                        new Event(5, "middle", 5.0),
-                        new SubEvent(6, "middle", 6.0, 2.0),
-                        new SubEvent(7, "bar", 3.0, 3.0),
-                        new Event(42, "42", 42.0),
-                        new Event(8, "end", 1.0));
+                                new Event(1, "barfoo", 1.0),
+                                new Event(2, "start", 2.0),
+                                new Event(3, "foobar", 3.0),
+                                new SubEvent(4, "foo", 4.0, 1.0),
+                                new Event(5, "middle", 5.0),
+                                new SubEvent(6, "middle", 6.0, 2.0),
+                                new SubEvent(7, "bar", 3.0, 3.0),
+                                new Event(42, "42", 42.0),
+                                new Event(8, "end", 1.0))
+                        .setParallelism(1);
 
         Pattern<Event, ?> pattern =
                 Pattern.<Event>begin("start")
@@ -162,6 +163,7 @@ public class CEPITCase extends AbstractTestBase {
                                 new Event(3, "end", 2.0),
                                 new Event(2, "end", 1.0),
                                 new Event(42, "end", 42.0))
+                        .setParallelism(1)
                         .keyBy(
                                 new KeySelector<Event, Integer>() {
 
@@ -638,12 +640,13 @@ public class CEPITCase extends AbstractTestBase {
 
         DataStream<Event> input =
                 env.fromElements(
-                        new Event(1, "start", 1.0),
-                        new Event(2, "middle", 2.0),
-                        new Event(3, "end", 3.0),
-                        new Event(4, "start", 4.0),
-                        new Event(5, "middle", 5.0),
-                        new Event(6, "end", 6.0));
+                                new Event(1, "start", 1.0),
+                                new Event(2, "middle", 2.0),
+                                new Event(3, "end", 3.0),
+                                new Event(4, "start", 4.0),
+                                new Event(5, "middle", 5.0),
+                                new Event(6, "end", 6.0))
+                        .setParallelism(1);
 
         Pattern<Event, ?> pattern =
                 Pattern.<Event>begin("start")
@@ -708,6 +711,7 @@ public class CEPITCase extends AbstractTestBase {
                                 Tuple2.of(new Event(6, "middle", 5.0), 7L),
                                 // last element for high final watermark
                                 Tuple2.of(new Event(7, "middle", 5.0), 100L))
+                        .setParallelism(1)
                         .assignTimestampsAndWatermarks(
                                 new AssignerWithPunctuatedWatermarks<Tuple2<Event, Long>>() {
 
@@ -789,10 +793,11 @@ public class CEPITCase extends AbstractTestBase {
 
         DataStream<Tuple2<Integer, String>> input =
                 env.fromElements(
-                        new Tuple2<>(1, "a"),
-                        new Tuple2<>(2, "a"),
-                        new Tuple2<>(3, "a"),
-                        new Tuple2<>(4, "a"));
+                                new Tuple2<>(1, "a"),
+                                new Tuple2<>(2, "a"),
+                                new Tuple2<>(3, "a"),
+                                new Tuple2<>(4, "a"))
+                        .setParallelism(1);
 
         Pattern<Tuple2<Integer, String>, ?> pattern =
                 Pattern.<Tuple2<Integer, String>>begin(
@@ -834,15 +839,16 @@ public class CEPITCase extends AbstractTestBase {
 
         DataStream<Event> input =
                 env.fromElements(
-                        new Event(1, "barfoo", 1.0),
-                        new Event(2, "start", 2.0),
-                        new Event(3, "foobar", 3.0),
-                        new SubEvent(4, "foo", 4.0, 1.0),
-                        new Event(5, "middle", 5.0),
-                        new SubEvent(6, "middle", 6.0, 2.0),
-                        new SubEvent(7, "bar", 3.0, 3.0),
-                        new Event(42, "42", 42.0),
-                        new Event(8, "end", 1.0));
+                                new Event(1, "barfoo", 1.0),
+                                new Event(2, "start", 2.0),
+                                new Event(3, "foobar", 3.0),
+                                new SubEvent(4, "foo", 4.0, 1.0),
+                                new Event(5, "middle", 5.0),
+                                new SubEvent(6, "middle", 6.0, 2.0),
+                                new SubEvent(7, "bar", 3.0, 3.0),
+                                new Event(42, "42", 42.0),
+                                new Event(8, "end", 1.0))
+                        .setParallelism(1);
 
         Pattern<Event, ?> pattern =
                 Pattern.<Event>begin("start")
@@ -932,6 +938,7 @@ public class CEPITCase extends AbstractTestBase {
                                 new Event(3, "end", 2.0),
                                 new Event(2, "end", 1.0),
                                 new Event(42, "end", 42.0))
+                        .setParallelism(1)
                         .keyBy(
                                 new KeySelector<Event, Integer>() {
 

@@ -979,7 +979,9 @@ public class DataStreamJavaITCase extends AbstractTestBase {
                         .toArray(String[]::new);
         final TypeInformation<?>[] fieldTypes = fieldTypeInfo.toArray(new TypeInformation[0]);
         final DataStream<Row> dataStream =
-                env.fromElements(elements).returns(Types.ROW_NAMED(fieldNames, fieldTypes));
+                env.fromElements(elements)
+                        .returns(Types.ROW_NAMED(fieldNames, fieldTypes))
+                        .setParallelism(1);
         final Table table = tableEnv.fromChangelogStream(dataStream, schema, changelogMode);
         tableEnv.createTemporaryView(name, table);
     }
