@@ -25,7 +25,6 @@ import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connector.datagen.source.DataGeneratorSource;
 import org.apache.flink.streaming.api.scala.DataStream;
-import org.apache.flink.streaming.util.FiniteTestSource;
 import org.apache.flink.table.planner.runtime.utils.StreamingTestBase;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CloseableIterator;
@@ -54,44 +53,12 @@ public abstract class CompactionITCaseBase extends StreamingTestBase {
 
     private List<Row> expectedRows;
 
-    //    @Before
+    @Before
     public void init() throws IOException {
         resultPath = tempFolder().newFolder().toURI().toString();
 
         env().setParallelism(3);
-        env().enableCheckpointing(100);
-
-        List<Row> rows = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
-            rows.add(Row.of(i, String.valueOf(i % 10), String.valueOf(i % 10)));
-        }
-
-        this.expectedRows = new ArrayList<>();
-        this.expectedRows.addAll(rows);
-        this.expectedRows.addAll(rows);
-        this.expectedRows.sort(Comparator.comparingInt(o -> (Integer) o.getField(0)));
-
-        DataStream<Row> stream =
-                new DataStream<>(
-                                env().getJavaEnv()
-                                        .addSource(
-                                                new FiniteTestSource<>(rows),
-                                                new RowTypeInfo(
-                                                        new TypeInformation[] {
-                                                            Types.INT, Types.STRING, Types.STRING
-                                                        },
-                                                        new String[] {"a", "b", "c"})))
-                        .filter((FilterFunction<Row>) value -> true)
-                        .setParallelism(3); // to parallel tasks
-
-        tEnv().createTemporaryView("my_table", stream);
-    }
-
-    @Before
-    public void init2() throws IOException {
-        resultPath = tempFolder().newFolder().toURI().toString();
-
-        env().setParallelism(3);
+        // TODO: enableCheckpointing(200); - works better for stability
         env().enableCheckpointing(100);
 
         List<Row> rows = new ArrayList<>();
@@ -148,9 +115,10 @@ public abstract class CompactionITCaseBase extends StreamingTestBase {
                         parallelism);
         tEnv().executeSql(sql).await();
 
+        printFiles(resultPath);
+
         assertIterator(tEnv().executeSql("select * from sink_table").collect());
 
-        printFiles(resultPath);
         assertFiles(new File(URI.create(resultPath)).listFiles(), false);
     }
 

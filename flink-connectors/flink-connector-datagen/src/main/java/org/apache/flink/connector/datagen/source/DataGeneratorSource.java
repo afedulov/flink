@@ -38,6 +38,7 @@ import org.apache.flink.connector.datagen.functions.IndexLookupGeneratorFunction
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.util.Collection;
+import java.util.function.BooleanSupplier;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -228,6 +229,20 @@ public class DataGeneratorSource<OUT>
                         (readerContext) ->
                                 new SourceReaderWithSnapshotsLatch2<>(
                                         readerContext, generatorFunction, 2),
+                testData.size(),
+                typeInfo);
+    }
+
+    public static <OUT> DataGeneratorSource<OUT> fromDataWithSnapshotsLatch(
+            Collection<OUT> testData, TypeInformation<OUT> typeInfo, BooleanSupplier couldExit) {
+        IndexLookupGeneratorFunction<OUT> generatorFunction =
+                new IndexLookupGeneratorFunction<>(typeInfo, testData);
+
+        return new DataGeneratorSource<>(
+                (SourceReaderFactory<OUT, NumberSequenceSplit>)
+                        (readerContext) ->
+                                new SourceReaderWithSnapshotsLatch2<>(
+                                        readerContext, generatorFunction, 2, couldExit),
                 testData.size(),
                 typeInfo);
     }

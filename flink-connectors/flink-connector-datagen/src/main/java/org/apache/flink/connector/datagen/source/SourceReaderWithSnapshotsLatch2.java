@@ -27,9 +27,12 @@ import org.apache.flink.api.connector.source.lib.util.IteratorSourceSplit;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import javax.annotation.Nullable;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -48,7 +51,19 @@ public class SourceReaderWithSnapshotsLatch2<
     private final GeneratorFunction<E, O> generatorFunction;
 
     private final int snapshotsBetweenCycles;
+    private BooleanSupplier couldExit;
     private int snapshotsCompleted;
+
+    public SourceReaderWithSnapshotsLatch2(
+            SourceReaderContext context,
+            GeneratorFunction<E, O> generatorFunction,
+            int snapshotsBetween,
+            @Nullable BooleanSupplier couldExit) {
+        super(context);
+        this.generatorFunction = checkNotNull(generatorFunction);
+        this.snapshotsBetweenCycles = snapshotsBetween;
+        this.couldExit = couldExit;
+    }
 
     public SourceReaderWithSnapshotsLatch2(
             SourceReaderContext context,
@@ -74,8 +89,15 @@ public class SourceReaderWithSnapshotsLatch2<
     @Override
     public InputStatus pollNext(ReaderOutput<O> output) {
         System.out.println(">>> pollNext" + " in Thread " + Thread.currentThread());
-        if (snapshotsCompleted == snapshotsBetweenCycles * 2) {
-            return InputStatus.END_OF_INPUT;
+        if (snapshotsCompleted > snapshotsBetweenCycles * 2) {
+            if (couldExit != null) {
+                System.out.println(">>> In Thread " + Thread.currentThread());
+                return couldExit.getAsBoolean()
+                        ? InputStatus.END_OF_INPUT
+                        : InputStatus.NOTHING_AVAILABLE;
+            } else {
+                return InputStatus.END_OF_INPUT;
+            }
         }
         if (currentSplit == null) {
             InputStatus inputStatus = tryMoveToNextSplit();
@@ -93,10 +115,11 @@ public class SourceReaderWithSnapshotsLatch2<
         iterator = currentSplit.getIterator();
         //        for (int i = 0; i < elementsPerCycle; i++) {
         //        System.out.println("Iterator has next: " + iterator.hasNext());
-        System.out.println(currentSplit + ":" + " in Thread " + Thread.currentThread());
+        System.out.println("Split:" + currentSplit + ":" + " in Thread " + Thread.currentThread());
         while (iterator.hasNext()) {
             E next = iterator.next();
             O converted = convert(next);
+            //            Thread.sleep(1);
             System.out.println(
                     ">> next: " + next + "->" + converted + " in Thread " + Thread.currentThread());
             output.collect(converted);
@@ -106,6 +129,7 @@ public class SourceReaderWithSnapshotsLatch2<
                         + iterator.hasNext()
                         + " in Thread "
                         + Thread.currentThread());
+        //        Thread.sleep(100);
     }
 
     protected O convert(E value) {
@@ -122,6 +146,9 @@ public class SourceReaderWithSnapshotsLatch2<
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        Thread.sleep(300);
+        // TODO: we do not know whether pollNext or notifyCheckpointComplete happens first. See
+        //  FiniteTestFunction implementation for better handling
         System.out.println(
                 "@@@ SourceReader.notifyCheckpointComplete("
                         + checkpointId
@@ -135,8 +162,15 @@ public class SourceReaderWithSnapshotsLatch2<
                         + snapshotsCompleted
                         + " in Thread "
                         + Thread.currentThread());
-        if (snapshotsCompleted % snapshotsBetweenCycles == 0) {
+        if (snapshotsCompleted == snapshotsBetweenCycles * 2
+                || snapshotsCompleted == snapshotsBetweenCycles * 4) {
             availability.complete(null);
+        }
+
+        if (couldExit != null) {
+            if (couldExit.getAsBoolean()) {
+                availability.complete(null);
+            }
         }
     }
 

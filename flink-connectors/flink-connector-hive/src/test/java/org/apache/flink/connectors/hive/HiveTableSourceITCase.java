@@ -36,7 +36,6 @@ import org.apache.flink.core.testutils.CommonTestUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.util.FiniteTestSource;
 import org.apache.flink.table.HiveVersionTestUtil;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.SqlDialect;
@@ -1009,61 +1008,10 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
         IndexLookupGeneratorFunction<Row> generatorFunction =
                 new IndexLookupGeneratorFunction<>(typeInfo, rows);
 
-        //        RepeatingGeneratorFunction<Row> generatorFunction =
-        //                new RepeatingGeneratorFunction<>(typeInfo, rows);
         DataStream<Row> stream =
                 getDataStream(env, generatorFunction, rows.size(), typeInfo)
-                        .filter(
-                                (FilterFunction<Row>)
-                                        value -> {
-                                            System.out.println("<<<" + value);
-                                            return true;
-                                        })
+                        .filter((FilterFunction<Row>) value -> true)
                         .setParallelism(3);
-        // to parallel tasks
-        //                        .setParallelism(1); // to parallel tasks
-
-        tEnv.createTemporaryView("my_table", stream);
-        assertResults(executeAndGetResult(tEnv), expectedRows);
-    }
-
-    @Test(timeout = 120000)
-    public void testReadParquetWithNullableComplexTypeOld() throws Exception {
-        final String catalogName = "hive";
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setParallelism(3);
-        env.enableCheckpointing(100);
-        StreamTableEnvironment tEnv =
-                HiveTestUtils.createTableEnvInStreamingMode(env, SqlDialect.HIVE);
-        tEnv.registerCatalog(catalogName, hiveCatalog);
-        tEnv.useCatalog(catalogName);
-
-        List<Row> rows = generateRows(2);
-        List<Row> expectedRows = generateExpectedRows(rows);
-        DataStream<Row> stream =
-                env.addSource(
-                                new FiniteTestSource<>(rows),
-                                new RowTypeInfo(
-                                        new TypeInformation[] {
-                                            Types.INT,
-                                            Types.STRING,
-                                            new RowTypeInfo(
-                                                    new TypeInformation[] {
-                                                        Types.STRING, Types.INT, Types.INT
-                                                    },
-                                                    new String[] {"c1", "c2", "c3"}),
-                                            new MapTypeInfo<>(Types.STRING, Types.STRING),
-                                            Types.OBJECT_ARRAY(Types.STRING),
-                                            Types.STRING
-                                        },
-                                        new String[] {"a", "b", "c", "d", "e", "f"}))
-                        .filter(
-                                (FilterFunction<Row>)
-                                        value -> {
-                                            System.out.println(value);
-                                            return true;
-                                        })
-                        .setParallelism(3); // to parallel tasks
 
         tEnv.createTemporaryView("my_table", stream);
         assertResults(executeAndGetResult(tEnv), expectedRows);
@@ -1149,8 +1097,6 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
         String sql =
                 "insert into sink_table /*+ OPTIONS('sink.parallelism' = '3') */"
                         + " select * from my_table";
-        //        return tEnv.executeSql(sql).collect();
-        //        return tEnv.executeSql("select * from my_table").collect();
         return tEnv.executeSql("select * from sink_table").collect();
     }
 
