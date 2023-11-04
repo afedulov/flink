@@ -64,8 +64,8 @@ class FromElementsGeneratorSourceITCase extends TestLogger {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(PARALLELISM);
         String[] data = {"Foo", "bar", "baz"};
-        FromElementsGeneratorFunction<String> generatorFunction =
-                new FromElementsGeneratorFunction<>(Types.STRING, "Foo", "bar", "baz");
+        IndexLookupGeneratorFunction<String> generatorFunction =
+                new IndexLookupGeneratorFunction<>(Types.STRING, "Foo", "bar", "baz");
         DataGeneratorSource<String> dataGeneratorSource =
                 new DataGeneratorSource<>(generatorFunction, data.length, Types.STRING);
         DataStream<String> stream =
@@ -87,8 +87,8 @@ class FromElementsGeneratorSourceITCase extends TestLogger {
         User user1 = new User("Foo", 1);
         User user2 = new User("Bar", 2);
         User[] data = {user1, user2};
-        FromElementsGeneratorFunction<User> generatorFunction =
-                new FromElementsGeneratorFunction<>(TypeExtractor.createTypeInfo(User.class), data);
+        IndexLookupGeneratorFunction<User> generatorFunction =
+                new IndexLookupGeneratorFunction<>(TypeExtractor.createTypeInfo(User.class), data);
         DataGeneratorSource<User> dataGeneratorSource =
                 new DataGeneratorSource<>(
                         generatorFunction, data.length, new AvroTypeInfo<>(User.class));
@@ -108,8 +108,8 @@ class FromElementsGeneratorSourceITCase extends TestLogger {
     void testMoreElementsRequestedThanAvailable() {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         String[] data = {"foo", "bar"};
-        FromElementsGeneratorFunction<String> generatorFunction =
-                new FromElementsGeneratorFunction<>(Types.STRING, data);
+        IndexLookupGeneratorFunction<String> generatorFunction =
+                new IndexLookupGeneratorFunction<>(Types.STRING, data);
         DataGeneratorSource<String> dataGeneratorSource =
                 new DataGeneratorSource<>(generatorFunction, data.length + 1, Types.STRING);
         DataStream<String> stream =

@@ -127,11 +127,13 @@ public class CompactCoordinator extends AbstractStreamOperator<CoordinatorOutput
         CoordinatorInput value = element.getValue();
         if (value instanceof InputFile) {
             InputFile file = (InputFile) value;
+            System.out.println(">>> InputFile: " + file.getFile());
             currentInputFiles
                     .computeIfAbsent(file.getPartition(), k -> new ArrayList<>())
                     .add(file.getFile());
         } else if (value instanceof EndCheckpoint) {
             EndCheckpoint endCheckpoint = (EndCheckpoint) value;
+            System.out.println(">>> EndCheckpoint: " + endCheckpoint.getCheckpointId());
             if (inputTaskTracker == null) {
                 inputTaskTracker = new TaskTracker(endCheckpoint.getNumberOfTasks());
             }
@@ -184,12 +186,15 @@ public class CompactCoordinator extends AbstractStreamOperator<CoordinatorOutput
             String partition = unitsEntry.getKey();
             for (List<Path> unit : unitsEntry.getValue()) {
                 output.collect(new StreamRecord<>(new CompactionUnit(unitId, partition, unit)));
+                System.out.println(
+                        ">>> Send CompactionUnit: " + unitId + " - " + partition + " - " + unit);
                 unitId++;
             }
         }
 
         LOG.debug("Coordinate checkpoint-{}, compaction units are: {}", checkpointId, compactUnits);
 
+        System.out.println(">>> Send EndCompaction: " + checkpointId);
         // Emit checkpoint barrier
         output.collect(new StreamRecord<>(new EndCompaction(checkpointId)));
     }

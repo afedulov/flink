@@ -169,6 +169,12 @@ public class PartitionCommitter extends AbstractStreamOperator<Void>
                         "Partition {} of table {} is ready to be committed",
                         partSpec,
                         tableIdentifier);
+                System.out.println(
+                        "Partition "
+                                + partSpec
+                                + " of table "
+                                + tableIdentifier
+                                + " is ready to be committed");
                 Path path = new Path(locationPath, generatePartitionPath(partSpec));
                 PartitionCommitPolicy.Context context =
                         new CommitPolicyContextImpl(new ArrayList<>(partSpec.values()), path);

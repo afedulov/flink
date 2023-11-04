@@ -18,7 +18,7 @@
 
 package org.apache.flink.connector.datagen.source;
 
-import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
@@ -28,26 +28,19 @@ import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
- * A {@link SourceReader} that returns the values of an iterator, supplied via an {@link
- * IteratorSourceSplit}.
- *
- * <p>The {@code IteratorSourceSplit} is also responsible for taking the current iterator and
- * turning it back into a split for checkpointing.
- *
- * @param <E> The type of events returned by the reader.
- * @param <IterT> The type of the iterator that produces the events. This type exists to make the
- *     conversion between iterator and {@code IteratorSourceSplit} type safe.
- * @param <SplitT> The concrete type of the {@code IteratorSourceSplit} that creates and converts
- *     the iterator that produces this reader's elements.
+ * A {@link SourceReader} that synchronizes emission of N elements on the arrival of the checkpoint
+ * barriers. This is possible because {@code pollNext} and {@code snapshotState} are executed in the
+ * same thread and the fact that {@code pollNext} emits N elements at once. This reader is meant to
+ * used solely for testing purposes as the substitution for the {@code FiniteTestSource} that is
+ * based on the pre-FLIP-27 API.
  */
-@Public
-public class FiniteSourceReaderBla<
+@Experimental
+public class SourceReaderWithSnapshotsLatch<
                 E, O, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
         extends IteratorSourceReaderBase<E, O, IterT, SplitT> {
 
@@ -57,7 +50,7 @@ public class FiniteSourceReaderBla<
     private final int snapshotsBetweenCycles;
     private int snapshotsCompleted;
 
-    public FiniteSourceReaderBla(
+    public SourceReaderWithSnapshotsLatch(
             SourceReaderContext context,
             GeneratorFunction<E, O> generatorFunction,
             int elementsPerCycle,
@@ -82,34 +75,38 @@ public class FiniteSourceReaderBla<
     @Override
     public InputStatus pollNext(ReaderOutput<O> output) {
         snapshotsCompleted = 0;
+        // TODO: store split, it is going to be reused.
         System.out.println("pollNext in " + Thread.currentThread());
         if (iterator != null) {
+            System.out.println(">>> TAG1");
             if (iterator.hasNext()) {
+                System.out.println(">>> TAG2: ITERATOR HAS NEXT");
                 emitElements(output);
                 return InputStatus.MORE_AVAILABLE;
             } else {
+                System.out.println(">>> TAG5: FINISH SPLIT");
                 finishSplit();
             }
         }
 
+        System.out.println(">>> TAG6: ITERATOR == null");
         final InputStatus inputStatus = tryMoveToNextSplit();
+        System.out.println(">>> TAG3: " + inputStatus);
         if (inputStatus == InputStatus.MORE_AVAILABLE) {
+            System.out.println(">>> TAG4: EMIT ELEMENTS");
             emitElements(output);
             availability = new CompletableFuture<>();
             return InputStatus.NOTHING_AVAILABLE;
         }
         return inputStatus;
+        //        return InputStatus.END_OF_INPUT;
     }
 
-    private InputStatus emitElements(ReaderOutput<O> output) {
+    private void emitElements(ReaderOutput<O> output) {
         for (int i = 0; i < elementsPerCycle; i++) {
-            if (iterator.hasNext()) {
-                output.collect(convert(iterator.next()));
-            } else {
-                return InputStatus.NOTHING_AVAILABLE;
-            }
+            output.collect(convert(iterator.next()));
         }
-        return InputStatus.MORE_AVAILABLE;
+        System.out.println(">>>");
     }
 
     protected O convert(E value) {
@@ -125,7 +122,7 @@ public class FiniteSourceReaderBla<
     }
 
     @Override
-    public List<SplitT> snapshotState(long checkpointId) {
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
         System.out.println(
                 "@@@ SourceReader.snapshotState("
                         + checkpointId
@@ -136,7 +133,6 @@ public class FiniteSourceReaderBla<
         if (snapshotsCompleted == snapshotsBetweenCycles) {
             availability.complete(null);
         }
-        return super.snapshotState(checkpointId);
     }
 
     @Override

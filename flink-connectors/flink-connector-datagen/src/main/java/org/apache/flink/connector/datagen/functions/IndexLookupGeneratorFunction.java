@@ -40,7 +40,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 /**
@@ -53,7 +54,7 @@ import java.util.NoSuchElementException;
  * @param <OUT> The type of elements returned by this function.
  */
 @Internal
-public class FromElementsGeneratorFunction<OUT> implements GeneratorFunction<Long, OUT> {
+public class IndexLookupGeneratorFunction<OUT> implements GeneratorFunction<Long, OUT> {
 
     private static final long serialVersionUID = 1L;
 
@@ -68,23 +69,27 @@ public class FromElementsGeneratorFunction<OUT> implements GeneratorFunction<Lon
     /** The number of elements emitted already. */
     private int numElementsEmitted;
 
+    private int numElements;
+
     private transient DataInputView input;
 
+    private transient Map<Long, OUT> lookupMap;
+
     @SafeVarargs
-    public FromElementsGeneratorFunction(TypeInformation<OUT> typeInfo, OUT... elements) {
+    public IndexLookupGeneratorFunction(TypeInformation<OUT> typeInfo, OUT... elements) {
         this(typeInfo, new ExecutionConfig(), Arrays.asList(elements));
     }
 
-    public FromElementsGeneratorFunction(
+    public IndexLookupGeneratorFunction(TypeInformation<OUT> typeInfo, Iterable<OUT> elements) {
+        this(typeInfo, new ExecutionConfig(), elements);
+    }
+
+    public IndexLookupGeneratorFunction(
             TypeInformation<OUT> typeInfo, ExecutionConfig config, Iterable<OUT> elements) {
         // must not have null elements and mixed elements
         checkIterable(elements, typeInfo.getTypeClass());
         this.serializer = typeInfo.createSerializer(config);
         trySerialize(elements);
-    }
-
-    public FromElementsGeneratorFunction(TypeInformation<OUT> typeInfo, List<OUT> elements) {
-        this(typeInfo, new ExecutionConfig(), elements);
     }
 
     @VisibleForTesting
@@ -113,21 +118,16 @@ public class FromElementsGeneratorFunction<OUT> implements GeneratorFunction<Lon
     public void open(SourceReaderContext readerContext) throws Exception {
         ByteArrayInputStream bais = new ByteArrayInputStream(elementsSerialized);
         this.input = new DataInputViewStreamWrapper(bais);
+        lookupMap = new HashMap<>();
+        buildLookup();
     }
 
     @Override
-    public OUT map(Long nextIndex) throws Exception {
-        // Move iterator to the required position in case of failure recovery
-        while (numElementsEmitted < nextIndex) {
-            numElementsEmitted++;
-            tryDeserialize(serializer, input);
-        }
-        numElementsEmitted++;
-        return tryDeserialize(serializer, input);
+    public OUT map(Long index) throws Exception {
+        return lookupMap.get(index);
     }
 
-    private OUT tryDeserialize(TypeSerializer<OUT> serializer, DataInputView input)
-            throws IOException {
+    private OUT tryDeserialize() throws IOException {
         try {
             return serializer.deserialize(input);
         } catch (EOFException eof) {
@@ -140,6 +140,12 @@ public class FromElementsGeneratorFunction<OUT> implements GeneratorFunction<Lon
                             + "serialization functions.\nSerializer is "
                             + serializer,
                     e);
+        }
+    }
+
+    private void buildLookup() throws IOException {
+        for (long i = 0; i < numElements; i++) {
+            lookupMap.put(i, tryDeserialize());
         }
     }
 
@@ -161,10 +167,10 @@ public class FromElementsGeneratorFunction<OUT> implements GeneratorFunction<Lon
      *
      * @param elements The iterable to check.
      * @param viewedAs The class to which the elements must be assignable to.
-     * @param <OUT> The generic type of the iterable to be checked.
      */
-    public static <OUT> void checkIterable(Iterable<OUT> elements, Class<?> viewedAs) {
+    public void checkIterable(Iterable<OUT> elements, Class<?> viewedAs) {
         for (OUT elem : elements) {
+            numElements++;
             if (elem == null) {
                 throw new IllegalArgumentException("The collection contains a null element");
             }

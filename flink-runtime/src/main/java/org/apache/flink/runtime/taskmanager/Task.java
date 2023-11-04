@@ -931,6 +931,7 @@ public class Task
 
             runWithSystemExitMonitoring(finalInvokable::invoke);
         } catch (Throwable throwable) {
+            throwable.printStackTrace();
             try {
                 runWithSystemExitMonitoring(() -> finalInvokable.cleanUp(throwable));
             } catch (Throwable cleanUpThrowable) {

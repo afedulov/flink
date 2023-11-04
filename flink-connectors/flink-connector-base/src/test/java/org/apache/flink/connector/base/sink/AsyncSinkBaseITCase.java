@@ -47,7 +47,10 @@ public class AsyncSinkBaseITCase {
 
     @Test
     public void testWriteTwentyThousandRecordsToGenericSink() throws Exception {
-        env.fromSequence(1, 20000).map(Object::toString).sinkTo(new ArrayListAsyncSink());
+        env.fromSequence(1, 20000)
+                .setParallelism(1)
+                .map(Object::toString)
+                .sinkTo(new ArrayListAsyncSink());
         env.execute("Integration Test: AsyncSinkBaseITCase").getJobExecutionResult();
     }
 

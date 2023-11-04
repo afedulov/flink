@@ -119,6 +119,7 @@ public class CompactOperator<T> extends AbstractStreamOperator<PartitionCommitIn
     @Override
     public void processElement(StreamRecord<CoordinatorOutput> element) throws Exception {
         CoordinatorOutput value = element.getValue();
+        System.out.println("@@@ Compaction: " + value);
         if (value instanceof CompactionUnit) {
             CompactionUnit unit = (CompactionUnit) value;
             if (unit.isTaskMessage(
@@ -126,6 +127,7 @@ public class CompactOperator<T> extends AbstractStreamOperator<PartitionCommitIn
                     getRuntimeContext().getIndexOfThisSubtask())) {
                 String partition = unit.getPartition();
                 List<Path> paths = unit.getPaths();
+                System.out.println("Paths: " + paths);
                 // create a target file to compact to
                 Path targetPath = createCompactedFile(paths);
                 // do compaction
@@ -169,6 +171,8 @@ public class CompactOperator<T> extends AbstractStreamOperator<PartitionCommitIn
     }
 
     private void snapshotState(long checkpointId) throws Exception {
+        System.out.println("Checkpoint ID: " + checkpointId);
+        System.out.println("currentExpiredFiles: " + currentExpiredFiles);
         expiredFiles.put(checkpointId, new ArrayList<>(currentExpiredFiles));
         expiredFilesState.update(Collections.singletonList(expiredFiles));
         currentExpiredFiles.clear();

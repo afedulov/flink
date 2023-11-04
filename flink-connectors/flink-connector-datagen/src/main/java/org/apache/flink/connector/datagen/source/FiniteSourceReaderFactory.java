@@ -63,7 +63,7 @@ public class FiniteSourceReaderFactory<OUT>
             SourceReaderContext readerContext) {
         //        return new FiniteSourceReader<>(readerContext, generatorFunction,
         // elementsPerCycle);
-        return new FiniteSourceReaderBla<>(
+        return new SourceReaderWithSnapshotsLatch<>(
                 readerContext, generatorFunction, elementsPerCycle, snapshotsBetweenCycles);
     }
 }

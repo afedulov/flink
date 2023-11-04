@@ -62,7 +62,7 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.StateChangelogOptions;
-import org.apache.flink.connector.datagen.functions.FromElementsGeneratorFunction;
+import org.apache.flink.connector.datagen.functions.IndexLookupGeneratorFunction;
 import org.apache.flink.connector.datagen.source.DataGeneratorSource;
 import org.apache.flink.core.execution.CacheSupportedPipelineExecutor;
 import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
@@ -1313,8 +1313,8 @@ public class StreamExecutionEnvironment implements AutoCloseable {
             Collection<OUT> data, TypeInformation<OUT> typeInfo) {
         Preconditions.checkNotNull(data, "Collection must not be null");
 
-        FromElementsGeneratorFunction<OUT> generatorFunction =
-                new FromElementsGeneratorFunction<>(typeInfo, getConfig(), data);
+        IndexLookupGeneratorFunction<OUT> generatorFunction =
+                new IndexLookupGeneratorFunction<>(typeInfo, getConfig(), data);
 
         DataGeneratorSource<OUT> generatorSource =
                 new DataGeneratorSource<>(generatorFunction, data.size(), typeInfo);
