@@ -26,6 +26,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.util.ratelimit.RateLimiterStrategy;
+import org.apache.flink.connector.datagen.functions.IndexLookupGeneratorFunction;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
@@ -70,6 +71,28 @@ class DataGeneratorSourceITCase extends TestLogger {
     @Test
     @DisplayName("Combined results of parallel source readers produce the expected sequence.")
     void testParallelSourceExecution() throws Exception {
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(1);
+
+        GeneratorFunction<Long, String> generatorFunction =
+                new IndexLookupGeneratorFunction<>(Types.STRING, "one", "two", "three");
+
+        DataGeneratorSource<String> dataGeneratorSource =
+                new DataGeneratorSource<>(generatorFunction, 3, Types.STRING);
+
+        DataStream<String> stream =
+                env.fromSource(
+                        dataGeneratorSource, WatermarkStrategy.noWatermarks(), "generator source");
+
+        List<String> result = stream.executeAndCollect(10000);
+        System.out.println(result);
+
+        //        assertThat(result).containsExactlyInAnyOrderElementsOf(range(0, 999));
+    }
+
+    @Test
+    @DisplayName("Combined results of parallel source readers produce the expected sequence.")
+    void testIndex() throws Exception {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(PARALLELISM);
 

@@ -16,20 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.datagen.source;
+package org.apache.flink.connector.datagen.functions;
 
 import org.apache.flink.annotation.Experimental;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.connector.datagen.source.GeneratorFunction;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -39,73 +48,90 @@ import java.util.concurrent.atomic.AtomicInteger;
  * object transport using Java serialization will not be affected by the serializability of the
  * elements.
  *
- * <p><b>NOTE:</b> This source has a parallelism of 1.
- *
- * @param <T> The type of elements returned by this function.
+ * @param <OUT> The type of elements returned by this function.
  */
 @Experimental
-public class FromElementsGeneratorFunction<T> implements GeneratorFunction<Long, T> {
+public class RepeatingGeneratorFunction<OUT> implements GeneratorFunction<Long, OUT> {
 
     private static final long serialVersionUID = 1L;
 
+    private static final Logger LOG = LoggerFactory.getLogger(RepeatingGeneratorFunction.class);
+
     /** The (de)serializer to be used for the data elements. */
-    private final TypeSerializer<T> serializer;
+    private final TypeSerializer<OUT> serializer;
 
     /** The actual data elements, in serialized form. */
-    private final byte[] elementsSerialized;
+    private byte[] elementsSerialized;
 
     /** The number of elements emitted already. */
     private int numElementsEmitted;
 
-    private transient InputStream bais;
     private transient DataInputView input;
 
-    public FromElementsGeneratorFunction(TypeSerializer<T> serializer, T... elements)
-            throws IOException {
-        this(serializer, Arrays.asList(elements));
+    @SafeVarargs
+    public RepeatingGeneratorFunction(TypeInformation<OUT> typeInfo, OUT... elements) {
+        this(typeInfo, new ExecutionConfig(), Arrays.asList(elements));
     }
 
-    public FromElementsGeneratorFunction(TypeSerializer<T> serializer, Iterable<T> elements)
-            throws IOException {
+    public RepeatingGeneratorFunction(TypeInformation<OUT> typeInfo, Iterable<OUT> elements) {
+        this(typeInfo, new ExecutionConfig(), elements);
+    }
+
+    public RepeatingGeneratorFunction(
+            TypeInformation<OUT> typeInfo, ExecutionConfig config, Iterable<OUT> elements) {
+        // must not have null elements and mixed elements
+        checkIterable(elements, typeInfo.getTypeClass());
+        this.serializer = typeInfo.createSerializer(config);
+        trySerialize(elements);
+    }
+
+    public RepeatingGeneratorFunction(TypeInformation<OUT> typeInfo, List<OUT> elements) {
+        this(typeInfo, new ExecutionConfig(), elements);
+    }
+
+    private void serializeElements(Iterable<OUT> elements) throws IOException {
+        Preconditions.checkState(serializer != null, "serializer not set");
+        LOG.info("Serializing elements using  " + serializer);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputViewStreamWrapper wrapper = new DataOutputViewStreamWrapper(baos);
 
         try {
-            for (T element : elements) {
+            for (OUT element : elements) {
                 serializer.serialize(element, wrapper);
             }
         } catch (Exception e) {
             throw new IOException("Serializing the source elements failed: " + e.getMessage(), e);
         }
-
-        this.serializer = serializer;
         this.elementsSerialized = baos.toByteArray();
     }
 
     @Override
     public void open(SourceReaderContext readerContext) throws Exception {
-        //        this.bais = new ByteArrayInputStream(elementsSerialized);
-        this.bais = new CircularInputStream(elementsSerialized);
-        this.input = new DataInputViewStreamWrapper(bais);
+        InputStream inputStream = new CircularInputStream(elementsSerialized);
+        this.input = new DataInputViewStreamWrapper(inputStream);
     }
 
     @Override
-    public T map(Long nextIndex) throws Exception {
+    public OUT map(Long nextIndex) throws Exception {
         // Move iterator to the required position in case of failure recovery
         while (numElementsEmitted < nextIndex) {
             numElementsEmitted++;
             tryDeserialize(serializer, input);
         }
-        T result = tryDeserialize(serializer, input);
+        OUT result = tryDeserialize(serializer, input);
         System.out.println(String.format("Map: %s -> %s", nextIndex, result));
         numElementsEmitted++;
 
         return result;
     }
 
-    private T tryDeserialize(TypeSerializer<T> serializer, DataInputView input) throws IOException {
+    private OUT tryDeserialize(TypeSerializer<OUT> serializer, DataInputView input)
+            throws IOException {
         try {
             return serializer.deserialize(input);
+        } catch (EOFException eof) {
+            throw new NoSuchElementException(
+                    "Reached the end of the collection. This could be caused by issues with the serializer or by calling the map() function more times than there are elements in the collection. Make sure that you set the number of records to be produced by the DataGeneratorSource equal to the number of elements in the collection.");
         } catch (Exception e) {
             throw new IOException(
                     "Failed to deserialize an element from the source. "
@@ -116,19 +142,27 @@ public class FromElementsGeneratorFunction<T> implements GeneratorFunction<Long,
         }
     }
 
+    private void trySerialize(Iterable<OUT> elements) {
+        try {
+            serializeElements(elements);
+        } catch (IOException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+    }
+
     // ------------------------------------------------------------------------
     //  Utilities
     // ------------------------------------------------------------------------
 
     /**
-     * Verifies that all elements in the collection are non-null, and are of the given class, or a
+     * Verifies that all elements in the iterable are non-null, and are of the given class, or a
      * subclass thereof.
      *
-     * @param elements The collection to check.
+     * @param elements The iterable to check.
      * @param viewedAs The class to which the elements must be assignable to.
-     * @param <OUT> The generic type of the collection to be checked.
+     * @param <OUT> The generic type of the iterable to be checked.
      */
-    public static <OUT> void checkCollection(Collection<OUT> elements, Class<OUT> viewedAs) {
+    public static <OUT> void checkIterable(Iterable<OUT> elements, Class<?> viewedAs) {
         for (OUT elem : elements) {
             if (elem == null) {
                 throw new IllegalArgumentException("The collection contains a null element");
@@ -142,7 +176,7 @@ public class FromElementsGeneratorFunction<T> implements GeneratorFunction<Long,
         }
     }
 
-    public class CircularInputStream extends InputStream {
+    private static class CircularInputStream extends InputStream {
         private final byte[] buffer;
         private final AtomicInteger index;
 

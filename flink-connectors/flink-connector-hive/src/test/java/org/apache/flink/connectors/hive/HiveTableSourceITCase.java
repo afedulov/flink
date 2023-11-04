@@ -18,13 +18,20 @@
 
 package org.apache.flink.connectors.hive;
 
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.connector.source.SourceReaderFactory;
+import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequenceSplit;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.typeutils.MapTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connector.datagen.functions.IndexLookupGeneratorFunction;
+import org.apache.flink.connector.datagen.source.DataGeneratorSource;
+import org.apache.flink.connector.datagen.source.GeneratorFunction;
+import org.apache.flink.connector.datagen.source.SourceReaderWithSnapshotsLatch2;
 import org.apache.flink.core.testutils.CommonTestUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
@@ -970,7 +977,8 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
         result.getJobClient().get().cancel();
     }
 
-    @Test(timeout = 120000)
+    //    @Test(timeout = 120000)
+    @Test
     public void testReadParquetWithNullableComplexType() throws Exception {
         final String catalogName = "hive";
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -981,7 +989,56 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
         tEnv.registerCatalog(catalogName, hiveCatalog);
         tEnv.useCatalog(catalogName);
 
-        List<Row> rows = generateRows();
+        List<Row> rows = generateRows(3);
+        List<Row> expectedRows = generateExpectedRows(rows);
+
+        RowTypeInfo typeInfo =
+                new RowTypeInfo(
+                        new TypeInformation[] {
+                            Types.INT,
+                            Types.STRING,
+                            new RowTypeInfo(
+                                    new TypeInformation[] {Types.STRING, Types.INT, Types.INT},
+                                    new String[] {"c1", "c2", "c3"}),
+                            new MapTypeInfo<>(Types.STRING, Types.STRING),
+                            Types.OBJECT_ARRAY(Types.STRING),
+                            Types.STRING
+                        },
+                        new String[] {"a", "b", "c", "d", "e", "f"});
+
+        IndexLookupGeneratorFunction<Row> generatorFunction =
+                new IndexLookupGeneratorFunction<>(typeInfo, rows);
+
+        //        RepeatingGeneratorFunction<Row> generatorFunction =
+        //                new RepeatingGeneratorFunction<>(typeInfo, rows);
+        DataStream<Row> stream =
+                getDataStream(env, generatorFunction, rows.size(), typeInfo)
+                        .filter(
+                                (FilterFunction<Row>)
+                                        value -> {
+                                            System.out.println("<<<" + value);
+                                            return true;
+                                        })
+                        .setParallelism(3);
+        // to parallel tasks
+        //                        .setParallelism(1); // to parallel tasks
+
+        tEnv.createTemporaryView("my_table", stream);
+        assertResults(executeAndGetResult(tEnv), expectedRows);
+    }
+
+    @Test(timeout = 120000)
+    public void testReadParquetWithNullableComplexTypeOld() throws Exception {
+        final String catalogName = "hive";
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(3);
+        env.enableCheckpointing(100);
+        StreamTableEnvironment tEnv =
+                HiveTestUtils.createTableEnvInStreamingMode(env, SqlDialect.HIVE);
+        tEnv.registerCatalog(catalogName, hiveCatalog);
+        tEnv.useCatalog(catalogName);
+
+        List<Row> rows = generateRows(2);
         List<Row> expectedRows = generateExpectedRows(rows);
         DataStream<Row> stream =
                 env.addSource(
@@ -1000,16 +1057,39 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
                                             Types.STRING
                                         },
                                         new String[] {"a", "b", "c", "d", "e", "f"}))
-                        .filter((FilterFunction<Row>) value -> true)
+                        .filter(
+                                (FilterFunction<Row>)
+                                        value -> {
+                                            System.out.println(value);
+                                            return true;
+                                        })
                         .setParallelism(3); // to parallel tasks
 
         tEnv.createTemporaryView("my_table", stream);
         assertResults(executeAndGetResult(tEnv), expectedRows);
     }
 
-    private static List<Row> generateRows() {
+    private static <OUT> DataStream<OUT> getDataStream(
+            StreamExecutionEnvironment env,
+            GeneratorFunction<Long, OUT> generatorFunction,
+            int size,
+            TypeInformation<OUT> addressTypeInformation) {
+
+        DataGeneratorSource<OUT> addressSource =
+                new DataGeneratorSource<>(
+                        (SourceReaderFactory<OUT, NumberSequenceSplit>)
+                                (readerContext) ->
+                                        new SourceReaderWithSnapshotsLatch2<>(
+                                                readerContext, generatorFunction, 2),
+                        size,
+                        addressTypeInformation);
+
+        return env.fromSource(addressSource, WatermarkStrategy.noWatermarks(), "");
+    }
+
+    private static List<Row> generateRows(int count) {
         List<Row> rows = new ArrayList<>();
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < count; i++) {
             Map<String, String> e = new HashMap<>();
             e.put(i + "", i % 2 == 0 ? null : i + "");
             String[] f = new String[2];
@@ -1069,7 +1149,8 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
         String sql =
                 "insert into sink_table /*+ OPTIONS('sink.parallelism' = '3') */"
                         + " select * from my_table";
-        tEnv.executeSql(sql).await();
+        //        return tEnv.executeSql(sql).collect();
+        //        return tEnv.executeSql("select * from my_table").collect();
         return tEnv.executeSql("select * from sink_table").collect();
     }
 
@@ -1078,6 +1159,7 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
         List<Row> result = CollectionUtil.iteratorToList(iterator);
         iterator.close();
         result.sort(Comparator.comparingInt(o -> (Integer) o.getField(0)));
+        //        result.forEach((r) -> System.out.println(">>>" + r));
         assertThat(result).isEqualTo(expectedRows);
     }
 

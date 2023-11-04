@@ -18,8 +18,6 @@
 
 package org.apache.flink.connector.datagen.source;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
@@ -36,9 +34,12 @@ import org.apache.flink.api.connector.source.lib.NumberSequenceSource.NumberSequ
 import org.apache.flink.api.connector.source.util.ratelimit.RateLimiterStrategy;
 import org.apache.flink.api.java.ClosureCleaner;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
+import org.apache.flink.connector.datagen.functions.IndexLookupGeneratorFunction;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.util.Collection;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * A data source that produces N data points in parallel. This source is useful for testing and for
@@ -142,6 +143,17 @@ public class DataGeneratorSource<OUT>
 
     public DataGeneratorSource(
             SourceReaderFactory<OUT, NumberSequenceSplit> sourceReaderFactory,
+            long count,
+            TypeInformation<OUT> typeInfo) {
+        this.sourceReaderFactory = checkNotNull(sourceReaderFactory);
+        ClosureCleaner.clean(
+                sourceReaderFactory, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
+        this.typeInfo = checkNotNull(typeInfo);
+        this.numberSource = new NumberSequenceSource(0, count - 1);
+    }
+
+    private DataGeneratorSource(
+            SourceReaderFactory<OUT, NumberSequenceSplit> sourceReaderFactory,
             GeneratorFunction<Long, OUT> generatorFunction,
             long count,
             TypeInformation<OUT> typeInfo) {
@@ -153,17 +165,6 @@ public class DataGeneratorSource<OUT>
                 generatorFunction, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
         ClosureCleaner.clean(
                 sourceReaderFactory, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
-    }
-
-    public DataGeneratorSource(
-            SourceReaderFactory<OUT, NumberSequenceSplit> sourceReaderFactory,
-            long count,
-            TypeInformation<OUT> typeInfo) {
-        this.sourceReaderFactory = checkNotNull(sourceReaderFactory);
-        ClosureCleaner.clean(
-                sourceReaderFactory, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
-        this.typeInfo = checkNotNull(typeInfo);
-        this.numberSource = new NumberSequenceSource(0, count - 1);
     }
 
     @VisibleForTesting
@@ -213,5 +214,21 @@ public class DataGeneratorSource<OUT>
     public SimpleVersionedSerializer<Collection<NumberSequenceSplit>>
             getEnumeratorCheckpointSerializer() {
         return numberSource.getEnumeratorCheckpointSerializer();
+    }
+
+    // This source will generate two elements with a checkpoint trigger in between the two
+    // elements
+    public static <OUT> DataGeneratorSource<OUT> fromDataWithSnapshotsLatch(
+            Collection<OUT> testData, TypeInformation<OUT> typeInfo) {
+        IndexLookupGeneratorFunction<OUT> generatorFunction =
+                new IndexLookupGeneratorFunction<>(typeInfo, testData);
+
+        return new DataGeneratorSource<>(
+                (SourceReaderFactory<OUT, NumberSequenceSplit>)
+                        (readerContext) ->
+                                new SourceReaderWithSnapshotsLatch2<>(
+                                        readerContext, generatorFunction, 2),
+                testData.size(),
+                typeInfo);
     }
 }

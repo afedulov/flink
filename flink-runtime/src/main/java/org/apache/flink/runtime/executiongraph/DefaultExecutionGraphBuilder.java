@@ -344,6 +344,9 @@ public class DefaultExecutionGraphBuilder {
                     jobManagerConfig.getString(STATE_CHANGE_LOG_STORAGE));
         }
 
+        System.out.println("Execution graph:");
+        System.out.println(executionGraph);
+
         return executionGraph;
     }
 
