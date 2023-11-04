@@ -18,7 +18,7 @@
 
 package org.apache.flink.connector.datagen.source;
 
-import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
@@ -51,7 +51,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <SplitT> The concrete type of the {@code IteratorSourceSplit} that creates and converts
  *     the iterator that produces this reader's elements.
  */
-@Public
+@Internal
 public class FiniteSourceReader<
                 E, O, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
         implements SourceReader<O, SplitT> {
