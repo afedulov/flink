@@ -1181,8 +1181,8 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * elements, it may be necessary to manually supply the type information via {@link
      * #fromCollection(java.util.Collection, org.apache.flink.api.common.typeinfo.TypeInformation)}.
      *
-     * <p>Note that this operation will result in a non-parallel data stream source, i.e. a data
-     * stream source with a degree of parallelism one.
+     * <p>NOTE: This creates a non-parallel data stream source by default (parallelism of one).
+     * Adjustment of parallelism is supported via {@code setParallelism()} on the result.
      *
      * @param data The array of elements to create the data stream from.
      * @param <OUT> The type of the returned data stream
@@ -1212,9 +1212,10 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     /**
      * Creates a new data stream that contains the given elements. The framework will determine the
      * type according to the based type user supplied. The elements should be the same or be the
-     * subclass to the based type. The sequence of elements must not be empty. Note that this
-     * operation will result in a non-parallel data stream source, i.e. a data stream source with a
-     * degree of parallelism one.
+     * subclass to the based type. The sequence of elements must not be empty.
+     *
+     * <p>NOTE: This creates a non-parallel data stream source by default (parallelism of one).
+     * Adjustment of parallelism is supported via {@code setParallelism()} on the result.
      *
      * @param type The based class type in the collection.
      * @param data The array of elements to create the data stream from.
@@ -1243,11 +1244,11 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     }
 
     /**
-     * Creates a new data stream that contains the given elements. The framework will determine the
-     * type according to the based type user supplied. The elements should be the same or be the
-     * subclass to the based type. The sequence of elements must not be empty. Note that this
-     * operation will result in a non-parallel data stream source, i.e. a data stream source with a
-     * degree of parallelism one.
+     * Creates a new data stream that contains the given elements. The elements should be the same
+     * or be the subclass to the {@code typeInfo} type. The sequence of elements must not be empty.
+     *
+     * <p>NOTE: This creates a non-parallel data stream source by default (parallelism of one).
+     * Adjustment of parallelism is supported via {@code setParallelism()} on the result.
      *
      * @param typeInfo The type information of the elements.
      * @param data The array of elements to create the data stream from.
