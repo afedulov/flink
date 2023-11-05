@@ -1191,14 +1191,14 @@ class StreamingJobGraphGeneratorTest {
         configuration.set(
                 PipelineOptions.OPERATOR_CHAINING_CHAIN_OPERATORS_WITH_DIFFERENT_MAX_PARALLELISM,
                 chainingOfOperatorsWithDifferentMaxParallelismEnabled);
-        configuration.set(PipelineOptions.MAX_PARALLELISM, 1);
+        configuration.set(PipelineOptions.MAX_PARALLELISM, 10);
         try (StreamExecutionEnvironment chainEnv =
                 StreamExecutionEnvironment.createLocalEnvironment(1, configuration)) {
             chainEnv.fromElements(1)
                     .map(x -> x)
                     // should automatically break chain here
                     .map(x -> x)
-                    .setMaxParallelism(10)
+                    .setMaxParallelism(1)
                     .map(x -> x);
 
             final JobGraph jobGraph = chainEnv.getStreamGraph().getJobGraph();
