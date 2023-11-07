@@ -39,7 +39,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -66,19 +65,11 @@ public class IndexLookupGeneratorFunction<OUT> implements GeneratorFunction<Long
     /** The actual data elements, in serialized form. */
     private byte[] elementsSerialized;
 
-    /** The number of elements emitted already. */
-    private int numElementsEmitted;
-
     private int numElements;
 
     private transient DataInputView input;
 
     private transient Map<Long, OUT> lookupMap;
-
-    @SafeVarargs
-    public IndexLookupGeneratorFunction(TypeInformation<OUT> typeInfo, OUT... elements) {
-        this(typeInfo, new ExecutionConfig(), Arrays.asList(elements));
-    }
 
     public IndexLookupGeneratorFunction(TypeInformation<OUT> typeInfo, Iterable<OUT> elements) {
         this(typeInfo, new ExecutionConfig(), elements);

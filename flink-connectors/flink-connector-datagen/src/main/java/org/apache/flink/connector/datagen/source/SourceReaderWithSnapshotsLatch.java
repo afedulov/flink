@@ -27,8 +27,12 @@ import org.apache.flink.api.connector.source.lib.util.IteratorSourceSplit;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import javax.annotation.Nullable;
+
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -46,25 +50,34 @@ public class SourceReaderWithSnapshotsLatch<
 
     private final GeneratorFunction<E, O> generatorFunction;
 
-    private final int elementsPerCycle;
-    private final int snapshotsBetweenCycles;
+    private BooleanSupplier couldExit;
     private int snapshotsCompleted;
+    private int snapshotsToWaitFor = Integer.MAX_VALUE;
+    private boolean done;
 
     public SourceReaderWithSnapshotsLatch(
             SourceReaderContext context,
             GeneratorFunction<E, O> generatorFunction,
-            int elementsPerCycle,
+            int snapshotsBetween,
+            @Nullable BooleanSupplier couldExit) {
+        super(context);
+        this.generatorFunction = checkNotNull(generatorFunction);
+        this.couldExit = couldExit;
+    }
+
+    public SourceReaderWithSnapshotsLatch(
+            SourceReaderContext context,
+            GeneratorFunction<E, O> generatorFunction,
             int snapshotsBetween) {
         super(context);
         this.generatorFunction = checkNotNull(generatorFunction);
-        this.elementsPerCycle = elementsPerCycle;
-        this.snapshotsBetweenCycles = snapshotsBetween;
     }
 
     // ------------------------------------------------------------------------
 
     @Override
     public void start(SourceReaderContext context) {
+        System.out.println("!!! Start" + " in Thread " + Thread.currentThread());
         try {
             generatorFunction.open(context);
         } catch (Exception e) {
@@ -74,39 +87,63 @@ public class SourceReaderWithSnapshotsLatch<
 
     @Override
     public InputStatus pollNext(ReaderOutput<O> output) {
-        snapshotsCompleted = 0;
-        // TODO: store split, it is going to be reused.
-        System.out.println("pollNext in " + Thread.currentThread());
-        if (iterator != null) {
-            System.out.println(">>> TAG1");
-            if (iterator.hasNext()) {
-                System.out.println(">>> TAG2: ITERATOR HAS NEXT");
-                emitElements(output);
-                return InputStatus.MORE_AVAILABLE;
+        System.out.println(">>> pollNext" + " in Thread " + Thread.currentThread());
+        // This is the termination path after the split was emitted twice always waiting for two
+        // checkpoints after the emission
+        if (done) {
+            if (couldExit != null) {
+                System.out.println(">>> In Thread " + Thread.currentThread());
+                return couldExit.getAsBoolean()
+                        ? InputStatus.END_OF_INPUT
+                        : InputStatus.NOTHING_AVAILABLE;
             } else {
-                System.out.println(">>> TAG5: FINISH SPLIT");
-                finishSplit();
+                return InputStatus.END_OF_INPUT;
             }
         }
-
-        System.out.println(">>> TAG6: ITERATOR == null");
-        final InputStatus inputStatus = tryMoveToNextSplit();
-        System.out.println(">>> TAG3: " + inputStatus);
-        if (inputStatus == InputStatus.MORE_AVAILABLE) {
-            System.out.println(">>> TAG4: EMIT ELEMENTS");
+        // This is the initial path
+        if (currentSplit == null) {
+            InputStatus inputStatus = tryMoveToNextSplit();
+            switch (inputStatus) {
+                case MORE_AVAILABLE:
+                    emitElements(output);
+                    snapshotsToWaitFor = 2;
+                    snapshotsCompleted = 0;
+                    break;
+                case END_OF_INPUT:
+                    // This can happen if source parallelism is larger than the number of available
+                    // splits
+                    return inputStatus;
+            }
+        } else {
+            // Reusing the same split to emit elements the second time
             emitElements(output);
-            availability = new CompletableFuture<>();
-            return InputStatus.NOTHING_AVAILABLE;
+            snapshotsToWaitFor = 2;
+            snapshotsCompleted = 0;
+            done = true;
         }
-        return inputStatus;
-        //        return InputStatus.END_OF_INPUT;
+        availability = new CompletableFuture<>();
+        return InputStatus.NOTHING_AVAILABLE;
     }
 
     private void emitElements(ReaderOutput<O> output) {
-        for (int i = 0; i < elementsPerCycle; i++) {
-            output.collect(convert(iterator.next()));
+        iterator = currentSplit.getIterator();
+        //        for (int i = 0; i < elementsPerCycle; i++) {
+        //        System.out.println("Iterator has next: " + iterator.hasNext());
+        System.out.println("Split:" + currentSplit + ":" + " in Thread " + Thread.currentThread());
+        while (iterator.hasNext()) {
+            E next = iterator.next();
+            O converted = convert(next);
+            //            Thread.sleep(1);
+            System.out.println(
+                    ">> next: " + next + "->" + converted + " in Thread " + Thread.currentThread());
+            output.collect(converted);
         }
-        System.out.println(">>>");
+        System.out.println(
+                "X Iterator has next: "
+                        + iterator.hasNext()
+                        + " in Thread "
+                        + Thread.currentThread());
+        //        Thread.sleep(100);
     }
 
     protected O convert(E value) {
@@ -123,18 +160,38 @@ public class SourceReaderWithSnapshotsLatch<
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        //        Thread.sleep(300);
+        // TODO: we do not know whether pollNext or notifyCheckpointComplete happens first. See
+        //  FiniteTestFunction implementation for better handling
         System.out.println(
-                "@@@ SourceReader.snapshotState("
+                "@@@ SourceReader.notifyCheckpointComplete("
                         + checkpointId
                         + ") in Thread "
                         + Thread.currentThread());
         snapshotsCompleted++;
-        System.out.println("@@@ snapshotsCompleted: " + snapshotsCompleted);
-        if (snapshotsCompleted == snapshotsBetweenCycles) {
+        System.out.println(
+                "@@@ snapshotsCompleted: "
+                        + snapshotsCompleted
+                        + " in Thread "
+                        + Thread.currentThread());
+        if (snapshotsCompleted >= snapshotsToWaitFor) {
             availability.complete(null);
+        }
+
+        if (couldExit != null) {
+            if (couldExit.getAsBoolean()) {
+                availability.complete(null);
+            }
         }
     }
 
     @Override
-    public void close() throws Exception {}
+    public List<SplitT> snapshotState(long checkpointId) {
+        return super.snapshotState(checkpointId);
+    }
+
+    @Override
+    public void close() throws Exception {
+        System.out.println(">>> CLOSE!" + " in Thread " + Thread.currentThread());
+    }
 }

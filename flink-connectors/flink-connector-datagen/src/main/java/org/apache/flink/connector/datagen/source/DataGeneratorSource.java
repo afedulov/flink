@@ -205,7 +205,7 @@ public class DataGeneratorSource<OUT>
         return new DataGeneratorSource<>(
                 (SourceReaderFactory<OUT, NumberSequenceSplit>)
                         (readerContext) ->
-                                new SourceReaderWithSnapshotsLatch2<>(
+                                new SourceReaderWithSnapshotsLatch<>(
                                         readerContext, generatorFunction, 2),
                 testData.size(),
                 typeInfo);
@@ -221,7 +221,7 @@ public class DataGeneratorSource<OUT>
         return new DataGeneratorSource<>(
                 (SourceReaderFactory<OUT, NumberSequenceSplit>)
                         (readerContext) ->
-                                new SourceReaderWithSnapshotsLatch2<>(
+                                new SourceReaderWithSnapshotsLatch<>(
                                         readerContext, generatorFunction, 2, couldExit),
                 testData.size(),
                 typeInfo);
