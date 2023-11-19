@@ -171,8 +171,8 @@ public class CompactOperator<T> extends AbstractStreamOperator<PartitionCommitIn
     }
 
     private void snapshotState(long checkpointId) throws Exception {
-        System.out.println("Checkpoint ID: " + checkpointId);
-        System.out.println("currentExpiredFiles: " + currentExpiredFiles);
+        System.out.println("CompactOperator - Checkpoint ID: " + checkpointId);
+        System.out.println("CompactOperator - currentExpiredFiles: " + currentExpiredFiles);
         expiredFiles.put(checkpointId, new ArrayList<>(currentExpiredFiles));
         expiredFilesState.update(Collections.singletonList(expiredFiles));
         currentExpiredFiles.clear();

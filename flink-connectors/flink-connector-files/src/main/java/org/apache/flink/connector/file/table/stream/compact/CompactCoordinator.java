@@ -127,13 +127,14 @@ public class CompactCoordinator extends AbstractStreamOperator<CoordinatorOutput
         CoordinatorInput value = element.getValue();
         if (value instanceof InputFile) {
             InputFile file = (InputFile) value;
-            System.out.println(">>> InputFile: " + file.getFile());
+            System.out.println(">>> CompactCoordinator - InputFile: " + file.getFile());
             currentInputFiles
                     .computeIfAbsent(file.getPartition(), k -> new ArrayList<>())
                     .add(file.getFile());
         } else if (value instanceof EndCheckpoint) {
             EndCheckpoint endCheckpoint = (EndCheckpoint) value;
-            System.out.println(">>> EndCheckpoint: " + endCheckpoint.getCheckpointId());
+            System.out.println(
+                    ">>> CompactCoordinator - EndCheckpoint: " + endCheckpoint.getCheckpointId());
             if (inputTaskTracker == null) {
                 inputTaskTracker = new TaskTracker(endCheckpoint.getNumberOfTasks());
             }

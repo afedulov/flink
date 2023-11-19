@@ -88,8 +88,8 @@ public class SourceReaderWithSnapshotsLatch<
     @Override
     public InputStatus pollNext(ReaderOutput<O> output) {
         System.out.println(">>> pollNext" + " in Thread " + Thread.currentThread());
-        // This is the termination path after the split was emitted twice always waiting for two
-        // checkpoints after the emission
+        // This is the termination path after the split was emitted twice. Always waiting for two
+        // checkpoints after the emission.
         if (done) {
             if (couldExit != null) {
                 System.out.println(">>> In Thread " + Thread.currentThread());
@@ -139,7 +139,7 @@ public class SourceReaderWithSnapshotsLatch<
             output.collect(converted);
         }
         System.out.println(
-                "X Iterator has next: "
+                "Iterator has next: "
                         + iterator.hasNext()
                         + " in Thread "
                         + Thread.currentThread());
@@ -160,7 +160,7 @@ public class SourceReaderWithSnapshotsLatch<
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        //        Thread.sleep(300);
+        Thread.sleep(300);
         // TODO: we do not know whether pollNext or notifyCheckpointComplete happens first. See
         //  FiniteTestFunction implementation for better handling
         System.out.println(

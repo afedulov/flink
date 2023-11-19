@@ -274,7 +274,7 @@ public class Bucket<IN, BucketID> {
     }
 
     BucketState<BucketID> onReceptionOfCheckpoint(long checkpointId) throws IOException {
-        System.out.println(">> onReceptionOfCheckpoint");
+        System.out.println(">> Bucket - onReceptionOfCheckpoint");
         prepareBucketForCheckpointing(checkpointId);
 
         InProgressFileWriter.InProgressFileRecoverable inProgressFileRecoverable = null;
