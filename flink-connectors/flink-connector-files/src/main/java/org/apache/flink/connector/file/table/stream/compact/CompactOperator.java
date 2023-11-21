@@ -127,7 +127,7 @@ public class CompactOperator<T> extends AbstractStreamOperator<PartitionCommitIn
                     getRuntimeContext().getIndexOfThisSubtask())) {
                 String partition = unit.getPartition();
                 List<Path> paths = unit.getPaths();
-                System.out.println("Paths: " + paths);
+                System.out.println("@@@ CompactOperator - Paths: " + paths);
                 // create a target file to compact to
                 Path targetPath = createCompactedFile(paths);
                 // do compaction

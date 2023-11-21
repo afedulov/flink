@@ -58,6 +58,8 @@ public class CompactFileUtils {
             CompactReader.Factory<T> readerFactory,
             CompactWriter.Factory<T> writerFactory)
             throws IOException {
+
+        System.out.println("@@@ CompactFileUtils - paths: " + paths);
         if (paths.size() == 0) {
             return null;
         }

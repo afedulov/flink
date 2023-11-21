@@ -97,6 +97,13 @@ public class SourceReaderWithSnapshotsLatch<
                         ? InputStatus.END_OF_INPUT
                         : InputStatus.NOTHING_AVAILABLE;
             } else {
+                System.out.println("@@@ END_OF_INPUT" + " in Thread " + Thread.currentThread());
+                // This stabilizes compaction tests
+                //                try {
+                //                    Thread.sleep(500);
+                //                } catch (InterruptedException e) {
+                //                    throw new RuntimeException(e);
+                //                }
                 return InputStatus.END_OF_INPUT;
             }
         }
@@ -160,7 +167,8 @@ public class SourceReaderWithSnapshotsLatch<
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        Thread.sleep(300);
+        // This stabilizes compaction tests
+        //        Thread.sleep(300);
         // TODO: we do not know whether pollNext or notifyCheckpointComplete happens first. See
         //  FiniteTestFunction implementation for better handling
         System.out.println(
@@ -192,6 +200,6 @@ public class SourceReaderWithSnapshotsLatch<
 
     @Override
     public void close() throws Exception {
-        System.out.println(">>> CLOSE!" + " in Thread " + Thread.currentThread());
+        System.out.println(">>> CLOSE! in Thread " + Thread.currentThread());
     }
 }

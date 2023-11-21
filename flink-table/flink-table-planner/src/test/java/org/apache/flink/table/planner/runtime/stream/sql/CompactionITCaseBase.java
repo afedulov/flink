@@ -59,7 +59,7 @@ public abstract class CompactionITCaseBase extends StreamingTestBase {
 
         env().setParallelism(3);
         // TODO: enableCheckpointing(200); - works better for stability
-        env().enableCheckpointing(100);
+        env().enableCheckpointing(50);
 
         List<Row> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
@@ -123,6 +123,7 @@ public abstract class CompactionITCaseBase extends StreamingTestBase {
     }
 
     private static void printFiles(String directoryPath) {
+        System.out.println("CompactionITCaseBase :");
         File dir = new File(URI.create(directoryPath));
 
         if (dir.isDirectory()) {
@@ -131,6 +132,7 @@ public abstract class CompactionITCaseBase extends StreamingTestBase {
                 for (File file : files) {
                     if (file.isFile()) {
                         System.out.println("File: " + file.getName());
+                        System.out.println("File: " + file.getAbsoluteFile());
                         try {
                             List<String> content = Files.readAllLines(file.toPath());
                             for (String line : content) {

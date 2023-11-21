@@ -24,7 +24,7 @@ import org.apache.flink.table.planner.runtime.stream.sql.FileCompactionITCaseBas
 public class CsvFileCompactionITCase extends FileCompactionITCaseBase {
 
     @Override
-    protected String format() {
+    protected String format()    {
         return "csv";
     }
 }
