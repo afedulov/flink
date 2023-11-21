@@ -31,7 +31,9 @@ import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.CollectionUtil;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,7 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Streaming sink File Compaction ITCase base, test checkpoint. */
 public abstract class CompactionITCaseBase extends StreamingTestBase {
 
-    //    @Rule public Timeout timeoutPerTest = Timeout.seconds(90);
+    @Rule public Timeout timeoutPerTest = Timeout.seconds(90);
 
     private String resultPath;
 
@@ -59,7 +61,7 @@ public abstract class CompactionITCaseBase extends StreamingTestBase {
 
         env().setParallelism(3);
         // TODO: enableCheckpointing(200); - works better for stability
-        env().enableCheckpointing(50);
+        env().enableCheckpointing(2000);
 
         List<Row> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
