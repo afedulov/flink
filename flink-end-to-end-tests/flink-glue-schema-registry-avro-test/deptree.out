@@ -1,0 +1,4 @@
+org.apache.flink:flink-glue-schema-registry-avro-test_2.12:jar:1.15-SNAPSHOT
+\- org.apache.flink:flink-connector-kinesis:jar:1.15-SNAPSHOT:compile
+   \- org.apache.flink:flink-connector-aws-kinesis-data-streams:jar:1.15-SNAPSHOT:compile
+      \- org.apache.flink:flink-connector-base:jar:1.15-SNAPSHOT:compile
