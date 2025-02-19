@@ -43,4 +43,5 @@ echo "Deploying to repository.apache.org"
 
 COMMON_OPTIONS="-Prelease,docs-and-source -DskipTests -DretryFailedDeploymentCount=10 $CUSTOM_OPTIONS"
 
+# cd flink-formats/flink-sql-avro-confluent-registry
 $MVN clean deploy $COMMON_OPTIONS
